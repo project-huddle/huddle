@@ -1,0 +1,35 @@
+name: peniscord
+
+services:
+  server:
+    build:
+      context: ./server
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATABASE_PATH: /app/data/peniscord.sqlite
+      UPLOADS_PATH: /app/data/uploads
+      TENOR_API_KEY: ${TENOR_API_KEY:-}
+      TENOR_CLIENT_KEY: ${TENOR_CLIENT_KEY:-peniscord}
+      CORS_ORIGINS: ${APP_ORIGIN:-http://localhost:8080}
+    volumes:
+      - peniscord-data:/app/data
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ./client
+      args:
+        VITE_API_URL: /api
+        VITE_TURN_URL: ${TURN_URL:-}
+        VITE_TURN_USERNAME: ${TURN_USERNAME:-}
+        VITE_TURN_CREDENTIAL: ${TURN_CREDENTIAL:-}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    depends_on:
+      server:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  peniscord-data:
