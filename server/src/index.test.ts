@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createServer } from "node:net";
 
-const temporaryDirectory = mkdtempSync(join(tmpdir(), "peniscord-test-"));
+const temporaryDirectory = mkdtempSync(join(tmpdir(), "huddle-test-"));
 process.env.HOST = "127.0.0.1";
 process.env.DATABASE_PATH = join(temporaryDirectory, "test.sqlite");
 process.env.UPLOADS_PATH = join(temporaryDirectory, "uploads");
@@ -68,7 +68,7 @@ async function connect(token: string): Promise<WebSocket> {
   return socket;
 }
 
-describe("Peniscord API", () => {
+describe("huddle API", () => {
   test("reports health and applies CORS only to configured origins", async () => {
     const allowed = await fetch(`${baseUrl}/health`, { headers: { origin: "http://localhost:5173" } });
     expect(allowed.status).toBe(200);

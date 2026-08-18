@@ -1,4 +1,4 @@
-# Peniscord
+# huddle
 
 Aplicação de chat em tempo real com cliente React/Vite e API Bun/SQLite. A infraestrutura serve o cliente e encaminha HTTP/WebSocket para a API pela mesma origem.
 
@@ -12,7 +12,7 @@ docker compose up --build -d
 docker compose ps
 ```
 
-Acesse `http://localhost:8080`. O SQLite e as imagens enviadas ficam no volume nomeado `peniscord-data`; recriar os contêineres não remove os dados. São aceitos JPEG, PNG, GIF e WebP de até 8 MB. Para acompanhar ou encerrar:
+Acesse `http://localhost:8080`. O SQLite e as imagens enviadas ficam no volume nomeado `huddle-data`; recriar os contêineres não remove os dados. São aceitos JPEG, PNG, GIF e WebP de até 8 MB. Para acompanhar ou encerrar:
 
 ```bash
 docker compose logs -f

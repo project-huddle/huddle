@@ -11,7 +11,7 @@ function integer(name: string, fallback: number): number {
 export const config = {
   host: process.env.HOST ?? "0.0.0.0",
   port: integer("PORT", 3000),
-  databasePath: resolve(process.env.DATABASE_PATH ?? "data/peniscord.sqlite"),
+  databasePath: resolve(process.env.DATABASE_PATH ?? "data/huddle.sqlite"),
   uploadsPath: resolve(process.env.UPLOADS_PATH ?? "data/uploads"),
   corsOrigins: new Set(
     (process.env.CORS_ORIGINS ?? "http://localhost:5173,http://127.0.0.1:5173")
@@ -24,5 +24,5 @@ export const config = {
   maxHistoryLimit: 100,
   maxUploadBytes: 8 * 1024 * 1024,
   tenorApiKey: process.env.TENOR_API_KEY?.trim() || null,
-  tenorClientKey: process.env.TENOR_CLIENT_KEY?.trim() || "peniscord",
+  tenorClientKey: process.env.TENOR_CLIENT_KEY?.trim() || "huddle",
 };

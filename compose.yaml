@@ -1,4 +1,4 @@
-name: peniscord
+name: huddle
 
 services:
   server:
@@ -7,13 +7,13 @@ services:
     environment:
       HOST: 0.0.0.0
       PORT: 3000
-      DATABASE_PATH: /app/data/peniscord.sqlite
+      DATABASE_PATH: /app/data/huddle.sqlite
       UPLOADS_PATH: /app/data/uploads
       TENOR_API_KEY: ${TENOR_API_KEY:-}
-      TENOR_CLIENT_KEY: ${TENOR_CLIENT_KEY:-peniscord}
+      TENOR_CLIENT_KEY: ${TENOR_CLIENT_KEY:-huddle}
       CORS_ORIGINS: ${APP_ORIGIN:-http://localhost:8080}
     volumes:
-      - peniscord-data:/app/data
+      - huddle-data:/app/data
     restart: unless-stopped
 
   client:
@@ -32,4 +32,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  peniscord-data:
+  huddle-data:

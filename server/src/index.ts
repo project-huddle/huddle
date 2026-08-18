@@ -205,4 +205,4 @@ export const server = Bun.serve<SocketData>({
   },
 });
 
-console.log(`Peniscord server listening on http://${config.host}:${server.port}`);
+console.log(`huddle server listening on http://${config.host}:${server.port}`);

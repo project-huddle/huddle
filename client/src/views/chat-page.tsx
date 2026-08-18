@@ -103,7 +103,7 @@ export default function ChatPage({ user, token, onLogout }: { user: User; token:
         <header className="flex h-19 shrink-0 items-center gap-3 border-b border-[#20251f]/10 px-4 sm:px-7">
           <div className="grid size-10 rotate-3 place-items-center rounded-[13px] bg-[#20251f] text-[#d9ff8f]"><Sparkles className="size-5" /></div>
           <div>
-            <p className="text-lg font-black tracking-[-0.04em]">peniscord</p>
+            <p className="text-lg font-black tracking-[-0.04em]">huddle</p>
             <p className="text-xs text-[#657064]">a sala da casa · geral</p>
           </div>
           <div className="ml-auto flex items-center gap-2">

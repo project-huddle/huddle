@@ -1,4 +1,4 @@
-# Peniscord server
+# huddle server
 
 Back-end local em Bun + TypeScript para autenticação, chat persistente e sinalização de chamadas WebRTC. Os dados ficam em SQLite; não há dependência de serviços de banco externos.
 

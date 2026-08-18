@@ -8,7 +8,7 @@ WORKDIR /app
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3000 \
-    DATABASE_PATH=/app/data/peniscord.sqlite
+    DATABASE_PATH=/app/data/huddle.sqlite
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY package.json ./
 COPY src ./src

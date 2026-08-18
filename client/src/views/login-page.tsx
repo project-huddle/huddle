@@ -30,14 +30,14 @@ export default function LoginPage() {
             <section className="relative hidden overflow-hidden bg-[#20251f] p-10 text-white lg:flex lg:flex-col">
                 <div className="absolute -right-28 -top-28 size-96 rounded-full border-70 border-[#d9ff8f]/10" />
                 <div className="absolute -bottom-36 -left-24 size-105 rounded-full bg-[#f2a65a] opacity-90" />
-                <div className="relative flex items-center gap-3"><div className="grid size-10 rotate-3 place-items-center rounded-[13px] bg-[#d9ff8f] text-[#20251f]"><Sparkles className="size-5" /></div><span className="text-lg font-black tracking-[-0.04em]">peniscord</span></div>
+                <div className="relative flex items-center gap-3"><div className="grid size-10 rotate-3 place-items-center rounded-[13px] bg-[#d9ff8f] text-[#20251f]"><Sparkles className="size-5" /></div><span className="text-lg font-black tracking-[-0.04em]">huddle</span></div>
                 <div className="relative my-auto max-w-lg"><p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#d9ff8f]">Só entre a gente</p><h1 className="text-6xl font-black leading-[0.9] tracking-[-0.065em]">Menos rede.<br />Mais conversa.</h1><p className="mt-7 max-w-sm text-lg leading-relaxed text-white/55">Uma sala simples para o seu grupo falar, rir, mandar coisas e aparecer quando der.</p></div>
                 <p className="relative text-xs text-white/40">privado por natureza · pequeno de propósito</p>
             </section>
 
             <section className="flex items-center justify-center px-5 py-10 sm:px-12">
                 <div className="w-full max-w-sm">
-                    <div className="mb-10 flex items-center gap-3 lg:hidden"><div className="grid size-10 rotate-3 place-items-center rounded-[13px] bg-[#20251f] text-[#d9ff8f]"><Sparkles className="size-5" /></div><span className="text-lg font-black">peniscord</span></div>
+                    <div className="mb-10 flex items-center gap-3 lg:hidden"><div className="grid size-10 rotate-3 place-items-center rounded-[13px] bg-[#20251f] text-[#d9ff8f]"><Sparkles className="size-5" /></div><span className="text-lg font-black">huddle</span></div>
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#71806f]">{isRegistering ? "Primeira visita?" : "Bom te ver"}</p>
                     <h2 className="mt-3 text-4xl font-black tracking-[-0.055em]">{isRegistering ? "Chega mais." : "Entre na sala."}</h2>
                     <p className="mt-2 text-sm text-[#71806f]">{isRegistering ? "Crie sua conta em menos de um minuto." : "Use seus dados para continuar a conversa."}</p>
