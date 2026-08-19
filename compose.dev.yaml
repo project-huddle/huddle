@@ -1,0 +1,28 @@
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.dev
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./server:/app
+      - server-node-modules:/app/node_modules
+      - huddle-data:/app/data
+    restart: "no"
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.dev
+    environment:
+      VITE_API_URL: /api
+      VITE_DEV_PROXY_TARGET: http://server:3000
+    volumes:
+      - ./client:/app
+      - client-node-modules:/app/node_modules
+    restart: "no"
+
+volumes:
+  client-node-modules:
+  server-node-modules:

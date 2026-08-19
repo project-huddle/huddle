@@ -2,7 +2,7 @@
 
 Aplicação de chat em tempo real com cliente React/Vite e API Bun/SQLite. A infraestrutura serve o cliente e encaminha HTTP/WebSocket para a API pela mesma origem.
 
-## Subir com Docker
+## Deploy com Docker
 
 Requer Docker com Compose v2:
 
@@ -23,7 +23,29 @@ Defina `APP_PORT` e `APP_ORIGIN` no `.env` para outro endereço. Em produção, 
 
 A busca integrada de GIFs usa a Tenor quando `TENOR_API_KEY` está configurada. A Tenor deixou de aceitar novos clientes de API em janeiro de 2026; a configuração é destinada a chaves existentes. Mesmo sem essa chave, GIFs locais continuam disponíveis pelo envio de imagens.
 
-## Desenvolvimento e validação
+## Desenvolvimento com Docker
+
+Use o arquivo adicional de Compose para executar Vite e Bun em modo de observação:
+
+```bash
+docker compose -f compose.yaml -f compose.dev.yaml up --build
+```
+
+Acesse `http://localhost:8080`. Alterações em `client/src` atualizam o navegador via HMR, enquanto alterações em `server/src` reiniciam a API automaticamente. Os diretórios `node_modules` ficam em volumes separados para não serem substituídos pelos arquivos do host.
+
+Para encerrar:
+
+```bash
+docker compose -f compose.yaml -f compose.dev.yaml down
+```
+
+O comando de deploy continua usando somente `compose.yaml` e gera imagens imutáveis com o cliente estático servido pelo Nginx:
+
+```bash
+docker compose up --build -d
+```
+
+## Desenvolvimento local e validação
 
 ```bash
 cd server && bun install --frozen-lockfile && bun test && bun run typecheck
