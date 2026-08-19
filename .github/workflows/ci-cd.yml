@@ -15,6 +15,22 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: huddle_test
+          POSTGRES_USER: huddle
+          POSTGRES_PASSWORD: huddle
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U huddle -d huddle_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://huddle:huddle@127.0.0.1:5432/huddle_test?schema=public
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -25,7 +41,7 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Test and type-check server
         working-directory: server
-        run: bun test --coverage && bun run typecheck
+        run: bun run db:migrate && bun test --coverage && bun run typecheck
       - name: Install client dependencies
         working-directory: client
         run: bun install --frozen-lockfile

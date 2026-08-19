@@ -22,7 +22,7 @@ services:
     environment:
       HOST: 0.0.0.0
       PORT: 3000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-huddle}:${POSTGRES_PASSWORD:-huddle}@database:5432/${POSTGRES_DB:-huddle}?schema=public
+      DATABASE_URL: ${DATABASE_URL:-postgresql://huddle:huddle@database:5432/huddle?schema=public}
       UPLOADS_PATH: /app/data/uploads
       TENOR_API_KEY: ${TENOR_API_KEY:-}
       TENOR_CLIENT_KEY: ${TENOR_CLIENT_KEY:-huddle}
