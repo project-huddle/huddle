@@ -7,3 +7,4 @@
 **/*.sqlite-shm
 **/*.sqlite-wal
 *.log
+*/.idea
