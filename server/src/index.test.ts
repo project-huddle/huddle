@@ -140,4 +140,55 @@ describe("huddle API", () => {
     expect(historyBody.messages).toHaveLength(2);
     aliceSocket.close(); bobSocket.close();
   });
+
+  test("manages servers, members, roles, channels and message features", async () => {
+    const owner = await register("owner@example.com", "Owner");
+    const guest = await register("guest@example.com", "Guest");
+    const ownerHeaders = { authorization: `Bearer ${owner.session.token}` };
+    const guestHeaders = { authorization: `Bearer ${guest.session.token}` };
+
+    const created = await fetch(`${baseUrl}/servers`, { method: "POST", headers: { ...ownerHeaders, "content-type": "application/json" }, body: JSON.stringify({ name: "QA server" }) });
+    expect(created.status).toBe(201);
+    const createdBody = await created.json() as { server: { id: string }; channel: { id: string } };
+    const inviteResponse = await fetch(`${baseUrl}/servers/${createdBody.server.id}/invites`, { method: "POST", headers: ownerHeaders });
+    expect(inviteResponse.status).toBe(201);
+    const invite = await inviteResponse.json() as { invite: { code: string } };
+    const joined = await fetch(`${baseUrl}/invites/join`, { method: "POST", headers: { ...guestHeaders, "content-type": "application/json" }, body: JSON.stringify({ code: invite.invite.code }) });
+    expect(joined.status).toBe(201);
+
+    const memberList = await fetch(`${baseUrl}/servers/${createdBody.server.id}/members`, { headers: guestHeaders });
+    expect((await memberList.json() as { members: unknown[] }).members).toHaveLength(2);
+    const promoted = await fetch(`${baseUrl}/servers/${createdBody.server.id}/members/${guest.user.id}`, { method: "PATCH", headers: { ...ownerHeaders, "content-type": "application/json" }, body: JSON.stringify({ role: "moderator" }) });
+    expect(promoted.status).toBe(204);
+    const channel = await fetch(`${baseUrl}/servers/${createdBody.server.id}/channels`, { method: "POST", headers: { ...guestHeaders, "content-type": "application/json" }, body: JSON.stringify({ name: "qa-chat" }) });
+    expect(channel.status).toBe(201);
+    const channelBody = await channel.json() as { channel: { id: string } };
+
+    const ownerSocket = await connect(owner.session.token);
+    const guestSocket = await connect(guest.session.token);
+    ownerSocket.send(JSON.stringify({ type: "subscribe_channel", channelId: channelBody.channel.id }));
+    guestSocket.send(JSON.stringify({ type: "subscribe_channel", channelId: channelBody.channel.id }));
+    await nextEvent(ownerSocket, "channel_subscribed");
+    await nextEvent(guestSocket, "channel_subscribed");
+
+    const received = nextEvent(guestSocket, "chat_message");
+    ownerSocket.send(JSON.stringify({ type: "chat_message", channelId: channelBody.channel.id, content: "feature test" }));
+    const message = (await received).message as { id: string };
+    const edited = nextEvent(guestSocket, "edit_message");
+    ownerSocket.send(JSON.stringify({ type: "edit_message", messageId: message.id, content: "edited feature test" }));
+    expect((await edited).message.content).toBe("edited feature test");
+    const reacted = nextEvent(ownerSocket, "react_message");
+    guestSocket.send(JSON.stringify({ type: "react_message", messageId: message.id, emoji: "👍" }));
+    expect((await reacted).message.reactions["👍"]).toBe(1);
+    const replied = nextEvent(guestSocket, "chat_message");
+    ownerSocket.send(JSON.stringify({ type: "chat_message", channelId: channelBody.channel.id, content: "reply", replyToId: message.id }));
+    expect((await replied).message.replyToId).toBe(message.id);
+    const deleted = nextEvent(guestSocket, "delete_message");
+    ownerSocket.send(JSON.stringify({ type: "delete_message", messageId: message.id }));
+    expect((await deleted).message.deletedAt).toBeTruthy();
+    const forbiddenEdit = nextEvent(guestSocket, "error");
+    guestSocket.send(JSON.stringify({ type: "edit_message", messageId: message.id, content: "should fail" }));
+    expect((await forbiddenEdit).code).toBe("FORBIDDEN");
+    ownerSocket.close(); guestSocket.close();
+  });
 });

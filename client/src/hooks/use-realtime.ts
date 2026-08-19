@@ -5,6 +5,7 @@ import { api, type ChatMessage, type MessageMedia, type User, websocketUrl } fro
 type Peer = {
   user: User
   audioStream: MediaStream | null
+  cameraStream: MediaStream | null
   screenStream: MediaStream | null
   sharing: boolean
 }
@@ -39,12 +40,13 @@ function mediaErrorMessage(cause: unknown, action: "microphone" | "screen") {
     : "Não foi possível compartilhar a tela."
 }
 
-export function useRealtime(token: string) {
+export function useRealtime(token: string, channelId: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [connected, setConnected] = useState(false)
   const [joining, setJoining] = useState(false)
   const [inCall, setInCall] = useState(false)
   const [muted, setMuted] = useState(false)
+  const [cameraOff, setCameraOff] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [peers, setPeers] = useState<Peer[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -54,6 +56,7 @@ export function useRealtime(token: string) {
   const peerUsers = useRef(new Map<string, User>())
   const localStream = useRef<MediaStream | null>(null)
   const displayStream = useRef<MediaStream | null>(null)
+  const videoAssigned = useRef(new Set<string>())
 
   const send = useCallback((event: object) => {
     if (socketRef.current?.readyState !== WebSocket.OPEN) return false
@@ -68,7 +71,7 @@ export function useRealtime(token: string) {
       const found = items.some((item) => item.user.id === userId)
       return found
         ? items.map((item) => item.user.id === userId ? { ...item, ...changes } : item)
-        : [...items, { user, audioStream: null, screenStream: null, sharing: false, ...changes }]
+        : [...items, { user, audioStream: null, cameraStream: null, screenStream: null, sharing: false, ...changes }]
     })
   }, [])
 
@@ -83,6 +86,7 @@ export function useRealtime(token: string) {
     const pc = new RTCPeerConnection(rtcConfig)
     connections.current.set(userId, pc)
     localStream.current?.getAudioTracks().forEach((track) => pc.addTrack(track, localStream.current!))
+    localStream.current?.getVideoTracks().forEach((track) => pc.addTrack(track, localStream.current!))
     displayStream.current?.getVideoTracks().forEach((track) => pc.addTrack(track, displayStream.current!))
     pc.onicecandidate = ({ candidate }) => {
       if (candidate) send({ type: "ice_candidate", targetUserId: userId, candidate: candidate.toJSON() })
@@ -90,16 +94,19 @@ export function useRealtime(token: string) {
     pc.ontrack = ({ track, streams }) => {
       const stream = streams[0] ?? new MediaStream([track])
       if (track.kind === "audio") updatePeer(userId, { audioStream: stream })
-      if (track.kind === "video") updatePeer(userId, { screenStream: stream })
+      if (track.kind === "video") {
+        if (!videoAssigned.current.has(userId)) { videoAssigned.current.add(userId); updatePeer(userId, { cameraStream: stream }) }
+        else updatePeer(userId, { screenStream: stream, sharing: true })
+      }
       track.onended = () => {
         if (track.kind === "audio") updatePeer(userId, { audioStream: null })
-        if (track.kind === "video") updatePeer(userId, { screenStream: null, sharing: false })
+        if (track.kind === "video") updatePeer(userId, { cameraStream: null, screenStream: null, sharing: false })
       }
     }
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === "failed") setError("A conexão de mídia falhou. Verifique a rede ou configure um servidor TURN.")
       if (["failed", "closed"].includes(pc.connectionState)) {
-        updatePeer(userId, { audioStream: null, screenStream: null, sharing: false })
+        updatePeer(userId, { audioStream: null, cameraStream: null, screenStream: null, sharing: false })
       }
     }
     return pc
@@ -125,11 +132,14 @@ export function useRealtime(token: string) {
     setInCall(false)
     setSharing(false)
     setMuted(false)
+    setCameraOff(false)
+    videoAssigned.current.clear()
   }, [send])
 
   useEffect(() => {
+    if (!channelId) return
     let alive = true
-    api<{ messages: ChatMessage[] }>("/messages?limit=100", {}, token)
+    api<{ messages: ChatMessage[] }>(`/messages?channelId=${encodeURIComponent(channelId)}&limit=100`, {}, token)
       .then(({ messages }) => alive && setMessages(messages))
       .catch((cause: unknown) => alive && setError(cause instanceof Error ? cause.message : "Não foi possível carregar as mensagens."))
 
@@ -148,10 +158,14 @@ export function useRealtime(token: string) {
           const message = event.message as ChatMessage
           setMessages((items) => items.some(({ id }) => id === message.id) ? items : [...items, message])
         }
+        if (["edit_message", "delete_message", "react_message"].includes(event.type)) {
+          const message = event.message as ChatMessage
+          setMessages((items) => items.map((item) => item.id === message.id ? message : item))
+        }
         if (event.type === "call_joined") {
           const users = event.peers as User[]
           users.forEach((user) => peerUsers.current.set(user.id, user))
-          setPeers(users.map((user) => ({ user, audioStream: null, screenStream: null, sharing: false })))
+          setPeers(users.map((user) => ({ user, audioStream: null, cameraStream: null, screenStream: null, sharing: false })))
           setJoining(false)
           setInCall(true)
           for (const user of users) {
@@ -194,6 +208,7 @@ export function useRealtime(token: string) {
           const userId = event.userId as string
           connections.current.get(userId)?.close()
           connections.current.delete(userId)
+          videoAssigned.current.delete(userId)
           pendingCandidates.current.delete(userId)
           peerUsers.current.delete(userId)
           setPeers((items) => items.filter((item) => item.user.id !== userId))
@@ -207,12 +222,14 @@ export function useRealtime(token: string) {
         setError("Falha ao processar um evento da chamada.")
       }
     }
+    const subscribe = () => socket.readyState === WebSocket.OPEN && socket.send(JSON.stringify({ type: "subscribe_channel", channelId }))
+    socket.addEventListener("open", subscribe)
     return () => {
       alive = false
       socket.close()
       closeCall(false)
     }
-  }, [closeCall, createPeer, flushCandidates, makeOffer, send, token, updatePeer])
+  }, [channelId, closeCall, createPeer, flushCandidates, makeOffer, send, token, updatePeer])
 
   const joinCall = async () => {
     if (joining || inCall) return
@@ -222,10 +239,10 @@ export function useRealtime(token: string) {
       if (!navigator.mediaDevices?.getUserMedia) throw new DOMException("Media devices unavailable", "NotSupportedError")
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        video: false,
+        video: { width: { ideal: 640 }, height: { ideal: 360 }, facingMode: "user" },
       })
       localStream.current = stream
-      if (!send({ type: "join_call", callId: "general" })) {
+      if (!send({ type: "join_call", callId: `channel-${channelId}` })) {
         stream.getTracks().forEach((track) => track.stop())
         localStream.current = null
         throw new Error("WebSocket is not connected")
@@ -242,6 +259,12 @@ export function useRealtime(token: string) {
     const next = !muted
     localStream.current?.getAudioTracks().forEach((track) => { track.enabled = !next })
     setMuted(next)
+  }
+
+  const toggleCamera = () => {
+    const next = !cameraOff
+    localStream.current?.getVideoTracks().forEach((track) => { track.enabled = !next })
+    setCameraOff(next)
   }
 
   const stopSharing = useCallback(async () => {
@@ -283,8 +306,11 @@ export function useRealtime(token: string) {
   }
 
   return {
-    messages, connected, joining, inCall, muted, sharing, peers, error, setError,
-    sendMessage: (content: string, media: MessageMedia | null = null) => send({ type: "chat_message", content, media }),
-    joinCall, leaveCall, toggleMute, toggleShare,
+    messages, connected, joining, inCall, muted, cameraOff, sharing, peers, error, setError,
+    sendMessage: (content: string, media: MessageMedia | null = null, replyToId: string | null = null) => send({ type: "chat_message", channelId, content, media, replyToId }),
+    editMessage: (messageId: string, content: string) => send({ type: "edit_message", messageId, content }),
+    deleteMessage: (messageId: string) => send({ type: "delete_message", messageId }),
+    reactMessage: (messageId: string, emoji: string) => send({ type: "react_message", messageId, emoji }),
+    joinCall, leaveCall, toggleMute, toggleCamera, toggleShare,
   }
 }

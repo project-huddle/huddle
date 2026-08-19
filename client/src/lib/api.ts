@@ -14,7 +14,17 @@ export type ChatMessage = {
   createdAt: string
   author: User
   media: MessageMedia | null
+  channelId: string
+  editedAt: string | null
+  deletedAt: string | null
+  replyToId: string | null
+  reactions: Record<string, number>
 }
+
+export type HuddleServer = { id: string; name: string; ownerId: string; createdAt: string }
+export type HuddleChannel = { id: string; serverId: string; name: string; type: "text" }
+export type HuddleRole = "owner" | "moderator" | "member"
+export type HuddleMember = User & { joinedAt: string; role: HuddleRole; isOwner: boolean }
 
 export type MessageMedia = {
   url: string
