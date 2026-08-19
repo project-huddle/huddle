@@ -1,19 +1,37 @@
 name: huddle
 
 services:
+  database:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-huddle}
+      POSTGRES_USER: ${POSTGRES_USER:-huddle}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-huddle}
+    volumes:
+      - huddle-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   server:
     build:
       context: ./server
     environment:
       HOST: 0.0.0.0
       PORT: 3000
-      DATABASE_PATH: /app/data/huddle.sqlite
+      DATABASE_URL: postgresql://${POSTGRES_USER:-huddle}:${POSTGRES_PASSWORD:-huddle}@database:5432/${POSTGRES_DB:-huddle}?schema=public
       UPLOADS_PATH: /app/data/uploads
       TENOR_API_KEY: ${TENOR_API_KEY:-}
       TENOR_CLIENT_KEY: ${TENOR_CLIENT_KEY:-huddle}
       CORS_ORIGINS: ${APP_ORIGIN:-http://localhost:8080}
     volumes:
       - huddle-data:/app/data
+    depends_on:
+      database:
+        condition: service_healthy
     restart: unless-stopped
 
   client:
@@ -33,3 +51,4 @@ services:
 
 volumes:
   huddle-data:
+  huddle-postgres:

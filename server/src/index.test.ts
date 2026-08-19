@@ -6,7 +6,6 @@ import { createServer } from "node:net";
 
 const temporaryDirectory = mkdtempSync(join(tmpdir(), "huddle-test-"));
 process.env.HOST = "127.0.0.1";
-process.env.DATABASE_PATH = join(temporaryDirectory, "test.sqlite");
 process.env.UPLOADS_PATH = join(temporaryDirectory, "uploads");
 
 let server: typeof import("./index").server;
@@ -25,6 +24,9 @@ function availablePort(): Promise<number> {
 }
 
 beforeAll(async () => {
+  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL must point to an isolated PostgreSQL test database");
+  const { db } = await import("./database");
+  await db.$transaction([db.message.deleteMany(), db.invite.deleteMany(), db.channel.deleteMany(), db.serverMember.deleteMany(), db.server.deleteMany(), db.session.deleteMany(), db.user.deleteMany()]);
   process.env.PORT = String(await availablePort());
   ({ server } = await import("./index"));
   baseUrl = `http://127.0.0.1:${server.port}`;
@@ -33,7 +35,7 @@ beforeAll(async () => {
 afterAll(async () => {
   server?.stop(true);
   const { db } = await import("./database");
-  db.close();
+  await db.$disconnect();
   rmSync(temporaryDirectory, { recursive: true, force: true });
 });
 

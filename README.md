@@ -1,6 +1,6 @@
 # huddle
 
-Aplicação de chat em tempo real com cliente React/Vite e API Bun/SQLite. A infraestrutura serve o cliente e encaminha HTTP/WebSocket para a API pela mesma origem.
+Aplicação de chat em tempo real com cliente React/Vite e API Bun, Prisma e PostgreSQL. A infraestrutura serve o cliente e encaminha HTTP/WebSocket para a API pela mesma origem.
 
 ## Deploy com Docker
 
@@ -12,7 +12,7 @@ docker compose up --build -d
 docker compose ps
 ```
 
-Acesse `http://localhost:8080`. O SQLite e as imagens enviadas ficam no volume nomeado `huddle-data`; recriar os contêineres não remove os dados. São aceitos JPEG, PNG, GIF e WebP de até 8 MB. Para acompanhar ou encerrar:
+Acesse `http://localhost:8080`. O PostgreSQL fica no volume `huddle-postgres` e as imagens enviadas no volume `huddle-data`; recriar os contêineres não remove os dados. As migrações Prisma são aplicadas automaticamente antes de a API iniciar. São aceitos JPEG, PNG, GIF e WebP de até 8 MB. Para acompanhar ou encerrar:
 
 ```bash
 docker compose logs -f
@@ -48,11 +48,13 @@ docker compose up --build -d
 ## Desenvolvimento local e validação
 
 ```bash
-cd server && bun install --frozen-lockfile && bun test && bun run typecheck
+cd server && bun install --frozen-lockfile && bun run db:generate && bun run typecheck
+# Com DATABASE_URL apontando para um banco de teste já migrado:
+DATABASE_URL=postgresql://huddle:huddle@localhost:5432/huddle_test?schema=public bun test
 cd ../client && bun install --frozen-lockfile && bun run lint && bun run build
 ```
 
-O backend reserva uma porta livre durante os testes, permitindo suítes paralelas sem colisão. Os health checks são `/health` na API e `/healthz` no proxy.
+O backend reserva uma porta livre durante os testes. Cada execução deve usar um banco PostgreSQL de teste isolado, pois a suíte limpa esse banco antes de iniciar. Os health checks são `/health` na API e `/healthz` no proxy.
 
 ## CI/CD
 

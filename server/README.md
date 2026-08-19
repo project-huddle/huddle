@@ -1,18 +1,19 @@
 # huddle server
 
-Back-end local em Bun + TypeScript para autenticação, chat persistente e sinalização de chamadas WebRTC. Os dados ficam em SQLite; não há dependência de serviços de banco externos.
+Back-end em Bun + TypeScript para autenticação, chat persistente e sinalização de chamadas WebRTC. A persistência usa Prisma e PostgreSQL, com migrações versionadas em `prisma/migrations`.
 
 ## Executar
 
-Requer Bun 1.3 ou mais recente.
+Requer Bun 1.3 ou mais recente e PostgreSQL 14 ou mais recente.
 
 ```bash
 bun install
 cp .env.example .env
+bun run db:migrate
 bun run dev
 ```
 
-O servidor usa `http://localhost:3000` por padrão. As variáveis aceitas estão em `.env.example`. Em produção, limite `CORS_ORIGINS` à origem HTTPS exata do cliente e mantenha o arquivo SQLite em volume persistente.
+O servidor usa `http://localhost:3000` por padrão. As variáveis aceitas estão em `.env.example`; `DATABASE_URL` é obrigatória. Em produção, limite `CORS_ORIGINS` à origem HTTPS exata do cliente e aplique `bun run db:migrate` antes de iniciar cada nova versão.
 
 ```bash
 bun run typecheck
@@ -80,7 +81,9 @@ Para uso fora da rede local, configure servidores STUN no `RTCPeerConnection`. R
 ## Estrutura
 
 - `src/index.ts`: rotas e protocolo WebSocket.
-- `src/database.ts`: esquema e consultas SQLite.
+- `prisma/schema.prisma`: modelos PostgreSQL e configuração do Prisma Client.
+- `prisma/migrations`: migrações versionadas para deploy.
+- `src/database.ts`: repositórios assíncronos baseados no Prisma Client.
 - `src/auth.ts`: emissão, validação e revogação de sessões.
 - `src/config.ts`: configuração por ambiente.
 - `src/index.test.ts`: integração HTTP + dois clientes WebSocket.

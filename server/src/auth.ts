@@ -6,10 +6,10 @@ export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-export function issueSession(userId: string): { token: string; expiresAt: string } {
+export async function issueSession(userId: string): Promise<{ token: string; expiresAt: string }> {
   const token = randomBytes(32).toString("base64url");
   const expiry = Date.now() + config.sessionLifetimeSeconds * 1_000;
-  createSession(userId, hashToken(token), expiry);
+  await createSession(userId, hashToken(token), expiry);
   return { token, expiresAt: new Date(expiry).toISOString() };
 }
 
@@ -18,12 +18,12 @@ export function bearerToken(request: Request): string | null {
   return value?.startsWith("Bearer ") ? value.slice(7).trim() || null : null;
 }
 
-export function authenticate(request: Request): User | null {
+export async function authenticate(request: Request): Promise<User | null> {
   const token = bearerToken(request);
   return token ? userForSession(hashToken(token)) : null;
 }
 
-export function revoke(request: Request): void {
+export async function revoke(request: Request): Promise<void> {
   const token = bearerToken(request);
-  if (token) deleteSession(hashToken(token));
+  if (token) await deleteSession(hashToken(token));
 }

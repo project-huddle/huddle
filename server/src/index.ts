@@ -71,49 +71,49 @@ async function routes(request: Request, server: Bun.Server<SocketData>): Promise
     const password = input?.password;
     if (!validEmail(email) || typeof displayName !== "string" || displayName.length < 2 || displayName.length > 32 || typeof password !== "string" || password.length < 8 || password.length > 128)
       return error(400, "INVALID_INPUT", "Use a valid email, a display name with 2-32 characters, and a password with 8-128 characters.");
-    if (findUserByEmail(email)) return error(409, "EMAIL_IN_USE", "An account already exists for this email.");
-    const user = createUser(email, displayName, await Bun.password.hash(password, { algorithm: "argon2id" }));
-    return json({ user, session: issueSession(user.id) }, 201);
+    if (await findUserByEmail(email)) return error(409, "EMAIL_IN_USE", "An account already exists for this email.");
+    const user = await createUser(email, displayName, await Bun.password.hash(password, { algorithm: "argon2id" }));
+    return json({ user, session: await issueSession(user.id) }, 201);
   }
 
   if (request.method === "POST" && url.pathname === "/auth/login") {
     const input = await body(request);
     const email = typeof input?.email === "string" ? input.email.trim().toLowerCase() : "";
     const password = typeof input?.password === "string" ? input.password : "";
-    const account = findUserByEmail(email);
+    const account = await findUserByEmail(email);
     if (!account || !(await Bun.password.verify(password, account.passwordHash))) return error(401, "INVALID_CREDENTIALS", "Invalid email or password.");
     const { passwordHash: _, ...user } = account;
-    return json({ user, session: issueSession(user.id) });
+    return json({ user, session: await issueSession(user.id) });
   }
 
   if (url.pathname === "/ws") {
     const token = url.searchParams.get("token");
-    const user = token ? userForSession(hashToken(token)) : null;
+    const user = token ? await userForSession(hashToken(token)) : null;
     if (!user) return error(401, "UNAUTHORIZED", "A valid session token is required.");
     if (server.upgrade(request, { data: { user, callId: null, channelId: null } })) return;
     return error(500, "UPGRADE_FAILED", "Could not open WebSocket.");
   }
 
-  const user = authenticate(request);
+  const user = await authenticate(request);
   if (!user) return error(401, "UNAUTHORIZED", "A valid bearer token is required.");
   if (request.method === "GET" && url.pathname === "/auth/me") return json({ user });
-  if (request.method === "POST" && url.pathname === "/auth/logout") { revoke(request); return new Response(null, { status: 204 }); }
-  if (request.method === "GET" && url.pathname === "/servers") return json({ servers: listServers(user.id) });
+  if (request.method === "POST" && url.pathname === "/auth/logout") { await revoke(request); return new Response(null, { status: 204 }); }
+  if (request.method === "GET" && url.pathname === "/servers") return json({ servers: await listServers(user.id) });
   if (request.method === "POST" && url.pathname === "/servers") {
     const input = await body(request);
     const name = typeof input?.name === "string" ? input.name.trim() : "";
     if (name.length < 2 || name.length > 40) return error(400, "INVALID_INPUT", "Server names must have 2-40 characters.");
-    return json(createServer(user, name), 201);
+    return json(await createServer(user, name), 201);
   }
   const serverMatch = url.pathname.match(/^\/servers\/([a-f0-9-]+)$/);
   const serverId = serverMatch?.[1] ?? "";
   if (request.method === "GET" && serverMatch && serverId) {
-    const server = serverForUser(user.id, serverId);
+    const server = await serverForUser(user.id, serverId);
     return server ? json({ server }) : error(403, "FORBIDDEN", "You are not a member of this server.");
   }
   const membersMatch = url.pathname.match(/^\/servers\/([a-f0-9-]+)\/members$/);
   if (request.method === "GET" && membersMatch) {
-    const members = membersMatch[1] ? serverMembers(user.id, membersMatch[1]) : null;
+    const members = membersMatch[1] ? await serverMembers(user.id, membersMatch[1]) : null;
     return members ? json({ members }) : error(403, "FORBIDDEN", "You are not a member of this server.");
   }
   const memberActionMatch = url.pathname.match(/^\/servers\/([a-f0-9-]+)\/members\/([a-f0-9-]+)$/);
@@ -121,36 +121,36 @@ async function routes(request: Request, server: Bun.Server<SocketData>): Promise
     const input = await body(request);
     const role = input?.role === "moderator" || input?.role === "member" ? input.role : null;
     if (!role) return error(400, "INVALID_ROLE", "Role must be moderator or member.");
-    const result = memberActionMatch[1] && memberActionMatch[2] ? setMemberRole(user.id, memberActionMatch[1], memberActionMatch[2], role) : "missing";
+    const result = memberActionMatch[1] && memberActionMatch[2] ? await setMemberRole(user.id, memberActionMatch[1], memberActionMatch[2], role) : "missing";
     return result === "ok" ? new Response(null, { status: 204 }) : error(result === "forbidden" ? 403 : 404, result === "forbidden" ? "FORBIDDEN" : "NOT_FOUND", result === "forbidden" ? "Only the owner can change roles." : "Member not found.");
   }
   if (request.method === "DELETE" && memberActionMatch) {
-    const result = memberActionMatch[1] && memberActionMatch[2] ? removeMember(user.id, memberActionMatch[1], memberActionMatch[2]) : "missing";
+    const result = memberActionMatch[1] && memberActionMatch[2] ? await removeMember(user.id, memberActionMatch[1], memberActionMatch[2]) : "missing";
     return result === "ok" ? new Response(null, { status: 204 }) : error(result === "forbidden" ? 403 : 404, result === "forbidden" ? "FORBIDDEN" : "NOT_FOUND", result === "forbidden" ? "Only the owner can remove members." : "Member not found.");
   }
   const inviteMatch = url.pathname.match(/^\/servers\/([a-f0-9-]+)\/invites$/);
   if (request.method === "POST" && inviteMatch) {
-    const invite = inviteMatch[1] ? createInvite(user.id, inviteMatch[1]) : null;
+    const invite = inviteMatch[1] ? await createInvite(user.id, inviteMatch[1]) : null;
     return invite ? json({ invite, url: `/invite/${invite.code}` }, 201) : error(403, "FORBIDDEN", "Only the owner or a moderator can create invites.");
   }
   if (request.method === "POST" && url.pathname === "/invites/join") {
     const input = await body(request);
     const code = typeof input?.code === "string" ? input.code.trim().toUpperCase() : "";
     if (!/^[A-Z0-9]{6,16}$/.test(code)) return error(400, "INVALID_INVITE", "Invalid invite code.");
-    const server = joinServer(user.id, code.toLowerCase());
+    const server = await joinServer(user.id, code.toLowerCase());
     return server ? json({ server }, 201) : error(404, "INVITE_NOT_FOUND", "This invite is invalid or expired.");
   }
   const leaveMatch = url.pathname.match(/^\/servers\/([a-f0-9-]+)\/leave$/);
   if (request.method === "POST" && leaveMatch) {
-    const result = leaveMatch[1] ? leaveServer(user.id, leaveMatch[1]) : "missing";
+    const result = leaveMatch[1] ? await leaveServer(user.id, leaveMatch[1]) : "missing";
     if (result === "owner") return error(409, "OWNER_CANNOT_LEAVE", "The owner cannot leave their own server.");
     return result === "left" ? new Response(null, { status: 204 }) : error(404, "NOT_FOUND", "Server not found.");
   }
   const channelsMatch = url.pathname.match(/^\/servers\/([a-f0-9-]+)\/channels$/);
   if (request.method === "GET" && channelsMatch) {
     const serverId = channelsMatch[1];
-    if (!serverId || !isServerMember(user.id, serverId)) return error(403, "FORBIDDEN", "You are not a member of this server.");
-    return json({ channels: listChannels(user.id, serverId) });
+    if (!serverId || !(await isServerMember(user.id, serverId))) return error(403, "FORBIDDEN", "You are not a member of this server.");
+    return json({ channels: await listChannels(user.id, serverId) });
   }
   if (request.method === "POST" && channelsMatch) {
     const serverId = channelsMatch[1];
@@ -158,7 +158,7 @@ async function routes(request: Request, server: Bun.Server<SocketData>): Promise
     const input = await body(request);
     const name = typeof input?.name === "string" ? input.name.trim().toLowerCase().replace(/\s+/g, "-") : "";
     if (name.length < 2 || name.length > 32 || !/^[a-z0-9-_]+$/.test(name)) return error(400, "INVALID_INPUT", "Channel names may contain 2-32 letters, numbers, hyphens or underscores.");
-    const channel = createChannel(user.id, serverId, name);
+    const channel = await createChannel(user.id, serverId, name);
     return channel ? json({ channel }, 201) : error(403, "FORBIDDEN", "You are not a member of this server.");
   }
   if (request.method === "POST" && url.pathname === "/uploads") {
@@ -189,13 +189,13 @@ async function routes(request: Request, server: Bun.Server<SocketData>): Promise
     }) });
   }
   if (request.method === "GET" && url.pathname === "/messages") {
-    const channelId = url.searchParams.get("channelId") || firstChannelForUser(user.id)?.id || "";
-    if (!channelForUser(user.id, channelId)) return error(403, "FORBIDDEN", "You cannot access this channel.");
+    const channelId = url.searchParams.get("channelId") || (await firstChannelForUser(user.id))?.id || "";
+    if (!(await channelForUser(user.id, channelId))) return error(403, "FORBIDDEN", "You cannot access this channel.");
     const parsed = Number(url.searchParams.get("limit") ?? 50);
     const limit = Number.isInteger(parsed) ? Math.min(Math.max(parsed, 1), config.maxHistoryLimit) : 50;
     const before = url.searchParams.get("before") ?? undefined;
     if (before && Number.isNaN(Date.parse(before))) return error(400, "INVALID_CURSOR", "before must be an ISO date.");
-    return json({ messages: messageHistory(channelId, limit, before) });
+    return json({ messages: await messageHistory(channelId, limit, before) });
   }
   return error(404, "NOT_FOUND", "Route not found.");
 }
@@ -225,8 +225,8 @@ export const server = Bun.serve<SocketData>({
       let event: WsMessage;
       try { event = JSON.parse(raw); } catch { return send(ws, { type: "error", code: "INVALID_JSON", message: "Message must be valid JSON." }); }
       if (event.type === "chat_message") {
-        const channelId = (typeof event.channelId === "string" && event.channelId) || ws.data.channelId || firstChannelForUser(ws.data.user.id)?.id || "";
-        if (!channelForUser(ws.data.user.id, channelId)) return send(ws, { type: "error", code: "FORBIDDEN", message: "You cannot access this channel." });
+        const channelId = (typeof event.channelId === "string" && event.channelId) || ws.data.channelId || (await firstChannelForUser(ws.data.user.id))?.id || "";
+        if (!(await channelForUser(ws.data.user.id, channelId))) return send(ws, { type: "error", code: "FORBIDDEN", message: "You cannot access this channel." });
         const content = typeof event.content === "string" ? event.content.trim() : "";
         const candidate = event.media && typeof event.media === "object" ? event.media as Record<string, unknown> : null;
         const mediaType = candidate?.type === "image" || candidate?.type === "gif" ? candidate.type : null;
@@ -238,27 +238,28 @@ export const server = Bun.serve<SocketData>({
           ? { type: mediaType, url: mediaUrl, alt: typeof candidate?.alt === "string" ? candidate.alt.slice(0, 160) : "Imagem enviada" }
           : null;
         if ((!content && !media) || content.length > config.maxMessageLength) return send(ws, { type: "error", code: "INVALID_MESSAGE", message: `Message must contain text or valid media.` });
-        const replyToId = typeof event.replyToId === "string" && messageForUser(ws.data.user.id, event.replyToId)?.channel_id === channelId ? event.replyToId : null;
-        const message = saveMessage(ws.data.user, channelId, content, media, replyToId);
+        const reply = typeof event.replyToId === "string" ? await messageForUser(ws.data.user.id, event.replyToId) : null;
+        const replyToId = reply?.channelId === channelId ? reply.id : null;
+        const message = await saveMessage(ws.data.user, channelId, content, media, replyToId);
         return broadcastChannel(channelId, { type: "chat_message", message });
       }
       if (["edit_message", "delete_message", "react_message"].includes(String(event.type))) {
         const messageId = typeof event.messageId === "string" ? event.messageId : "";
-        const target = messageId ? messageForUser(ws.data.user.id, messageId) : null;
-        if (!target || target.channel_id !== ws.data.channelId) return send(ws, { type: "error", code: "NOT_FOUND", message: "Message not found." });
+        const target = messageId ? await messageForUser(ws.data.user.id, messageId) : null;
+        if (!target || target.channelId !== ws.data.channelId) return send(ws, { type: "error", code: "NOT_FOUND", message: "Message not found." });
         let message = null;
         if (event.type === "edit_message") {
           const content = typeof event.content === "string" ? event.content.trim() : "";
           if (!content || content.length > config.maxMessageLength) return send(ws, { type: "error", code: "INVALID_MESSAGE", message: "Message content is invalid." });
-          message = editMessage(ws.data.user.id, messageId, content);
-        } else if (event.type === "delete_message") message = deleteMessage(ws.data.user.id, messageId);
-        else message = typeof event.emoji === "string" ? reactMessage(ws.data.user.id, messageId, event.emoji) : null;
+          message = await editMessage(ws.data.user.id, messageId, content);
+        } else if (event.type === "delete_message") message = await deleteMessage(ws.data.user.id, messageId);
+        else message = typeof event.emoji === "string" ? await reactMessage(ws.data.user.id, messageId, event.emoji) : null;
         if (!message) return send(ws, { type: "error", code: "FORBIDDEN", message: event.type === "react_message" ? "Could not react to this message." : "You can only change your own messages." });
-        return broadcastChannel(target.channel_id, { type: event.type, message });
+        return broadcastChannel(target.channelId, { type: event.type, message });
       }
       if (event.type === "subscribe_channel") {
         const channelId = typeof event.channelId === "string" ? event.channelId : "";
-        if (!channelForUser(ws.data.user.id, channelId)) return send(ws, { type: "error", code: "FORBIDDEN", message: "You cannot access this channel." });
+        if (!(await channelForUser(ws.data.user.id, channelId))) return send(ws, { type: "error", code: "FORBIDDEN", message: "You cannot access this channel." });
         ws.data.channelId = channelId;
         return send(ws, { type: "channel_subscribed", channelId });
       }

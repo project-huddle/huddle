@@ -49,6 +49,18 @@
 }
 
 :root {
+    --brand: #ff5900;
+    --brand-soft: #ffe1d1;
+    --canvas: #f7f4f1;
+    --surface: #fff0e8;
+    --panel: #eee8e4;
+    --ink: #282d33;
+    --solid: #282d33;
+    --on-solid: #fff0e8;
+    --cream: #fff0e8;
+    --muted-text: #697078;
+    --line: rgb(40 45 51 / 14%);
+    --shadow-lg: 0 24px 80px rgb(40 45 51 / 12%);
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);
@@ -84,6 +96,18 @@
 }
 
 .dark {
+    --brand: #ff5900;
+    --brand-soft: #4a281b;
+    --canvas: #090f16;
+    --surface: #151c24;
+    --panel: #282d33;
+    --ink: #fff0e8;
+    --solid: #282d33;
+    --on-solid: #fff0e8;
+    --cream: #fff0e8;
+    --muted-text: #aeb4ba;
+    --line: rgb(255 240 232 / 12%);
+    --shadow-lg: 0 24px 80px rgb(0 0 0 / 32%);
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.205 0 0);
@@ -123,8 +147,52 @@
     }
   body {
     @apply bg-background text-foreground;
+    margin: 0;
+    transition: background-color 180ms ease, color 180ms ease;
     }
   html {
     @apply font-sans;
     }
+}
+
+@layer components {
+  .theme-toggle {
+    display: grid;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex: none;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: 0 4px 16px rgb(0 0 0 / 8%);
+    transition: transform 160ms ease, background-color 160ms ease;
+  }
+
+  .theme-toggle:hover { transform: translateY(-2px) rotate(5deg); }
+
+  .brand-logo { display: block; }
+  .brand-logo img { display: block; width: 100%; height: auto; }
+  .brand-logo-dark, .dark .brand-logo-light { display: none !important; }
+  .dark .brand-logo-dark { display: block !important; }
+  .login-hero .brand-logo-light { display: none !important; }
+  .login-hero .brand-logo-dark { display: block !important; }
+
+  .brand-mark {
+    position: relative;
+    display: block;
+    flex: none;
+    overflow: hidden;
+    border-radius: 14px;
+  }
+  .brand-mark img {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 411%;
+    max-width: none;
+    height: 100%;
+  }
+
+  .chat-page, .login-page { transition: background-color 180ms ease, color 180ms ease; }
 }

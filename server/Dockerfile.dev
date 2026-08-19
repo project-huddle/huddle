@@ -12,4 +12,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 \
   CMD bun -e "const r=await fetch('http://127.0.0.1:3000/health');if(!r.ok)process.exit(1)"
 
-CMD ["bun", "run", "dev"]
+CMD ["sh", "-c", "bunx prisma generate && bunx prisma migrate deploy && exec bun run dev"]

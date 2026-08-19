@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String         @id @default(uuid()) @db.Uuid
+  email        String         @unique @db.VarChar(254)
+  displayName  String         @map("display_name") @db.VarChar(32)
+  passwordHash String         @map("password_hash")
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  sessions     Session[]
+  ownedServers Server[]       @relation("ServerOwner")
+  memberships  ServerMember[]
+  invites      Invite[]       @relation("InviteCreator")
+  messages     Message[]      @relation("MessageAuthor")
+
+  @@map("users")
+}
+
+model Session {
+  tokenHash String   @id @map("token_hash") @db.Char(64)
+  userId    String   @map("user_id") @db.Uuid
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt], map: "sessions_expiry_idx")
+  @@map("sessions")
+}
+
+model Server {
+  id        String         @id @default(uuid()) @db.Uuid
+  name      String         @db.VarChar(40)
+  ownerId   String         @map("owner_id") @db.Uuid
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  owner     User           @relation("ServerOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members   ServerMember[]
+  invites   Invite[]
+  channels  Channel[]
+
+  @@map("servers")
+}
+
+model ServerMember {
+  serverId String   @map("server_id") @db.Uuid
+  userId   String   @map("user_id") @db.Uuid
+  role     String   @default("member") @db.VarChar(16)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  server   Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([serverId, userId])
+  @@index([userId], map: "server_members_user_idx")
+  @@map("server_members")
+}
+
+model Invite {
+  code      String   @id @db.VarChar(16)
+  serverId  String   @map("server_id") @db.Uuid
+  createdBy String   @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  server    Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  creator   User     @relation("InviteCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@map("invites")
+}
+
+model Channel {
+  id        String    @id @default(uuid()) @db.Uuid
+  serverId  String    @map("server_id") @db.Uuid
+  name      String    @db.VarChar(32)
+  type      String    @default("text") @db.VarChar(16)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  server    Server    @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@index([serverId, createdAt], map: "channels_server_idx")
+  @@map("channels")
+}
+
+model Message {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  channelId String    @map("channel_id") @db.Uuid
+  content   String
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  editedAt  DateTime? @map("edited_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  replyToId String?   @map("reply_to_id") @db.Uuid
+  reactions Json      @default("{}")
+  mediaUrl  String?   @map("media_url")
+  mediaType String?   @map("media_type") @db.VarChar(16)
+  mediaAlt  String?   @map("media_alt") @db.VarChar(160)
+  author    User      @relation("MessageAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  channel   Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  replyTo   Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   Message[] @relation("MessageReplies")
+
+  @@index([channelId, createdAt(sort: Desc), id(sort: Desc)], map: "messages_created_idx")
+  @@map("messages")
+}
