@@ -48,6 +48,8 @@ export function useRealtime(token: string, channelId: string) {
   const [muted, setMuted] = useState(false)
   const [cameraOff, setCameraOff] = useState(false)
   const [sharing, setSharing] = useState(false)
+  const [localMediaStream, setLocalMediaStream] = useState<MediaStream | null>(null)
+  const [localDisplayStream, setLocalDisplayStream] = useState<MediaStream | null>(null)
   const [peers, setPeers] = useState<Peer[]>([])
   const [error, setError] = useState<string | null>(null)
   const socketRef = useRef<WebSocket | null>(null)
@@ -56,6 +58,7 @@ export function useRealtime(token: string, channelId: string) {
   const peerUsers = useRef(new Map<string, User>())
   const localStream = useRef<MediaStream | null>(null)
   const displayStream = useRef<MediaStream | null>(null)
+  const displaySenders = useRef(new Map<string, RTCRtpSender>())
   const videoAssigned = useRef(new Set<string>())
 
   const send = useCallback((event: object) => {
@@ -87,7 +90,9 @@ export function useRealtime(token: string, channelId: string) {
     connections.current.set(userId, pc)
     localStream.current?.getAudioTracks().forEach((track) => pc.addTrack(track, localStream.current!))
     localStream.current?.getVideoTracks().forEach((track) => pc.addTrack(track, localStream.current!))
-    displayStream.current?.getVideoTracks().forEach((track) => pc.addTrack(track, displayStream.current!))
+    displayStream.current?.getVideoTracks().forEach((track) => {
+      displaySenders.current.set(userId, pc.addTrack(track, displayStream.current!))
+    })
     pc.onicecandidate = ({ candidate }) => {
       if (candidate) send({ type: "ice_candidate", targetUserId: userId, candidate: candidate.toJSON() })
     }
@@ -127,6 +132,9 @@ export function useRealtime(token: string, channelId: string) {
     localStream.current = null
     displayStream.current?.getTracks().forEach((track) => track.stop())
     displayStream.current = null
+    displaySenders.current.clear()
+    setLocalMediaStream(null)
+    setLocalDisplayStream(null)
     setPeers([])
     setJoining(false)
     setInCall(false)
@@ -242,9 +250,11 @@ export function useRealtime(token: string, channelId: string) {
         video: { width: { ideal: 640 }, height: { ideal: 360 }, facingMode: "user" },
       })
       localStream.current = stream
+      setLocalMediaStream(stream)
       if (!send({ type: "join_call", callId: `channel-${channelId}` })) {
         stream.getTracks().forEach((track) => track.stop())
         localStream.current = null
+        setLocalMediaStream(null)
         throw new Error("WebSocket is not connected")
       }
     } catch (cause) {
@@ -273,12 +283,14 @@ export function useRealtime(token: string, channelId: string) {
     if (!stream) return
     stream.getTracks().forEach((track) => { track.onended = null; track.stop() })
     for (const [userId, pc] of connections.current) {
-      const sender = pc.getSenders().find(({ track }) => track?.kind === "video")
+      const sender = displaySenders.current.get(userId)
       if (sender) pc.removeTrack(sender)
+      displaySenders.current.delete(userId)
       send({ type: "screen_share", targetUserId: userId, active: false })
       await makeOffer(userId, pc).catch(() => setError("Não foi possível atualizar o compartilhamento de tela."))
     }
     setSharing(false)
+    setLocalDisplayStream(null)
   }, [makeOffer, send])
 
   const toggleShare = async () => {
@@ -288,11 +300,12 @@ export function useRealtime(token: string, channelId: string) {
       if (!navigator.mediaDevices?.getDisplayMedia) throw new DOMException("Display media unavailable", "NotSupportedError")
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
       displayStream.current = stream
+      setLocalDisplayStream(stream)
       const track = stream.getVideoTracks()[0]
       if (!track) throw new DOMException("No display track", "NotFoundError")
       track.onended = () => { void stopSharing() }
       for (const [userId, pc] of connections.current) {
-        pc.addTrack(track, stream)
+        displaySenders.current.set(userId, pc.addTrack(track, stream))
         send({ type: "screen_share", targetUserId: userId, active: true })
         await makeOffer(userId, pc)
       }
@@ -300,6 +313,7 @@ export function useRealtime(token: string, channelId: string) {
     } catch (cause) {
       displayStream.current?.getTracks().forEach((track) => track.stop())
       displayStream.current = null
+      setLocalDisplayStream(null)
       setSharing(false)
       setError(mediaErrorMessage(cause, "screen"))
     }
@@ -307,6 +321,7 @@ export function useRealtime(token: string, channelId: string) {
 
   return {
     messages, connected, joining, inCall, muted, cameraOff, sharing, peers, error, setError,
+    localMediaStream, localDisplayStream,
     sendMessage: (content: string, media: MessageMedia | null = null, replyToId: string | null = null) => send({ type: "chat_message", channelId, content, media, replyToId }),
     editMessage: (messageId: string, content: string) => send({ type: "edit_message", messageId, content }),
     deleteMessage: (messageId: string) => send({ type: "delete_message", messageId }),

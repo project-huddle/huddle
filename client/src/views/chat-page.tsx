@@ -1,52 +1,23 @@
 import {
   ArrowUp, ImagePlus, Laugh, LogOut, Mic, MicOff, MonitorUp,
-  Camera, Hash, Menu, Pencil, PhoneCall, PhoneOff, Plus, Reply, Search, Trash2, UserPlus, Users, Video, VideoOff, X,
+  Camera, Hash, Menu, PhoneCall, PhoneOff, Plus, Reply, Search, UserPlus, Users, Video, VideoOff, X,
 } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type { FormEvent } from "react"
 
 import { useRealtime } from "@/hooks/use-realtime"
 import { api, resolveMediaUrl, type GifResult, type HuddleChannel, type HuddleMember, type HuddleServer, type MessageMedia, type User } from "@/lib/api"
-import { cn } from "@/lib/utils"
+import { cn, getInitials } from "@/lib/utils"
 import { BrandLogo, BrandMark } from "@/components/brand-logo"
+import { CallRoom } from "@/components/call-room"
+import { MessageList } from "@/components/message-list"
 import { ThemeToggle } from "@/components/theme"
+import { Modal } from "@/components/ui/modal"
+import { UserAvatar } from "@/components/user-avatar"
 
 const emojis = ["😀", "😂", "🥹", "😍", "🤔", "😅", "🥳", "😎", "🤝", "👏", "❤️", "🔥", "✨", "🎉", "👍", "👀", "☕", "🌿", "🐸", "🚀"]
 
-function initials(name: string) {
-  return name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase()
-}
-
-function Avatar({ user, className }: { user: User; className?: string }) {
-  const colors = ["bg-[#f2a65a]", "bg-[#8fb996]", "bg-[#b8a1d9]", "bg-[#e58f8f]", "bg-[#72a6b8]"]
-  const color = colors[user.id.charCodeAt(0) % colors.length]
-  return <div className={cn("grid size-10 shrink-0 place-items-center rounded-[14px] text-xs font-bold text-[#172019] shadow-sm", color, className)}>{initials(user.displayName)}</div>
-}
-
-function RemoteMedia({ audioStream, cameraStream, screenStream, name }: { audioStream: MediaStream | null; cameraStream: MediaStream | null; screenStream: MediaStream | null; name: string }) {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const cameraRef = useRef<HTMLVideoElement>(null)
-  const audioRef = useRef<HTMLAudioElement>(null)
-  useEffect(() => {
-    const video = videoRef.current
-    const camera = cameraRef.current
-    const audio = audioRef.current
-    if (video) video.srcObject = screenStream
-    if (camera) camera.srcObject = cameraStream
-    if (audio) audio.srcObject = audioStream
-    return () => {
-      if (video) video.srcObject = null
-      if (camera) camera.srcObject = null
-      if (audio) audio.srcObject = null
-    }
-  }, [audioStream, cameraStream, screenStream])
-  return <div className={cn("relative overflow-hidden", (screenStream || cameraStream) && "rounded-2xl bg-[#18211b]")}>
-    {cameraStream && <video ref={cameraRef} autoPlay playsInline muted className="mb-2 aspect-video w-full rounded-2xl object-cover" />}
-    <video ref={videoRef} autoPlay playsInline className={cn("w-full", screenStream ? "aspect-video object-contain" : "h-0")} />
-    <audio ref={audioRef} autoPlay />
-    {screenStream && <span className="absolute bottom-2 left-2 rounded-full bg-black/65 px-3 py-1 text-xs text-[var(--on-solid)]">Tela de {name}</span>}
-  </div>
-}
+type TextDialog = "create-server" | "create-channel" | "join-server" | null
 
 export default function ChatPage({ user, token, onLogout }: { user: User; token: string; onLogout: () => void }) {
   const [servers, setServers] = useState<HuddleServer[]>([])
@@ -57,6 +28,10 @@ export default function ChatPage({ user, token, onLogout }: { user: User; token:
   const [replyTo, setReplyTo] = useState<string | null>(null)
   const [members, setMembers] = useState<HuddleMember[]>([])
   const [creating, setCreating] = useState(false)
+  const [callRoomOpen, setCallRoomOpen] = useState(false)
+  const [textDialog, setTextDialog] = useState<TextDialog>(null)
+  const [dialogValue, setDialogValue] = useState("")
+  const [inviteCode, setInviteCode] = useState<string | null>(null)
   const realtime = useRealtime(token, channelId)
   const setRealtimeError = realtime.setError
   const [draft, setDraft] = useState("")
@@ -94,8 +69,8 @@ export default function ChatPage({ user, token, onLogout }: { user: User; token:
     void api<{ members: HuddleMember[] }>(`/servers/${serverId}/members`, {}, token).then(({ members: found }) => setMembers(found)).catch(() => setMembers([]))
   }, [serverId, token])
 
-  const createServer = async () => {
-    const name = window.prompt("Nome do novo servidor")?.trim()
+  const createServer = async (value?: string) => {
+    const name = value?.trim()
     if (!name || creating) return
     setCreating(true)
     try {
@@ -104,18 +79,20 @@ export default function ChatPage({ user, token, onLogout }: { user: User; token:
       setServerId(created.server.id)
       setChannels([created.channel])
       setChannelId(created.channel.id)
+      setTextDialog(null)
     } catch (cause) { realtime.setError(cause instanceof Error ? cause.message : "Não foi possível criar o servidor.") }
     finally { setCreating(false) }
   }
 
-  const createTextChannel = async () => {
-    const name = window.prompt("Nome do canal de texto")?.trim()
+  const createTextChannel = async (value?: string) => {
+    const name = value?.trim()
     if (!name || !serverId || creating) return
     setCreating(true)
     try {
       const created = await api<{ channel: HuddleChannel }>(`/servers/${serverId}/channels`, { method: "POST", body: JSON.stringify({ name }) }, token)
       setChannels((items) => [...items, created.channel])
       setChannelId(created.channel.id)
+      setTextDialog(null)
     } catch (cause) { realtime.setError(cause instanceof Error ? cause.message : "Não foi possível criar o canal.") }
     finally { setCreating(false) }
   }
@@ -125,17 +102,18 @@ export default function ChatPage({ user, token, onLogout }: { user: User; token:
     try {
       const result = await api<{ invite: { code: string } }>(`/servers/${serverId}/invites`, { method: "POST" }, token)
       await navigator.clipboard?.writeText(result.invite.code)
-      window.alert(`Convite criado: ${result.invite.code}`)
+      setInviteCode(result.invite.code)
     } catch (cause) { realtime.setError(cause instanceof Error ? cause.message : "Não foi possível criar o convite.") }
   }
 
-  const joinServer = async () => {
-    const code = window.prompt("Cole o código do convite")?.trim()
+  const joinServer = async (value?: string) => {
+    const code = value?.trim()
     if (!code) return
     try {
       const result = await api<{ server: HuddleServer }>("/invites/join", { method: "POST", body: JSON.stringify({ code }) }, token)
       setServers((items) => items.some((item) => item.id === result.server.id) ? items : [...items, result.server])
       setServerId(result.server.id)
+      setTextDialog(null)
     } catch (cause) { realtime.setError(cause instanceof Error ? cause.message : "Não foi possível entrar no servidor.") }
   }
 
@@ -170,6 +148,10 @@ export default function ChatPage({ user, token, onLogout }: { user: User; token:
   }
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }) }, [realtime.messages])
+  useEffect(() => {
+    if (realtime.inCall) setCallRoomOpen(true)
+    else setCallRoomOpen(false)
+  }, [realtime.inCall])
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
@@ -216,6 +198,17 @@ export default function ChatPage({ user, token, onLogout }: { user: User; token:
 
   const activeServer = servers.find((server) => server.id === serverId)
   const activeChannel = channels.find((channel) => channel.id === channelId)
+  const openTextDialog = (dialog: Exclude<TextDialog, null>) => {
+    setDialogValue("")
+    setTextDialog(dialog)
+  }
+  const closeCallRoom = useCallback(() => setCallRoomOpen(false), [])
+  const submitTextDialog = (event: FormEvent) => {
+    event.preventDefault()
+    if (textDialog === "create-server") void createServer(dialogValue)
+    if (textDialog === "create-channel") void createTextChannel(dialogValue)
+    if (textDialog === "join-server") void joinServer(dialogValue)
+  }
   const selectMobileServer = (nextServerId: string) => { setServerId(nextServerId); setMobileNavOpen(false) }
   const selectMobileChannel = (nextChannelId: string) => { setChannelId(nextChannelId); setMobileNavOpen(false) }
 
@@ -223,12 +216,12 @@ export default function ChatPage({ user, token, onLogout }: { user: User; token:
     <div className="mx-auto grid h-full max-w-375 grid-cols-1 lg:grid-cols-[82px_220px_minmax(0,1fr)_320px]">
       <aside className="hidden flex-col items-center gap-3 border-r border-[var(--ink)]/10 bg-[var(--solid)] py-5 lg:flex">
         <BrandMark className="size-11" />
-        {servers.map((server) => <button key={server.id} onClick={() => setServerId(server.id)} title={server.name} className={cn("grid size-11 place-items-center rounded-[15px] text-sm font-black transition", server.id === serverId ? "bg-[var(--brand)] text-[var(--ink)]" : "bg-[var(--surface)]/10 text-[var(--on-solid)] hover:bg-[var(--surface)]/20")}>{initials(server.name)}</button>)}
-        <button onClick={() => void createServer()} disabled={creating} className="grid size-11 place-items-center rounded-[15px] bg-[var(--surface)]/10 text-[var(--brand)] hover:bg-[var(--surface)]/20" aria-label="Criar servidor"><Plus className="size-5" /></button>
+        {servers.map((server) => <button key={server.id} onClick={() => setServerId(server.id)} title={server.name} className={cn("grid size-11 place-items-center rounded-[15px] text-sm font-black transition", server.id === serverId ? "bg-[var(--brand)] text-[var(--ink)]" : "bg-[var(--surface)]/10 text-[var(--on-solid)] hover:bg-[var(--surface)]/20")}>{getInitials(server.name)}</button>)}
+        <button onClick={() => openTextDialog("create-server")} disabled={creating} className="grid size-11 place-items-center rounded-[15px] bg-[var(--surface)]/10 text-[var(--brand)] hover:bg-[var(--surface)]/20" aria-label="Criar servidor"><Plus className="size-5" /></button>
       </aside>
       <aside className="hidden min-h-0 flex-col border-r border-[var(--ink)]/10 bg-[var(--panel)] lg:flex">
-        <div className="flex h-19 items-center border-b border-[var(--ink)]/10 px-4"><strong className="truncate text-sm">{activeServer?.name ?? "Servidores"}</strong><div className="ml-auto flex gap-1"><button onClick={() => void createInvite()} className="grid size-8 place-items-center rounded-lg hover:bg-[var(--surface)]" aria-label="Criar convite"><UserPlus className="size-4" /></button><button onClick={() => void joinServer()} className="grid size-8 place-items-center rounded-lg hover:bg-[var(--surface)]" aria-label="Entrar com convite"><Users className="size-4" /></button><button onClick={() => void leaveActiveServer()} className="grid size-8 place-items-center rounded-lg hover:bg-[var(--surface)]" aria-label="Sair do servidor"><LogOut className="size-4" /></button><button onClick={() => void createServer()} className="grid size-8 place-items-center rounded-lg hover:bg-[var(--surface)]" aria-label="Criar servidor"><Plus className="size-4" /></button></div></div>
-        <div className="p-3"><div className="flex items-center px-2 pb-2"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--muted-text)]">Canais de texto</p><button onClick={() => void createTextChannel()} className="ml-auto text-[var(--muted-text)] hover:text-[var(--ink)]" aria-label="Criar canal"><Plus className="size-3.5" /></button></div>{channels.map((channel) => <button key={channel.id} onClick={() => setChannelId(channel.id)} className={cn("flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm", channel.id === channelId ? "bg-[var(--surface)] font-bold shadow-sm" : "text-[var(--muted-text)] hover:bg-[var(--surface)]/60")}><Hash className="size-4" />{channel.name}</button>)}</div>
+        <div className="flex h-19 items-center border-b border-[var(--ink)]/10 px-4"><strong className="truncate text-sm">{activeServer?.name ?? "Servidores"}</strong><div className="ml-auto flex gap-1"><button onClick={() => void createInvite()} className="grid size-8 place-items-center rounded-lg hover:bg-[var(--surface)]" aria-label="Criar convite"><UserPlus className="size-4" /></button><button onClick={() => openTextDialog("join-server")} className="grid size-8 place-items-center rounded-lg hover:bg-[var(--surface)]" aria-label="Entrar com convite"><Users className="size-4" /></button><button onClick={() => void leaveActiveServer()} className="grid size-8 place-items-center rounded-lg hover:bg-[var(--surface)]" aria-label="Sair do servidor"><LogOut className="size-4" /></button><button onClick={() => openTextDialog("create-server")} className="grid size-8 place-items-center rounded-lg hover:bg-[var(--surface)]" aria-label="Criar servidor"><Plus className="size-4" /></button></div></div>
+        <div className="p-3"><div className="flex items-center px-2 pb-2"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--muted-text)]">Canais de texto</p><button onClick={() => openTextDialog("create-channel")} className="ml-auto text-[var(--muted-text)] hover:text-[var(--ink)]" aria-label="Criar canal"><Plus className="size-3.5" /></button></div>{channels.map((channel) => <button key={channel.id} onClick={() => setChannelId(channel.id)} className={cn("flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm", channel.id === channelId ? "bg-[var(--surface)] font-bold shadow-sm" : "text-[var(--muted-text)] hover:bg-[var(--surface)]/60")}><Hash className="size-4" />{channel.name}</button>)}</div>
       </aside>
       <section className="flex min-w-0 flex-col border-[var(--ink)]/10 lg:border-r">
         <header className="flex h-19 shrink-0 items-center gap-3 border-b border-[var(--ink)]/10 px-4 sm:px-7">
@@ -252,20 +245,16 @@ export default function ChatPage({ user, token, onLogout }: { user: User; token:
               <p className="mt-5 max-w-48 text-sm leading-relaxed text-[var(--muted-text)] sm:mt-0">Sem canais demais, sem barulho. Só a turma reunida.</p>
             </div>
 
-            <div className="space-y-3">{realtime.messages.map((message) => {
-              const mine = message.author.id === user.id
-              return <article key={message.id} className={cn("flex items-end gap-2", mine && "flex-row-reverse")}>
-                <Avatar user={message.author} className="size-8 rounded-[11px]" />
-                <div className={cn("group relative max-w-[min(82%,620px)] rounded-[22px] border px-4 py-3 shadow-[0_2px_0_rgba(32,37,31,.08)]", mine ? "rounded-br-md border-[var(--ink)] bg-[var(--solid)] text-[var(--on-solid)]" : "rounded-bl-md border-[var(--ink)]/10 bg-[var(--surface)]")}>
-                  <div className="mb-1 flex items-center gap-2"><strong className="text-xs">{mine ? "você" : message.author.displayName}</strong><time className={cn("text-[10px]", mine ? "text-[var(--on-solid)]/50" : "text-[var(--muted-text)]")}>{new Date(message.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</time></div>
-                  {message.replyToId && <p className="mb-2 border-l-2 border-[var(--brand)] pl-2 text-xs opacity-60">respondendo a uma mensagem</p>}
-                  {message.deletedAt ? <p className="italic opacity-50">mensagem apagada</p> : message.content && <p className="whitespace-pre-wrap wrap-break-word leading-6">{message.content}{message.editedAt && <span className="ml-1 text-[10px] opacity-50">(editada)</span>}</p>}
-                  {message.media && <img src={resolveMediaUrl(message.media.url)} alt={message.media.alt} loading="lazy" className={cn("mt-2 max-h-105 w-auto max-w-full rounded-xl object-contain", !message.content && "mt-0")} />}
-                  {!message.deletedAt && <div className="mt-2 flex items-center gap-1 opacity-0 transition group-hover:opacity-100"><button onClick={() => setReplyTo(message.id)} className="rounded p-1 hover:bg-[var(--surface)]/20" title="Responder"><Reply className="size-3.5" /></button>{mine && <><button onClick={() => { const next = window.prompt("Editar mensagem", message.content); if (next?.trim()) realtime.editMessage(message.id, next) }} className="rounded p-1 hover:bg-[var(--surface)]/20" title="Editar"><Pencil className="size-3.5" /></button><button onClick={() => { if (window.confirm("Apagar esta mensagem?")) realtime.deleteMessage(message.id) }} className="rounded p-1 hover:bg-[var(--surface)]/20" title="Apagar"><Trash2 className="size-3.5" /></button></>}<button onClick={() => realtime.reactMessage(message.id, "👍")} className="rounded px-1 text-xs hover:bg-[var(--surface)]/20">👍</button><button onClick={() => realtime.reactMessage(message.id, "❤️")} className="rounded px-1 text-xs hover:bg-[var(--surface)]/20">❤️</button></div>}
-                  {Object.entries(message.reactions).length > 0 && <div className="mt-2 flex gap-1">{Object.entries(message.reactions).map(([emoji, count]) => <button key={emoji} onClick={() => realtime.reactMessage(message.id, emoji)} className="rounded-full bg-[var(--brand)]/30 px-2 py-0.5 text-xs">{emoji} {count}</button>)}</div>}
-                </div>
-              </article>
-            })}</div>
+            <MessageList
+              currentUserId={user.id}
+              messages={realtime.messages}
+              onReply={setReplyTo}
+              onEdit={realtime.editMessage}
+              onDelete={(messageId) => {
+                if (window.confirm("Apagar esta mensagem?")) realtime.deleteMessage(messageId)
+              }}
+              onReact={realtime.reactMessage}
+            />
             <div ref={endRef} />
           </div>
         </div>
@@ -274,7 +263,7 @@ export default function ChatPage({ user, token, onLogout }: { user: User; token:
           <div className="relative mx-auto max-w-3xl">
             <div className="mb-2 flex items-center gap-2 lg:hidden">
               {!realtime.inCall ? <button disabled={!realtime.connected || realtime.joining} onClick={realtime.joinCall} className="rounded-full bg-[var(--solid)] px-4 py-2 text-xs font-bold text-[var(--on-solid)] disabled:opacity-50"><PhoneCall className="mr-1.5 inline size-3.5" />{realtime.joining ? "entrando..." : "entrar na chamada"}</button> : <>
-                <span className="mr-auto text-xs font-bold">{realtime.peers.length + 1} na chamada</span>
+                <button type="button" onClick={() => setCallRoomOpen(true)} className="mr-auto rounded-full bg-[var(--solid)] px-3 py-2 text-xs font-bold text-[var(--on-solid)]">Abrir sala · {realtime.peers.length + 1}</button>
                 <button type="button" onClick={realtime.toggleMute} className={cn("grid size-9 place-items-center rounded-full", realtime.muted ? "bg-[#d76b5b] text-[var(--on-solid)]" : "bg-[var(--surface)]")}><Mic className="size-4" /></button>
                 <button type="button" onClick={realtime.toggleCamera} className={cn("grid size-9 place-items-center rounded-full", realtime.cameraOff ? "bg-[#d76b5b] text-[var(--on-solid)]" : "bg-[var(--surface)]")}><Camera className="size-4" /></button>
                 <button type="button" onClick={realtime.toggleShare} className={cn("grid size-9 place-items-center rounded-full", realtime.sharing ? "bg-[#8fb996]" : "bg-[var(--surface)]")}><MonitorUp className="size-4" /></button>
@@ -308,15 +297,16 @@ export default function ChatPage({ user, token, onLogout }: { user: User; token:
       </section>
 
       <aside className="hidden min-h-0 flex-col bg-[var(--panel)] lg:flex">
-        <div className="border-b border-[var(--ink)]/10 p-6"><p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted-text)]">Nossa sala</p><div className="mt-4 flex items-center gap-3"><Avatar user={user} /><div className="min-w-0"><p className="truncate font-bold">{user.displayName}</p><p className="text-xs text-[var(--muted-text)]">você está por aqui</p></div></div></div>
+        <div className="border-b border-[var(--ink)]/10 p-6"><p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted-text)]">Nossa sala</p><div className="mt-4 flex items-center gap-3"><UserAvatar user={user} /><div className="min-w-0"><p className="truncate font-bold">{user.displayName}</p><p className="text-xs text-[var(--muted-text)]">você está por aqui</p></div></div></div>
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="mb-5"><div className="mb-3 flex items-center justify-between"><p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted-text)]">Membros · {members.length}</p><button onClick={() => void createInvite()} className="text-[var(--muted-text)] hover:text-[var(--ink)]" aria-label="Criar convite"><UserPlus className="size-4" /></button></div><div className="space-y-2">{members.map((member) => <div key={member.id} className="group flex items-center gap-2"><Avatar user={member} className="size-8 rounded-[10px]" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{member.displayName}</p><p className="text-[10px] text-[var(--muted-text)]">{member.role === "owner" ? "proprietário" : member.role === "moderator" ? "moderador" : "membro"}</p></div>{activeServer?.ownerId === user.id && !member.isOwner && <div className="hidden gap-1 group-hover:flex"><button onClick={() => void changeMemberRole(member)} className="rounded px-1.5 py-1 text-[10px] font-bold hover:bg-[var(--surface)]" title="Alternar moderador">{member.role === "moderator" ? "membro" : "mod"}</button><button onClick={() => void removeServerMember(member)} className="rounded px-1.5 py-1 text-[10px] font-bold text-[#b54e42] hover:bg-[#fff0ea]" title="Remover membro">×</button></div>}</div>)}</div></div>
+          <div className="mb-5"><div className="mb-3 flex items-center justify-between"><p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted-text)]">Membros · {members.length}</p><button onClick={() => void createInvite()} className="text-[var(--muted-text)] hover:text-[var(--ink)]" aria-label="Criar convite"><UserPlus className="size-4" /></button></div><div className="space-y-2">{members.map((member) => <div key={member.id} className="group flex items-center gap-2"><UserAvatar user={member} className="size-8 rounded-[10px]" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{member.displayName}</p><p className="text-[10px] text-[var(--muted-text)]">{member.role === "owner" ? "proprietário" : member.role === "moderator" ? "moderador" : "membro"}</p></div>{activeServer?.ownerId === user.id && !member.isOwner && <div className="hidden gap-1 group-hover:flex"><button onClick={() => void changeMemberRole(member)} className="rounded px-1.5 py-1 text-[10px] font-bold hover:bg-[var(--surface)]" title="Alternar moderador">{member.role === "moderator" ? "membro" : "mod"}</button><button onClick={() => void removeServerMember(member)} className="rounded px-1.5 py-1 text-[10px] font-bold text-[#b54e42] hover:bg-[#fff0ea]" title="Remover membro">×</button></div>}</div>)}</div></div>
           <div className="rounded-[26px] bg-[var(--solid)] p-5 text-[var(--on-solid)]">
             <div className="flex items-center"><div className="grid size-10 place-items-center rounded-2xl bg-[var(--surface)]/10"><PhoneCall className="size-5" /></div><span className="ml-auto size-2 rounded-full bg-[var(--brand)]" /></div>
             <h2 className="mt-8 text-2xl font-black tracking-[-0.04em]">Chamada da sala</h2>
             <p className="mt-1 text-sm leading-relaxed text-[var(--on-solid)]/55">Entre quando quiser. Quem estiver por perto aparece aqui.</p>
             {!realtime.inCall ? <button disabled={!realtime.connected || realtime.joining} onClick={realtime.joinCall} className="mt-5 w-full rounded-2xl bg-[var(--brand)] px-4 py-3 text-sm font-black text-[var(--ink)] disabled:opacity-50">{realtime.joining ? "entrando..." : "entrar na chamada"}</button> : <>
               <div className="mt-5 flex items-center gap-2 text-sm"><Users className="size-4" /> {realtime.peers.length + 1} na chamada</div>
+              <button onClick={() => setCallRoomOpen(true)} className="mt-3 w-full rounded-2xl bg-[var(--brand)] px-4 py-3 text-sm font-black text-[var(--ink)]">Abrir sala da chamada</button>
               <div className="mt-3 grid grid-cols-4 gap-2">
                 <button onClick={realtime.toggleMute} className={cn("grid aspect-square place-items-center rounded-2xl", realtime.muted ? "bg-[#d76b5b]" : "bg-[var(--surface)]/10")} aria-label="Alternar microfone">{realtime.muted ? <MicOff /> : <Mic />}</button>
                 <button onClick={realtime.toggleCamera} className={cn("grid aspect-square place-items-center rounded-2xl", realtime.cameraOff ? "bg-[#d76b5b]" : "bg-[var(--surface)]/10")} aria-label="Alternar câmera">{realtime.cameraOff ? <VideoOff /> : <Video />}</button>
@@ -325,7 +315,7 @@ export default function ChatPage({ user, token, onLogout }: { user: User; token:
               </div>
             </>}
           </div>
-          {realtime.inCall && <div className="mt-5 space-y-3">{realtime.peers.map(({ user: peer, audioStream, cameraStream, screenStream }) => <div key={peer.id}><div className="mb-2 flex items-center gap-2"><Avatar user={peer} className="size-7 rounded-lg" /><span className="text-sm font-semibold">{peer.displayName}</span></div><RemoteMedia audioStream={audioStream} cameraStream={cameraStream} screenStream={screenStream} name={peer.displayName} /></div>)}</div>}
+          {realtime.inCall && <div className="mt-5 space-y-2">{realtime.peers.map(({ user: peer, sharing }) => <button type="button" onClick={() => setCallRoomOpen(true)} key={peer.id} className="flex w-full items-center gap-2 rounded-xl p-2 text-left hover:bg-[var(--surface)]"><UserAvatar user={peer} className="size-7 rounded-lg" /><span className="min-w-0 flex-1 truncate text-sm font-semibold">{peer.displayName}</span>{sharing && <MonitorUp className="size-4 text-[var(--brand)]" />}</button>)}</div>}
         </div>
         <div className="p-6 text-xs leading-relaxed text-[var(--muted-text)]">Feito para poucas pessoas.<br />Sem algoritmos, sem plateia.</div>
       </aside>
@@ -335,10 +325,55 @@ export default function ChatPage({ user, token, onLogout }: { user: User; token:
       <aside className="relative flex h-full w-[min(88vw,360px)] flex-col bg-[var(--panel)] shadow-2xl">
         <div className="flex h-19 shrink-0 items-center gap-3 border-b border-[var(--ink)]/10 px-4"><BrandMark className="size-10" /><div className="min-w-0 flex-1"><p className="truncate font-black">{activeServer?.name ?? "huddle"}</p><p className="text-xs text-[var(--muted-text)]">navegação</p></div><button onClick={() => setMobileNavOpen(false)} className="grid size-9 place-items-center rounded-xl bg-[var(--surface)]" aria-label="Fechar"><X className="size-4" /></button></div>
         <div className="flex min-h-0 flex-1">
-          <div className="flex w-18 shrink-0 flex-col items-center gap-3 bg-[var(--solid)] py-4"><BrandMark className="size-10" />{servers.map((server) => <button key={server.id} onClick={() => selectMobileServer(server.id)} title={server.name} className={cn("grid size-10 place-items-center rounded-[13px] text-xs font-black", server.id === serverId ? "bg-[var(--brand)] text-[var(--ink)]" : "bg-[var(--surface)]/10 text-[var(--on-solid)]")}>{initials(server.name)}</button>)}<button onClick={() => void createServer()} className="grid size-10 place-items-center rounded-[13px] bg-[var(--surface)]/10 text-[var(--brand)]" aria-label="Criar servidor"><Plus className="size-4" /></button></div>
-          <div className="min-w-0 flex-1 overflow-y-auto p-4"><div className="mb-5 flex items-center gap-2"><strong className="min-w-0 flex-1 truncate">{activeServer?.name ?? "Servidor"}</strong><button onClick={() => void createInvite()} className="grid size-8 place-items-center rounded-lg bg-[var(--surface)]" aria-label="Criar convite"><UserPlus className="size-4" /></button><button onClick={() => void joinServer()} className="grid size-8 place-items-center rounded-lg bg-[var(--surface)]" aria-label="Entrar com convite"><Users className="size-4" /></button></div><div className="mb-6"><div className="mb-2 flex items-center justify-between"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--muted-text)]">Canais</p><button onClick={() => void createTextChannel()} aria-label="Criar canal"><Plus className="size-4" /></button></div>{channels.map((channel) => <button key={channel.id} onClick={() => selectMobileChannel(channel.id)} className={cn("mb-1 flex w-full items-center gap-2 rounded-xl px-3 py-3 text-left text-sm", channel.id === channelId ? "bg-[var(--surface)] font-bold shadow-sm" : "text-[var(--muted-text)] hover:bg-[var(--surface)]/60")}><Hash className="size-4" />{channel.name}</button>)}</div><div><p className="mb-3 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--muted-text)]">Membros · {members.length}</p>{members.map((member) => <div key={member.id} className="mb-3 flex items-center gap-2"><Avatar user={member} className="size-8 rounded-[10px]" /><div className="min-w-0"><p className="truncate text-sm font-semibold">{member.displayName}</p><p className="text-[10px] text-[var(--muted-text)]">{member.role === "owner" ? "proprietário" : member.role === "moderator" ? "moderador" : "membro"}</p></div></div>)}</div></div>
+          <div className="flex w-18 shrink-0 flex-col items-center gap-3 bg-[var(--solid)] py-4"><BrandMark className="size-10" />{servers.map((server) => <button key={server.id} onClick={() => selectMobileServer(server.id)} title={server.name} className={cn("grid size-10 place-items-center rounded-[13px] text-xs font-black", server.id === serverId ? "bg-[var(--brand)] text-[var(--ink)]" : "bg-[var(--surface)]/10 text-[var(--on-solid)]")}>{getInitials(server.name)}</button>)}<button onClick={() => openTextDialog("create-server")} className="grid size-10 place-items-center rounded-[13px] bg-[var(--surface)]/10 text-[var(--brand)]" aria-label="Criar servidor"><Plus className="size-4" /></button></div>
+          <div className="min-w-0 flex-1 overflow-y-auto p-4"><div className="mb-5 flex items-center gap-2"><strong className="min-w-0 flex-1 truncate">{activeServer?.name ?? "Servidor"}</strong><button onClick={() => void createInvite()} className="grid size-8 place-items-center rounded-lg bg-[var(--surface)]" aria-label="Criar convite"><UserPlus className="size-4" /></button><button onClick={() => openTextDialog("join-server")} className="grid size-8 place-items-center rounded-lg bg-[var(--surface)]" aria-label="Entrar com convite"><Users className="size-4" /></button></div><div className="mb-6"><div className="mb-2 flex items-center justify-between"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--muted-text)]">Canais</p><button onClick={() => openTextDialog("create-channel")} aria-label="Criar canal"><Plus className="size-4" /></button></div>{channels.map((channel) => <button key={channel.id} onClick={() => selectMobileChannel(channel.id)} className={cn("mb-1 flex w-full items-center gap-2 rounded-xl px-3 py-3 text-left text-sm", channel.id === channelId ? "bg-[var(--surface)] font-bold shadow-sm" : "text-[var(--muted-text)] hover:bg-[var(--surface)]/60")}><Hash className="size-4" />{channel.name}</button>)}</div><div><p className="mb-3 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--muted-text)]">Membros · {members.length}</p>{members.map((member) => <div key={member.id} className="mb-3 flex items-center gap-2"><UserAvatar user={member} className="size-8 rounded-[10px]" /><div className="min-w-0"><p className="truncate text-sm font-semibold">{member.displayName}</p><p className="text-[10px] text-[var(--muted-text)]">{member.role === "owner" ? "proprietário" : member.role === "moderator" ? "moderador" : "membro"}</p></div></div>)}</div></div>
         </div>
       </aside>
     </div>}
+    <CallRoom
+      open={callRoomOpen}
+      onClose={closeCallRoom}
+      inCall={realtime.inCall}
+      user={user}
+      peers={realtime.peers}
+      muted={realtime.muted}
+      cameraOff={realtime.cameraOff}
+      sharing={realtime.sharing}
+      localMediaStream={realtime.localMediaStream}
+      localDisplayStream={realtime.localDisplayStream}
+      onToggleMute={realtime.toggleMute}
+      onToggleCamera={realtime.toggleCamera}
+      onToggleShare={realtime.toggleShare}
+      onLeave={realtime.leaveCall}
+    />
+    <Modal
+      open={textDialog !== null}
+      onClose={() => setTextDialog(null)}
+      title={textDialog === "create-server" ? "Criar servidor" : textDialog === "create-channel" ? "Criar canal" : "Entrar em um servidor"}
+      description={textDialog === "join-server" ? "Cole o código de convite que você recebeu." : "Escolha um nome curto e fácil de reconhecer."}
+    >
+      <form onSubmit={submitTextDialog}>
+        <label htmlFor="dialog-value" className="text-sm font-bold">{textDialog === "join-server" ? "Código do convite" : "Nome"}</label>
+        <input
+          id="dialog-value"
+          autoFocus
+          value={dialogValue}
+          onChange={(event) => setDialogValue(event.target.value)}
+          maxLength={textDialog === "join-server" ? 100 : 60}
+          placeholder={textDialog === "create-server" ? "Minha comunidade" : textDialog === "create-channel" ? "geral" : "Ex.: ABC123"}
+          className="mt-2 h-12 w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 outline-none focus:ring-2 focus:ring-[var(--brand)]"
+        />
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" onClick={() => setTextDialog(null)} className="rounded-xl px-4 py-2.5 text-sm font-bold hover:bg-[var(--surface)]">Cancelar</button>
+          <button disabled={!dialogValue.trim() || creating} className="rounded-xl bg-[var(--solid)] px-4 py-2.5 text-sm font-bold text-[var(--on-solid)] disabled:opacity-40">
+            {creating ? "Salvando..." : textDialog === "join-server" ? "Entrar" : "Criar"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+    <Modal open={inviteCode !== null} onClose={() => setInviteCode(null)} title="Convite criado" description="O código já foi copiado para a área de transferência.">
+      <div className="rounded-2xl bg-[var(--surface)] p-4 text-center font-mono text-lg font-black tracking-wider">{inviteCode}</div>
+      <button type="button" onClick={() => void navigator.clipboard?.writeText(inviteCode ?? "")} className="mt-4 w-full rounded-xl bg-[var(--solid)] px-4 py-3 text-sm font-bold text-[var(--on-solid)]">Copiar código</button>
+    </Modal>
   </main>
 }

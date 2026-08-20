@@ -2,14 +2,18 @@ import { authenticate, hashToken, issueSession, revoke } from "./auth";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { config } from "./config";
-import { channelForUser, createChannel, createInvite, createServer, createUser, deleteMessage, editMessage, findUserByEmail, firstChannelForUser, isServerMember, joinServer, leaveServer, listChannels, listServers, messageForUser, messageHistory, reactMessage, removeMember, saveMessage, serverForUser, serverMembers, setMemberRole, userForSession, type MessageMedia, type User } from "./database";
-import { body, corsHeaders, error, json } from "./http";
+import { channelForUser, createChannel, createInvite, createServer, createUser, deleteMessage, editMessage, findUserByEmail, firstChannelForUser, isServerMember, joinServer, leaveServer, listChannels, listServers, messageForUser, messageHistory, reactMessage, removeMember, saveMessage, serverForUser, serverMembers, setMemberRole, userForSession, type User } from "./database";
+import { body, corsHeaders, error, json, securityHeaders } from "./http";
+import { clientAddress, FixedWindowRateLimiter } from "./rate-limit";
+import { messageContent, messageMedia, validEmail } from "./validation";
 
-type SocketData = { user: User; callId: string | null; channelId: string | null };
+type SocketData = { user: User; callId: string | null; channelId: string | null; limiter: FixedWindowRateLimiter };
 type WsMessage = Record<string, unknown> & { type?: unknown };
 
 const socketsByUser = new Map<string, Set<Bun.ServerWebSocket<SocketData>>>();
 const calls = new Map<string, Set<Bun.ServerWebSocket<SocketData>>>();
+const requestLimiter = new FixedWindowRateLimiter(config.requestsPerMinute);
+const authLimiter = new FixedWindowRateLimiter(config.authAttemptsPerMinute);
 mkdirSync(config.uploadsPath, { recursive: true });
 
 const imageTypes = {
@@ -32,26 +36,25 @@ function send(ws: Bun.ServerWebSocket<SocketData>, value: unknown): void {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(value));
 }
 
-function broadcastAll(value: unknown, except?: Bun.ServerWebSocket<SocketData>): void {
-  for (const sockets of socketsByUser.values()) for (const socket of sockets) if (socket !== except) send(socket, value);
+function broadcastChannel(channelId: string, value: unknown): void {
+  for (const sockets of socketsByUser.values()) {
+    for (const socket of sockets) if (socket.data.channelId === channelId) send(socket, value);
+  }
 }
 
-function broadcastChannel(channelId: string, value: unknown): void {
-  for (const sockets of socketsByUser.values()) for (const socket of sockets) if (socket.data.channelId === channelId || socket.data.channelId === null) send(socket, value);
+function callKey(ws: Bun.ServerWebSocket<SocketData>, callId = ws.data.callId): string | null {
+  return ws.data.channelId && callId ? `${ws.data.channelId}:${callId}` : null;
 }
 
 function leaveCall(ws: Bun.ServerWebSocket<SocketData>): void {
   const callId = ws.data.callId;
   if (!callId) return;
-  const peers = calls.get(callId);
+  const key = callKey(ws, callId);
+  const peers = key ? calls.get(key) : undefined;
   peers?.delete(ws);
   for (const peer of peers ?? []) send(peer, { type: "peer_left", callId, userId: ws.data.user.id });
-  if (!peers?.size) calls.delete(callId);
+  if (!peers?.size && key) calls.delete(key);
   ws.data.callId = null;
-}
-
-function validEmail(value: unknown): value is string {
-  return typeof value === "string" && value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 async function routes(request: Request, server: Bun.Server<SocketData>): Promise<Response | undefined> {
@@ -73,6 +76,7 @@ async function routes(request: Request, server: Bun.Server<SocketData>): Promise
       return error(400, "INVALID_INPUT", "Use a valid email, a display name with 2-32 characters, and a password with 8-128 characters.");
     if (await findUserByEmail(email)) return error(409, "EMAIL_IN_USE", "An account already exists for this email.");
     const user = await createUser(email, displayName, await Bun.password.hash(password, { algorithm: "argon2id" }));
+    if (!user) return error(409, "EMAIL_IN_USE", "An account already exists for this email.");
     return json({ user, session: await issueSession(user.id) }, 201);
   }
 
@@ -87,10 +91,13 @@ async function routes(request: Request, server: Bun.Server<SocketData>): Promise
   }
 
   if (url.pathname === "/ws") {
+    const origin = request.headers.get("origin");
+    if (origin && !config.corsOrigins.has(origin)) return error(403, "ORIGIN_NOT_ALLOWED", "WebSocket origin is not allowed.");
     const token = url.searchParams.get("token");
     const user = token ? await userForSession(hashToken(token)) : null;
     if (!user) return error(401, "UNAUTHORIZED", "A valid session token is required.");
-    if (server.upgrade(request, { data: { user, callId: null, channelId: null } })) return;
+    const channelId = (await firstChannelForUser(user.id))?.id ?? null;
+    if (server.upgrade(request, { data: { user, callId: null, channelId, limiter: new FixedWindowRateLimiter(120) } })) return;
     return error(500, "UPGRADE_FAILED", "Could not open WebSocket.");
   }
 
@@ -162,6 +169,9 @@ async function routes(request: Request, server: Bun.Server<SocketData>): Promise
     return channel ? json({ channel }, 201) : error(403, "FORBIDDEN", "You are not a member of this server.");
   }
   if (request.method === "POST" && url.pathname === "/uploads") {
+    const declaredLength = Number(request.headers.get("content-length"));
+    if (Number.isFinite(declaredLength) && declaredLength > config.maxUploadBytes + 64 * 1024)
+      return error(413, "FILE_TOO_LARGE", "Images must be no larger than 8 MB.");
     const form = await request.formData().catch(() => null);
     const upload = form?.get("file");
     if (!(upload instanceof File)) return error(400, "INVALID_FILE", "Choose an image to upload.");
@@ -205,39 +215,41 @@ export const server = Bun.serve<SocketData>({
   port: config.port,
   async fetch(request, server) {
     const headers = corsHeaders(request);
+    const address = clientAddress(request, server);
+    const pathname = new URL(request.url).pathname;
+    const limiter = pathname === "/auth/login" || pathname === "/auth/register" ? authLimiter : requestLimiter;
+    if (!limiter.consume(address)) {
+      const limited = error(429, "RATE_LIMITED", "Too many requests. Try again later.");
+      limited.headers.set("Retry-After", "60");
+      for (const [key, value] of headers) limited.headers.set(key, value);
+      return securityHeaders(limited);
+    }
     const response = await routes(request, server).catch((cause) => {
       console.error(cause);
       return error(500, "INTERNAL_ERROR", "An unexpected error occurred.");
     });
     if (!response) return;
     for (const [key, value] of headers) response.headers.set(key, value);
-    return response;
+    return securityHeaders(response);
   },
   websocket: {
     open(ws) {
       const sockets = socketsByUser.get(ws.data.user.id) ?? new Set();
       sockets.add(ws); socketsByUser.set(ws.data.user.id, sockets);
       send(ws, { type: "ready", user: ws.data.user });
-      broadcastAll({ type: "presence", userId: ws.data.user.id, status: "online" }, ws);
+      if (ws.data.channelId) broadcastChannel(ws.data.channelId, { type: "presence", userId: ws.data.user.id, status: "online" });
     },
     async message(ws, raw) {
+      if (!ws.data.limiter.consume(ws.data.user.id)) return send(ws, { type: "error", code: "RATE_LIMITED", message: "Too many events. Try again later." });
       if (typeof raw !== "string" || raw.length > 100_000) return send(ws, { type: "error", code: "INVALID_EVENT", message: "Invalid event." });
       let event: WsMessage;
       try { event = JSON.parse(raw); } catch { return send(ws, { type: "error", code: "INVALID_JSON", message: "Message must be valid JSON." }); }
       if (event.type === "chat_message") {
         const channelId = (typeof event.channelId === "string" && event.channelId) || ws.data.channelId || (await firstChannelForUser(ws.data.user.id))?.id || "";
         if (!(await channelForUser(ws.data.user.id, channelId))) return send(ws, { type: "error", code: "FORBIDDEN", message: "You cannot access this channel." });
-        const content = typeof event.content === "string" ? event.content.trim() : "";
-        const candidate = event.media && typeof event.media === "object" ? event.media as Record<string, unknown> : null;
-        const mediaType = candidate?.type === "image" || candidate?.type === "gif" ? candidate.type : null;
-        const mediaUrl = typeof candidate?.url === "string" ? candidate.url : "";
-        const localMedia = /^\/media\/[a-f0-9-]+\.(jpg|png|gif|webp)$/.test(mediaUrl);
-        let tenorMedia = false;
-        try { tenorMedia = new URL(mediaUrl).hostname === "media.tenor.com"; } catch { /* Relative uploads are handled above. */ }
-        const media: MessageMedia | null = mediaType && (localMedia || (mediaType === "gif" && tenorMedia))
-          ? { type: mediaType, url: mediaUrl, alt: typeof candidate?.alt === "string" ? candidate.alt.slice(0, 160) : "Imagem enviada" }
-          : null;
-        if ((!content && !media) || content.length > config.maxMessageLength) return send(ws, { type: "error", code: "INVALID_MESSAGE", message: `Message must contain text or valid media.` });
+        const content = messageContent(event.content, true);
+        const media = messageMedia(event.media);
+        if (content === null || (!content && !media)) return send(ws, { type: "error", code: "INVALID_MESSAGE", message: `Message must contain text or valid media.` });
         const reply = typeof event.replyToId === "string" ? await messageForUser(ws.data.user.id, event.replyToId) : null;
         const replyToId = reply?.channelId === channelId ? reply.id : null;
         const message = await saveMessage(ws.data.user, channelId, content, media, replyToId);
@@ -249,8 +261,8 @@ export const server = Bun.serve<SocketData>({
         if (!target || target.channelId !== ws.data.channelId) return send(ws, { type: "error", code: "NOT_FOUND", message: "Message not found." });
         let message = null;
         if (event.type === "edit_message") {
-          const content = typeof event.content === "string" ? event.content.trim() : "";
-          if (!content || content.length > config.maxMessageLength) return send(ws, { type: "error", code: "INVALID_MESSAGE", message: "Message content is invalid." });
+          const content = messageContent(event.content);
+          if (!content) return send(ws, { type: "error", code: "INVALID_MESSAGE", message: "Message content is invalid." });
           message = await editMessage(ws.data.user.id, messageId, content);
         } else if (event.type === "delete_message") message = await deleteMessage(ws.data.user.id, messageId);
         else message = typeof event.emoji === "string" ? await reactMessage(ws.data.user.id, messageId, event.emoji) : null;
@@ -260,15 +272,17 @@ export const server = Bun.serve<SocketData>({
       if (event.type === "subscribe_channel") {
         const channelId = typeof event.channelId === "string" ? event.channelId : "";
         if (!(await channelForUser(ws.data.user.id, channelId))) return send(ws, { type: "error", code: "FORBIDDEN", message: "You cannot access this channel." });
+        leaveCall(ws);
         ws.data.channelId = channelId;
         return send(ws, { type: "channel_subscribed", channelId });
       }
       if (event.type === "join_call") {
         const callId = typeof event.callId === "string" && /^[a-zA-Z0-9_-]{1,64}$/.test(event.callId) ? event.callId : null;
-        if (!callId) return send(ws, { type: "error", code: "INVALID_CALL", message: "Invalid callId." });
-        if (ws.data.callId === callId) return send(ws, { type: "call_joined", callId, peers: [...(calls.get(callId) ?? [])].filter((peer) => peer !== ws).map((peer) => peer.data.user) });
-        leaveCall(ws); const peers = calls.get(callId) ?? new Set();
-        peers.add(ws); calls.set(callId, peers); ws.data.callId = callId;
+        const key = callId ? callKey(ws, callId) : null;
+        if (!callId || !key) return send(ws, { type: "error", code: "INVALID_CALL", message: "Select an authorized channel before joining a call." });
+        if (ws.data.callId === callId) return send(ws, { type: "call_joined", callId, peers: [...(calls.get(key) ?? [])].filter((peer) => peer !== ws).map((peer) => peer.data.user) });
+        leaveCall(ws); const peers = calls.get(key) ?? new Set();
+        peers.add(ws); calls.set(key, peers); ws.data.callId = callId;
         send(ws, { type: "call_joined", callId, peers: [...peers].filter((peer) => peer !== ws).map((peer) => peer.data.user) });
         for (const peer of peers) if (peer !== ws) send(peer, { type: "peer_joined", callId, user: ws.data.user });
         return;
@@ -276,7 +290,8 @@ export const server = Bun.serve<SocketData>({
       if (event.type === "leave_call") { leaveCall(ws); return; }
       if (["webrtc_offer", "webrtc_answer", "ice_candidate", "screen_share"].includes(String(event.type))) {
         const targetUserId = typeof event.targetUserId === "string" ? event.targetUserId : "";
-        const peers = ws.data.callId ? calls.get(ws.data.callId) : null;
+        const key = callKey(ws);
+        const peers = key ? calls.get(key) : null;
         const target = [...(peers ?? [])].find((peer) => peer.data.user.id === targetUserId);
         if (!target) return send(ws, { type: "error", code: "PEER_NOT_FOUND", message: "Target peer is not in this call." });
         if ((event.type === "webrtc_offer" || event.type === "webrtc_answer") && (!event.sdp || typeof event.sdp !== "object"))
@@ -293,7 +308,10 @@ export const server = Bun.serve<SocketData>({
     },
     close(ws) {
       leaveCall(ws); const sockets = socketsByUser.get(ws.data.user.id); sockets?.delete(ws);
-      if (!sockets?.size) { socketsByUser.delete(ws.data.user.id); broadcastAll({ type: "presence", userId: ws.data.user.id, status: "offline" }); }
+      if (!sockets?.size) {
+        socketsByUser.delete(ws.data.user.id);
+        if (ws.data.channelId) broadcastChannel(ws.data.channelId, { type: "presence", userId: ws.data.user.id, status: "offline" });
+      }
     },
   },
 });

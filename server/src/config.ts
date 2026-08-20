@@ -8,6 +8,14 @@ function integer(name: string, fallback: number): number {
   return value;
 }
 
+function positiveInteger(name: string, fallback: number): number {
+  const value = Number(process.env[name] ?? fallback);
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new Error(`${name} must be a positive integer`);
+  }
+  return value;
+}
+
 export const config = {
   host: process.env.HOST ?? "0.0.0.0",
   port: integer("PORT", 3000),
@@ -22,6 +30,9 @@ export const config = {
   maxMessageLength: 2_000,
   maxHistoryLimit: 100,
   maxUploadBytes: 8 * 1024 * 1024,
+  maxJsonBytes: positiveInteger("MAX_JSON_BYTES", 16 * 1024),
+  authAttemptsPerMinute: positiveInteger("AUTH_ATTEMPTS_PER_MINUTE", 20),
+  requestsPerMinute: positiveInteger("REQUESTS_PER_MINUTE", 300),
   tenorApiKey: process.env.TENOR_API_KEY?.trim() || null,
   tenorClientKey: process.env.TENOR_CLIENT_KEY?.trim() || "huddle",
 };

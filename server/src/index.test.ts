@@ -61,6 +61,12 @@ function nextEvent(socket: WebSocket, type: string): Promise<Record<string, any>
   });
 }
 
+function sendAndWait(socket: WebSocket, type: string, event: Record<string, unknown>): Promise<Record<string, any>> {
+  const received = nextEvent(socket, type);
+  socket.send(JSON.stringify(event));
+  return received;
+}
+
 async function connect(token: string): Promise<WebSocket> {
   const socket = new WebSocket(`${baseUrl.replace("http", "ws")}/ws?token=${encodeURIComponent(token)}`);
   await new Promise<void>((resolve, reject) => {
@@ -75,6 +81,8 @@ describe("huddle API", () => {
     const allowed = await fetch(`${baseUrl}/health`, { headers: { origin: "http://localhost:5173" } });
     expect(allowed.status).toBe(200);
     expect(allowed.headers.get("access-control-allow-origin")).toBe("http://localhost:5173");
+    expect(allowed.headers.get("x-frame-options")).toBe("DENY");
+    expect(allowed.headers.get("x-content-type-options")).toBe("nosniff");
     expect((await allowed.json() as { status: string }).status).toBe("ok");
 
     const denied = await fetch(`${baseUrl}/health`, { headers: { origin: "https://untrusted.example" } });
@@ -91,13 +99,44 @@ describe("huddle API", () => {
 
     const protectedResponse = await fetch(`${baseUrl}/messages`);
     expect(protectedResponse.status).toBe(401);
+
+    const first = await register("duplicate@example.com", "Duplicate");
+    expect(first.user.id).toBeTruthy();
+    const duplicate = await fetch(`${baseUrl}/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "duplicate@example.com", displayName: "Duplicate", password: "secure-password" }),
+    });
+    expect(duplicate.status).toBe(409);
+
+    const oversized = await fetch(`${baseUrl}/auth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "large@example.com", displayName: "Large", password: "x".repeat(17_000) }),
+    });
+    expect(oversized.status).toBe(400);
   });
 
   test("registers, authenticates, stores messages and relays WebRTC signaling", async () => {
     const alice = await register("alice@example.com", "Alice");
     const bob = await register("bob@example.com", "Bob");
+    const aliceHeaders = { authorization: `Bearer ${alice.session.token}` };
+    const bobHeaders = { authorization: `Bearer ${bob.session.token}` };
+    const serverList = await fetch(`${baseUrl}/servers`, { headers: aliceHeaders });
+    const sharedServerId = (await serverList.json() as { servers: Array<{ id: string }> }).servers[0]!.id;
+    const inviteResponse = await fetch(`${baseUrl}/servers/${sharedServerId}/invites`, { method: "POST", headers: aliceHeaders });
+    const inviteCode = (await inviteResponse.json() as { invite: { code: string } }).invite.code;
+    await fetch(`${baseUrl}/invites/join`, {
+      method: "POST",
+      headers: { ...bobHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ code: inviteCode }),
+    });
+    const channelsResponse = await fetch(`${baseUrl}/servers/${sharedServerId}/channels`, { headers: aliceHeaders });
+    const sharedChannelId = (await channelsResponse.json() as { channels: Array<{ id: string }> }).channels[0]!.id;
     const aliceSocket = await connect(alice.session.token);
     const bobSocket = await connect(bob.session.token);
+    await sendAndWait(aliceSocket, "channel_subscribed", { type: "subscribe_channel", channelId: sharedChannelId });
+    await sendAndWait(bobSocket, "channel_subscribed", { type: "subscribe_channel", channelId: sharedChannelId });
 
     const chat = nextEvent(bobSocket, "chat_message");
     aliceSocket.send(JSON.stringify({ type: "chat_message", content: "Olá!" }));
@@ -105,7 +144,7 @@ describe("huddle API", () => {
 
     const uploadForm = new FormData();
     uploadForm.append("file", new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00])], "foto.png", { type: "image/png" }));
-    const upload = await fetch(`${baseUrl}/uploads`, { method: "POST", headers: { authorization: `Bearer ${alice.session.token}` }, body: uploadForm });
+    const upload = await fetch(`${baseUrl}/uploads`, { method: "POST", headers: aliceHeaders, body: uploadForm });
     expect(upload.status).toBe(201);
     const uploadedMedia = (await upload.json() as { media: { url: string; type: string; alt: string } }).media;
     expect((await fetch(`${baseUrl}${uploadedMedia.url}`)).status).toBe(200);
@@ -116,13 +155,11 @@ describe("huddle API", () => {
 
     const invalidForm = new FormData();
     invalidForm.append("file", new File(["not-an-image"], "fake.png", { type: "image/png" }));
-    const invalidUpload = await fetch(`${baseUrl}/uploads`, { method: "POST", headers: { authorization: `Bearer ${alice.session.token}` }, body: invalidForm });
+    const invalidUpload = await fetch(`${baseUrl}/uploads`, { method: "POST", headers: aliceHeaders, body: invalidForm });
     expect(invalidUpload.status).toBe(415);
 
-    aliceSocket.send(JSON.stringify({ type: "join_call", callId: "general" }));
-    await nextEvent(aliceSocket, "call_joined");
-    bobSocket.send(JSON.stringify({ type: "join_call", callId: "general" }));
-    await nextEvent(bobSocket, "call_joined");
+    await sendAndWait(aliceSocket, "call_joined", { type: "join_call", callId: "general" });
+    await sendAndWait(bobSocket, "call_joined", { type: "join_call", callId: "general" });
 
     const offer = nextEvent(bobSocket, "webrtc_offer");
     aliceSocket.send(JSON.stringify({ type: "webrtc_offer", targetUserId: bob.user.id, sdp: { type: "offer", sdp: "test" } }));
@@ -136,7 +173,7 @@ describe("huddle API", () => {
     bobSocket.send(JSON.stringify({ type: "leave_call" }));
     expect(await peerLeft).toMatchObject({ userId: bob.user.id, callId: "general" });
 
-    const history = await fetch(`${baseUrl}/messages`, { headers: { authorization: `Bearer ${alice.session.token}` } });
+    const history = await fetch(`${baseUrl}/messages?channelId=${sharedChannelId}`, { headers: aliceHeaders });
     expect(history.status).toBe(200);
     const historyBody = await history.json() as { messages: unknown[] };
     expect(historyBody.messages).toHaveLength(2);
@@ -168,10 +205,8 @@ describe("huddle API", () => {
 
     const ownerSocket = await connect(owner.session.token);
     const guestSocket = await connect(guest.session.token);
-    ownerSocket.send(JSON.stringify({ type: "subscribe_channel", channelId: channelBody.channel.id }));
-    guestSocket.send(JSON.stringify({ type: "subscribe_channel", channelId: channelBody.channel.id }));
-    await nextEvent(ownerSocket, "channel_subscribed");
-    await nextEvent(guestSocket, "channel_subscribed");
+    await sendAndWait(ownerSocket, "channel_subscribed", { type: "subscribe_channel", channelId: channelBody.channel.id });
+    await sendAndWait(guestSocket, "channel_subscribed", { type: "subscribe_channel", channelId: channelBody.channel.id });
 
     const received = nextEvent(guestSocket, "chat_message");
     ownerSocket.send(JSON.stringify({ type: "chat_message", channelId: channelBody.channel.id, content: "feature test" }));

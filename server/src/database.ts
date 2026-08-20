@@ -27,13 +27,25 @@ export async function findUserByEmail(email: string): Promise<AuthUser | null> {
   const user = await db.user.findUnique({ where: { email }, select: { ...userSelect, passwordHash: true } });
   return user ? { ...userView(user), passwordHash: user.passwordHash } : null;
 }
-export async function createUser(email: string, displayName: string, passwordHash: string): Promise<User> {
-  const created = await db.$transaction(async (tx) => {
-    const user = await tx.user.create({ data: { email, displayName, passwordHash }, select: userSelect });
-    await tx.server.create({ data: { name: "Minha comunidade", ownerId: user.id, members: { create: { userId: user.id, role: "owner" } }, channels: { create: { name: "geral" } } } });
-    return user;
-  });
-  return userView(created);
+export async function createUser(email: string, displayName: string, passwordHash: string): Promise<User | null> {
+  try {
+    const created = await db.$transaction(async (tx) => {
+      const user = await tx.user.create({ data: { email, displayName, passwordHash }, select: userSelect });
+      await tx.server.create({
+        data: {
+          name: "Minha comunidade",
+          ownerId: user.id,
+          members: { create: { userId: user.id, role: "owner" } },
+          channels: { create: { name: "geral" } },
+        },
+      });
+      return user;
+    });
+    return userView(created);
+  } catch (cause) {
+    if (cause instanceof Prisma.PrismaClientKnownRequestError && cause.code === "P2002") return null;
+    throw cause;
+  }
 }
 export async function createSession(userId: string, tokenHash: string, expiresAt: number): Promise<void> { await db.$transaction([db.session.deleteMany({ where: { expiresAt: { lte: new Date() } } }), db.session.create({ data: { tokenHash, userId, expiresAt: new Date(expiresAt) } })]); }
 export async function userForSession(tokenHash: string): Promise<User | null> { const session = await db.session.findFirst({ where: { tokenHash, expiresAt: { gt: new Date() } }, select: { user: { select: userSelect } } }); return session ? userView(session.user) : null; }
