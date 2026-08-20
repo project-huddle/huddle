@@ -59,7 +59,7 @@ export function useRealtime(token: string, channelId: string) {
   const localStream = useRef<MediaStream | null>(null)
   const displayStream = useRef<MediaStream | null>(null)
   const displaySenders = useRef(new Map<string, RTCRtpSender>())
-  const videoAssigned = useRef(new Set<string>())
+  const remoteSharing = useRef(new Set<string>())
 
   const send = useCallback((event: object) => {
     if (socketRef.current?.readyState !== WebSocket.OPEN) return false
@@ -100,12 +100,15 @@ export function useRealtime(token: string, channelId: string) {
       const stream = streams[0] ?? new MediaStream([track])
       if (track.kind === "audio") updatePeer(userId, { audioStream: stream })
       if (track.kind === "video") {
-        if (!videoAssigned.current.has(userId)) { videoAssigned.current.add(userId); updatePeer(userId, { cameraStream: stream }) }
-        else updatePeer(userId, { screenStream: stream, sharing: true })
+        const screen = remoteSharing.current.has(userId)
+        updatePeer(userId, screen ? { screenStream: stream, sharing: true } : { cameraStream: stream })
       }
       track.onended = () => {
         if (track.kind === "audio") updatePeer(userId, { audioStream: null })
-        if (track.kind === "video") updatePeer(userId, { cameraStream: null, screenStream: null, sharing: false })
+        if (track.kind === "video") {
+          const screen = remoteSharing.current.has(userId)
+          updatePeer(userId, screen ? { screenStream: null, sharing: false } : { cameraStream: null })
+        }
       }
     }
     pc.onconnectionstatechange = () => {
@@ -141,7 +144,7 @@ export function useRealtime(token: string, channelId: string) {
     setSharing(false)
     setMuted(false)
     setCameraOff(false)
-    videoAssigned.current.clear()
+    remoteSharing.current.clear()
   }, [send])
 
   useEffect(() => {
@@ -151,15 +154,19 @@ export function useRealtime(token: string, channelId: string) {
       .then(({ messages }) => alive && setMessages(messages))
       .catch((cause: unknown) => alive && setError(cause instanceof Error ? cause.message : "Não foi possível carregar as mensagens."))
 
-    const socket = new WebSocket(websocketUrl(token))
-    socketRef.current = socket
-    socket.onopen = () => setConnected(true)
-    socket.onclose = () => {
+    let socket: WebSocket | null = null
+    const connect = async () => {
+      const { ticket } = await api<{ ticket: string }>("/auth/ws-ticket", { method: "POST" }, token)
+      if (!alive) return
+      socket = new WebSocket(websocketUrl(ticket))
+      socketRef.current = socket
+      socket.onopen = () => setConnected(true)
+      socket.onclose = () => {
       setConnected(false)
       closeCall(false)
     }
-    socket.onerror = () => setError("A conexão em tempo real foi interrompida.")
-    socket.onmessage = async ({ data }) => {
+      socket.onerror = () => setError("A conexão em tempo real foi interrompida.")
+      socket.onmessage = async ({ data }) => {
       try {
         const event = JSON.parse(String(data)) as SocketEvent
         if (event.type === "chat_message") {
@@ -211,12 +218,17 @@ export function useRealtime(token: string, channelId: string) {
           if (pc?.remoteDescription) await pc.addIceCandidate(candidate)
           else pendingCandidates.current.set(userId, [...(pendingCandidates.current.get(userId) ?? []), candidate])
         }
-        if (event.type === "screen_share") updatePeer(event.fromUserId as string, { sharing: event.active === true })
+        if (event.type === "screen_share") {
+          const userId = event.fromUserId as string
+          if (event.active === true) remoteSharing.current.add(userId)
+          else remoteSharing.current.delete(userId)
+          updatePeer(userId, event.active === true ? { sharing: true } : { sharing: false, screenStream: null })
+        }
         if (event.type === "peer_left") {
           const userId = event.userId as string
           connections.current.get(userId)?.close()
           connections.current.delete(userId)
-          videoAssigned.current.delete(userId)
+          remoteSharing.current.delete(userId)
           pendingCandidates.current.delete(userId)
           peerUsers.current.delete(userId)
           setPeers((items) => items.filter((item) => item.user.id !== userId))
@@ -225,16 +237,25 @@ export function useRealtime(token: string, channelId: string) {
           setJoining(false)
           setError(String(event.message ?? "Erro de comunicação."))
         }
+        if (event.type === "access_revoked") {
+          closeCall(false)
+          setError("Seu acesso a este canal foi removido. Atualize ou selecione outro servidor.")
+        }
       } catch (cause) {
         console.error("Realtime event failed", cause)
         setError("Falha ao processar um evento da chamada.")
       }
+      }
+      const subscribe = () => socket?.readyState === WebSocket.OPEN && socket.send(JSON.stringify({ type: "subscribe_channel", channelId }))
+      socket.addEventListener("open", subscribe)
     }
-    const subscribe = () => socket.readyState === WebSocket.OPEN && socket.send(JSON.stringify({ type: "subscribe_channel", channelId }))
-    socket.addEventListener("open", subscribe)
+    void connect().catch((cause: unknown) => {
+      if (alive) setError(cause instanceof Error ? cause.message : "Não foi possível abrir a conexão em tempo real.")
+    })
     return () => {
       alive = false
-      socket.close()
+      socket?.close()
+      if (socketRef.current === socket) socketRef.current = null
       closeCall(false)
     }
   }, [channelId, closeCall, createPeer, flushCandidates, makeOffer, send, token, updatePeer])
@@ -245,10 +266,19 @@ export function useRealtime(token: string, channelId: string) {
     setJoining(true)
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new DOMException("Media devices unavailable", "NotSupportedError")
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        video: { width: { ideal: 640 }, height: { ideal: 360 }, facingMode: "user" },
-      })
+      const audio = { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      let stream: MediaStream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio,
+          video: { width: { ideal: 640 }, height: { ideal: 360 }, facingMode: "user" },
+        })
+      } catch (cause) {
+        const name = cause instanceof DOMException ? cause.name : ""
+        if (!new Set(["NotFoundError", "OverconstrainedError"]).has(name)) throw cause
+        stream = await navigator.mediaDevices.getUserMedia({ audio, video: false })
+        setCameraOff(true)
+      }
       localStream.current = stream
       setLocalMediaStream(stream)
       if (!send({ type: "join_call", callId: `channel-${channelId}` })) {

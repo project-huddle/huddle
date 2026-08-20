@@ -1,8 +1,8 @@
-import { authenticate, hashToken, issueSession, revoke } from "./auth";
+import { authenticate, issueSession, revoke } from "./auth";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { config } from "./config";
-import { channelForUser, createChannel, createInvite, createServer, createUser, deleteMessage, editMessage, findUserByEmail, firstChannelForUser, isServerMember, joinServer, leaveServer, listChannels, listServers, messageForUser, messageHistory, reactMessage, removeMember, saveMessage, serverForUser, serverMembers, setMemberRole, userForSession, type User } from "./database";
+import { channelForUser, createChannel, createInvite, createServer, createUser, deleteMessage, editMessage, findUserByEmail, firstChannelForUser, isServerMember, joinServer, leaveServer, listChannels, listServers, messageForUser, messageHistory, reactMessage, removeMember, saveMessage, serverForUser, serverMembers, setMemberRole, type User } from "./database";
 import { body, corsHeaders, error, json, securityHeaders } from "./http";
 import { clientAddress, FixedWindowRateLimiter } from "./rate-limit";
 import { messageContent, messageMedia, validEmail } from "./validation";
@@ -14,6 +14,7 @@ const socketsByUser = new Map<string, Set<Bun.ServerWebSocket<SocketData>>>();
 const calls = new Map<string, Set<Bun.ServerWebSocket<SocketData>>>();
 const requestLimiter = new FixedWindowRateLimiter(config.requestsPerMinute);
 const authLimiter = new FixedWindowRateLimiter(config.authAttemptsPerMinute);
+const websocketTickets = new Map<string, { expiresAt: number; user: User }>();
 mkdirSync(config.uploadsPath, { recursive: true });
 
 const imageTypes = {
@@ -57,6 +58,33 @@ function leaveCall(ws: Bun.ServerWebSocket<SocketData>): void {
   ws.data.callId = null;
 }
 
+function issueWebSocketTicket(user: User): string {
+  const ticket = crypto.randomUUID();
+  const now = Date.now();
+  websocketTickets.set(ticket, { user, expiresAt: now + 30_000 });
+  for (const [key, value] of websocketTickets) {
+    if (value.expiresAt <= now) websocketTickets.delete(key);
+  }
+  return ticket;
+}
+
+function consumeWebSocketTicket(ticket: string | null): User | null {
+  if (!ticket) return null;
+  const entry = websocketTickets.get(ticket);
+  websocketTickets.delete(ticket);
+  return entry && entry.expiresAt > Date.now() ? entry.user : null;
+}
+
+async function revokeUnauthorizedSocketAccess(userId: string): Promise<void> {
+  for (const socket of socketsByUser.get(userId) ?? []) {
+    const channelId = socket.data.channelId;
+    if (!channelId || await channelForUser(userId, channelId)) continue;
+    leaveCall(socket);
+    socket.data.channelId = null;
+    send(socket, { type: "access_revoked", channelId });
+  }
+}
+
 async function routes(request: Request, server: Bun.Server<SocketData>): Promise<Response | undefined> {
   const url = new URL(request.url);
   if (request.method === "OPTIONS") return new Response(null, { status: 204 });
@@ -93,9 +121,8 @@ async function routes(request: Request, server: Bun.Server<SocketData>): Promise
   if (url.pathname === "/ws") {
     const origin = request.headers.get("origin");
     if (origin && !config.corsOrigins.has(origin)) return error(403, "ORIGIN_NOT_ALLOWED", "WebSocket origin is not allowed.");
-    const token = url.searchParams.get("token");
-    const user = token ? await userForSession(hashToken(token)) : null;
-    if (!user) return error(401, "UNAUTHORIZED", "A valid session token is required.");
+    const user = consumeWebSocketTicket(url.searchParams.get("ticket"));
+    if (!user) return error(401, "UNAUTHORIZED", "A valid one-time WebSocket ticket is required.");
     const channelId = (await firstChannelForUser(user.id))?.id ?? null;
     if (server.upgrade(request, { data: { user, callId: null, channelId, limiter: new FixedWindowRateLimiter(120) } })) return;
     return error(500, "UPGRADE_FAILED", "Could not open WebSocket.");
@@ -105,6 +132,7 @@ async function routes(request: Request, server: Bun.Server<SocketData>): Promise
   if (!user) return error(401, "UNAUTHORIZED", "A valid bearer token is required.");
   if (request.method === "GET" && url.pathname === "/auth/me") return json({ user });
   if (request.method === "POST" && url.pathname === "/auth/logout") { await revoke(request); return new Response(null, { status: 204 }); }
+  if (request.method === "POST" && url.pathname === "/auth/ws-ticket") return json({ ticket: issueWebSocketTicket(user), expiresIn: 30 });
   if (request.method === "GET" && url.pathname === "/servers") return json({ servers: await listServers(user.id) });
   if (request.method === "POST" && url.pathname === "/servers") {
     const input = await body(request);
@@ -133,6 +161,7 @@ async function routes(request: Request, server: Bun.Server<SocketData>): Promise
   }
   if (request.method === "DELETE" && memberActionMatch) {
     const result = memberActionMatch[1] && memberActionMatch[2] ? await removeMember(user.id, memberActionMatch[1], memberActionMatch[2]) : "missing";
+    if (result === "ok" && memberActionMatch[2]) await revokeUnauthorizedSocketAccess(memberActionMatch[2]);
     return result === "ok" ? new Response(null, { status: 204 }) : error(result === "forbidden" ? 403 : 404, result === "forbidden" ? "FORBIDDEN" : "NOT_FOUND", result === "forbidden" ? "Only the owner can remove members." : "Member not found.");
   }
   const inviteMatch = url.pathname.match(/^\/servers\/([a-f0-9-]+)\/invites$/);
@@ -151,6 +180,7 @@ async function routes(request: Request, server: Bun.Server<SocketData>): Promise
   if (request.method === "POST" && leaveMatch) {
     const result = leaveMatch[1] ? await leaveServer(user.id, leaveMatch[1]) : "missing";
     if (result === "owner") return error(409, "OWNER_CANNOT_LEAVE", "The owner cannot leave their own server.");
+    if (result === "left") await revokeUnauthorizedSocketAccess(user.id);
     return result === "left" ? new Response(null, { status: 204 }) : error(404, "NOT_FOUND", "Server not found.");
   }
   const channelsMatch = url.pathname.match(/^\/servers\/([a-f0-9-]+)\/channels$/);

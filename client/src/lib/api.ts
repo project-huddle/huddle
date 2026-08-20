@@ -55,11 +55,11 @@ export async function api<T>(path: string, options: RequestInit = {}, token?: st
   return response.json() as Promise<T>
 }
 
-export function websocketUrl(token: string) {
+export function websocketUrl(ticket: string) {
   const url = new URL(API_URL)
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:"
   url.pathname = "/ws"
-  url.search = new URLSearchParams({ token }).toString()
+  url.search = new URLSearchParams({ ticket }).toString()
   return url.toString()
 }
 

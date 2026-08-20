@@ -13,14 +13,24 @@ export type ServerInvite = { code: string; serverId: string; expiresAt: string }
 export type AccessibleMessage = ChatMessage & { userId: string };
 
 const userSelect = { id: true, email: true, displayName: true, createdAt: true } satisfies Prisma.UserSelect;
-const messageInclude = { author: { select: userSelect } } satisfies Prisma.MessageInclude;
+const messageInclude = { author: { select: userSelect }, reactionEntries: { select: { emoji: true } } } satisfies Prisma.MessageInclude;
 const userView = (user: { id: string; email: string; displayName: string; createdAt: Date }): User => ({ ...user, createdAt: user.createdAt.toISOString() });
 const serverView = (server: { id: string; name: string; ownerId: string; createdAt: Date }): Server => ({ ...server, createdAt: server.createdAt.toISOString() });
 const channelView = (channel: { id: string; serverId: string; name: string; type: string }): Channel => ({ id: channel.id, serverId: channel.serverId, name: channel.name, type: "text" });
 
 function messageView(message: Prisma.MessageGetPayload<{ include: typeof messageInclude }>): ChatMessage {
   const deleted = Boolean(message.deletedAt);
-  return { id: message.id, channelId: message.channelId, content: deleted ? "" : message.content, createdAt: message.createdAt.toISOString(), editedAt: message.editedAt?.toISOString() ?? null, deletedAt: message.deletedAt?.toISOString() ?? null, replyToId: message.replyToId, reactions: message.reactions as Record<string, number>, author: userView(message.author), media: !deleted && message.mediaUrl && (message.mediaType === "image" || message.mediaType === "gif") ? { url: message.mediaUrl, type: message.mediaType, alt: message.mediaAlt ?? "Imagem enviada" } : null };
+  const legacy = message.legacyReactions && typeof message.legacyReactions === "object" && !Array.isArray(message.legacyReactions)
+    ? message.legacyReactions as Record<string, unknown>
+    : {};
+  const reactions = Object.fromEntries(
+    Object.entries(legacy).filter((entry): entry is [string, number] => Number.isSafeInteger(entry[1]) && Number(entry[1]) > 0),
+  );
+  message.reactionEntries.reduce<Record<string, number>>((counts, reaction) => {
+    counts[reaction.emoji] = (counts[reaction.emoji] ?? 0) + 1;
+    return counts;
+  }, reactions);
+  return { id: message.id, channelId: message.channelId, content: deleted ? "" : message.content, createdAt: message.createdAt.toISOString(), editedAt: message.editedAt?.toISOString() ?? null, deletedAt: message.deletedAt?.toISOString() ?? null, replyToId: message.replyToId, reactions, author: userView(message.author), media: !deleted && message.mediaUrl && (message.mediaType === "image" || message.mediaType === "gif") ? { url: message.mediaUrl, type: message.mediaType, alt: message.mediaAlt ?? "Imagem enviada" } : null };
 }
 
 export async function findUserByEmail(email: string): Promise<AuthUser | null> {
@@ -73,12 +83,20 @@ export async function createChannel(userId: string, serverId: string, name: stri
 export async function channelForUser(userId: string, channelId: string): Promise<Channel | null> { const channel = await db.channel.findFirst({ where: { id: channelId, server: { members: { some: { userId } } } } }); return channel ? channelView(channel) : null; }
 export async function firstChannelForUser(userId: string): Promise<Channel | null> { const channel = await db.channel.findFirst({ where: { server: { members: { some: { userId } } } }, orderBy: { createdAt: "asc" } }); return channel ? channelView(channel) : null; }
 
-export async function saveMessage(user: User, channelId: string, content: string, media: MessageMedia | null = null, replyToId: string | null = null): Promise<ChatMessage> { return messageView(await db.message.create({ data: { userId: user.id, channelId, content, replyToId, reactions: {}, mediaUrl: media?.url, mediaType: media?.type, mediaAlt: media?.alt }, include: messageInclude })); }
+export async function saveMessage(user: User, channelId: string, content: string, media: MessageMedia | null = null, replyToId: string | null = null): Promise<ChatMessage> { return messageView(await db.message.create({ data: { userId: user.id, channelId, content, replyToId, mediaUrl: media?.url, mediaType: media?.type, mediaAlt: media?.alt }, include: messageInclude })); }
 export async function messageHistory(channelId: string, limit: number, before?: string): Promise<ChatMessage[]> { const rows = await db.message.findMany({ where: { channelId, ...(before ? { createdAt: { lt: new Date(before) } } : {}) }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: limit, include: messageInclude }); return rows.reverse().map(messageView); }
 export async function messageForUser(userId: string, messageId: string): Promise<AccessibleMessage | null> { const row = await db.message.findFirst({ where: { id: messageId, channel: { server: { members: { some: { userId } } } } }, include: messageInclude }); return row ? { ...messageView(row), userId: row.userId } : null; }
 export async function editMessage(userId: string, messageId: string, content: string): Promise<ChatMessage | null> { const row = await messageForUser(userId, messageId); if (!row || row.userId !== userId || row.deletedAt) return null; return messageView(await db.message.update({ where: { id: messageId }, data: { content, editedAt: new Date() }, include: messageInclude })); }
 export async function deleteMessage(userId: string, messageId: string): Promise<ChatMessage | null> { const row = await messageForUser(userId, messageId); if (!row || row.userId !== userId || row.deletedAt) return null; return messageView(await db.message.update({ where: { id: messageId }, data: { content: "", mediaUrl: null, mediaType: null, mediaAlt: null, deletedAt: new Date() }, include: messageInclude })); }
 export async function reactMessage(userId: string, messageId: string, emoji: string): Promise<ChatMessage | null> {
   if (!/\p{Extended_Pictographic}/u.test(emoji) || emoji.length > 8) return null;
-  return db.$transaction(async (tx) => { const row = await tx.message.findFirst({ where: { id: messageId, deletedAt: null, channel: { server: { members: { some: { userId } } } } }, include: messageInclude }); if (!row) return null; const reactions = { ...row.reactions as Record<string, number> }; if (reactions[emoji]) delete reactions[emoji]; else reactions[emoji] = 1; return messageView(await tx.message.update({ where: { id: messageId }, data: { reactions }, include: messageInclude })); });
+  return db.$transaction(async (tx) => {
+    const message = await tx.message.findFirst({ where: { id: messageId, deletedAt: null, channel: { server: { members: { some: { userId } } } } }, select: { id: true } });
+    if (!message) return null;
+    const key = { messageId_userId_emoji: { messageId, userId, emoji } };
+    const existing = await tx.messageReaction.findUnique({ where: key, select: { messageId: true } });
+    if (existing) await tx.messageReaction.delete({ where: key });
+    else await tx.messageReaction.create({ data: { messageId, userId, emoji } });
+    return messageView(await tx.message.findUniqueOrThrow({ where: { id: messageId }, include: messageInclude }));
+  });
 }

@@ -18,6 +18,7 @@ model User {
   memberships  ServerMember[]
   invites      Invite[]       @relation("InviteCreator")
   messages     Message[]      @relation("MessageAuthor")
+  reactions    MessageReaction[]
 
   @@map("users")
 }
@@ -93,7 +94,7 @@ model Message {
   editedAt  DateTime? @map("edited_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
   replyToId String?   @map("reply_to_id") @db.Uuid
-  reactions Json      @default("{}")
+  legacyReactions Json @default("{}") @map("reactions")
   mediaUrl  String?   @map("media_url")
   mediaType String?   @map("media_type") @db.VarChar(16)
   mediaAlt  String?   @map("media_alt") @db.VarChar(160)
@@ -101,7 +102,21 @@ model Message {
   channel   Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
   replyTo   Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies   Message[] @relation("MessageReplies")
+  reactionEntries MessageReaction[]
 
   @@index([channelId, createdAt(sort: Desc), id(sort: Desc)], map: "messages_created_idx")
   @@map("messages")
+}
+
+model MessageReaction {
+  messageId String   @map("message_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  emoji     String   @db.VarChar(32)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId, emoji])
+  @@index([userId], map: "message_reactions_user_idx")
+  @@map("message_reactions")
 }

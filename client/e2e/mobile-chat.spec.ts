@@ -43,8 +43,10 @@ test.describe("mobile chat", () => {
 
     const article = message.locator("xpath=ancestor::article")
     await article.hover()
-    page.once("dialog", (dialog) => dialog.accept("mensagem editada"))
     await article.getByTitle("Editar").click()
+    const editDialog = page.getByRole("dialog", { name: "Editar mensagem" })
+    await editDialog.getByRole("textbox").fill("mensagem editada")
+    await editDialog.getByRole("button", { name: "Salvar" }).click()
     await expect(page.getByText(/mensagem editada/)).toBeVisible()
     const editedArticle = page.getByText(/mensagem editada/).locator("xpath=ancestor::article")
     await editedArticle.hover()

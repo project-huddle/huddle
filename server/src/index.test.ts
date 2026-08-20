@@ -68,7 +68,10 @@ function sendAndWait(socket: WebSocket, type: string, event: Record<string, unkn
 }
 
 async function connect(token: string): Promise<WebSocket> {
-  const socket = new WebSocket(`${baseUrl.replace("http", "ws")}/ws?token=${encodeURIComponent(token)}`);
+  const ticketResponse = await fetch(`${baseUrl}/auth/ws-ticket`, { method: "POST", headers: { authorization: `Bearer ${token}` } });
+  expect(ticketResponse.status).toBe(200);
+  const { ticket } = await ticketResponse.json() as { ticket: string };
+  const socket = new WebSocket(`${baseUrl.replace("http", "ws")}/ws?ticket=${encodeURIComponent(ticket)}`);
   await new Promise<void>((resolve, reject) => {
     socket.addEventListener("open", () => resolve(), { once: true });
     socket.addEventListener("error", () => reject(new Error("WebSocket failed")), { once: true });
@@ -115,6 +118,23 @@ describe("huddle API", () => {
       body: JSON.stringify({ email: "large@example.com", displayName: "Large", password: "x".repeat(17_000) }),
     });
     expect(oversized.status).toBe(400);
+  });
+
+  test("uses short-lived, single-use WebSocket tickets instead of session tokens in URLs", async () => {
+    const account = await register("ticket@example.com", "Ticket");
+    const response = await fetch(`${baseUrl}/auth/ws-ticket`, { method: "POST", headers: { authorization: `Bearer ${account.session.token}` } });
+    const { ticket } = await response.json() as { ticket: string };
+    const first = new WebSocket(`${baseUrl.replace("http", "ws")}/ws?ticket=${ticket}`);
+    await new Promise<void>((resolve, reject) => {
+      first.addEventListener("open", () => resolve(), { once: true });
+      first.addEventListener("error", () => reject(new Error("First ticket use failed")), { once: true });
+    });
+    first.close();
+
+    const replay = await fetch(`${baseUrl}/ws?ticket=${ticket}`, { headers: { upgrade: "websocket" } });
+    expect(replay.status).toBe(401);
+    const leakedSession = await fetch(`${baseUrl}/ws?token=${account.session.token}`, { headers: { upgrade: "websocket" } });
+    expect(leakedSession.status).toBe(401);
   });
 
   test("registers, authenticates, stores messages and relays WebRTC signaling", async () => {
@@ -217,6 +237,12 @@ describe("huddle API", () => {
     const reacted = nextEvent(ownerSocket, "react_message");
     guestSocket.send(JSON.stringify({ type: "react_message", messageId: message.id, emoji: "👍" }));
     expect((await reacted).message.reactions["👍"]).toBe(1);
+    const reactedByOwner = nextEvent(ownerSocket, "react_message");
+    ownerSocket.send(JSON.stringify({ type: "react_message", messageId: message.id, emoji: "👍" }));
+    expect((await reactedByOwner).message.reactions["👍"]).toBe(2);
+    const guestRemovedOwnReaction = nextEvent(ownerSocket, "react_message");
+    guestSocket.send(JSON.stringify({ type: "react_message", messageId: message.id, emoji: "👍" }));
+    expect((await guestRemovedOwnReaction).message.reactions["👍"]).toBe(1);
     const replied = nextEvent(guestSocket, "chat_message");
     ownerSocket.send(JSON.stringify({ type: "chat_message", channelId: channelBody.channel.id, content: "reply", replyToId: message.id }));
     expect((await replied).message.replyToId).toBe(message.id);
@@ -226,6 +252,13 @@ describe("huddle API", () => {
     const forbiddenEdit = nextEvent(guestSocket, "error");
     guestSocket.send(JSON.stringify({ type: "edit_message", messageId: message.id, content: "should fail" }));
     expect((await forbiddenEdit).code).toBe("FORBIDDEN");
+    const revoked = nextEvent(guestSocket, "access_revoked");
+    const removed = await fetch(`${baseUrl}/servers/${createdBody.server.id}/members/${guest.user.id}`, { method: "DELETE", headers: ownerHeaders });
+    expect(removed.status).toBe(204);
+    expect(await revoked).toMatchObject({ channelId: channelBody.channel.id });
+    const cannotSendAfterRemoval = nextEvent(guestSocket, "error");
+    guestSocket.send(JSON.stringify({ type: "chat_message", channelId: channelBody.channel.id, content: "still here" }));
+    expect((await cannotSendAfterRemoval).code).toBe("FORBIDDEN");
     ownerSocket.close(); guestSocket.close();
   });
 });
