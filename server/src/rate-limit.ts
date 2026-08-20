@@ -27,6 +27,9 @@ export class FixedWindowRateLimiter {
   }
 }
 
-export function clientAddress(request: Request, server: Bun.Server<unknown>): string {
-  return server.requestIP(request)?.address ?? "unknown";
+export function clientAddress(
+  request: Request,
+  server: Pick<Bun.Server<unknown>, "requestIP"> | null,
+): string {
+  return server?.requestIP(request)?.address ?? "unknown";
 }

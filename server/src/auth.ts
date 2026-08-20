@@ -1,12 +1,19 @@
 import { createHash, randomBytes } from "node:crypto";
 import { config } from "./config";
-import { createSession, deleteSession, userForSession, type User } from "./database";
+import {
+  createSession,
+  deleteSession,
+  userForSession,
+  type User,
+} from "./database";
 
 export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-export async function issueSession(userId: string): Promise<{ token: string; expiresAt: string }> {
+export async function issueSession(
+  userId: string,
+): Promise<{ token: string; expiresAt: string }> {
   const token = randomBytes(32).toString("base64url");
   const expiry = Date.now() + config.sessionLifetimeSeconds * 1_000;
   await createSession(userId, hashToken(token), expiry);

@@ -11,7 +11,14 @@ model User {
   id           String         @id @default(uuid()) @db.Uuid
   email        String         @unique @db.VarChar(254)
   displayName  String         @map("display_name") @db.VarChar(32)
+  avatarUrl    String?        @map("avatar_url") @db.VarChar(500)
   passwordHash String         @map("password_hash")
+  emailVerifiedAt DateTime?   @map("email_verified_at") @db.Timestamptz(3)
+  countryCode  String?        @map("country_code") @db.Char(2)
+  ageGroup      String?       @map("age_group") @db.VarChar(16)
+  ageVerifiedAt DateTime?     @map("age_verified_at") @db.Timestamptz(3)
+  ageVerificationProvider String? @map("age_verification_provider") @db.VarChar(32)
+  twoFactorEnabled Boolean    @default(false) @map("two_factor_enabled")
   createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   sessions     Session[]
   ownedServers Server[]       @relation("ServerOwner")
@@ -19,6 +26,13 @@ model User {
   invites      Invite[]       @relation("InviteCreator")
   messages     Message[]      @relation("MessageAuthor")
   reactions    MessageReaction[]
+  emailTokens  EmailToken[]
+  friendshipsRequested Friendship[] @relation("FriendRequester")
+  friendshipsReceived  Friendship[] @relation("FriendAddressee")
+  directMessagesSent DirectMessage[] @relation("DirectSender")
+  directMessagesReceived DirectMessage[] @relation("DirectRecipient")
+  reportsCreated Report[] @relation("ReportCreator")
+  reportsTargeting Report[] @relation("ReportTarget")
 
   @@map("users")
 }
@@ -51,6 +65,7 @@ model ServerMember {
   serverId String   @map("server_id") @db.Uuid
   userId   String   @map("user_id") @db.Uuid
   role     String   @default("member") @db.VarChar(16)
+  permissions String[] @default([])
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   server   Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -58,6 +73,64 @@ model ServerMember {
   @@id([serverId, userId])
   @@index([userId], map: "server_members_user_idx")
   @@map("server_members")
+}
+
+model EmailToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  purpose   String   @db.VarChar(32)
+  codeHash  String   @map("code_hash") @db.Char(64)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose], map: "email_tokens_user_purpose_idx")
+  @@map("email_tokens")
+}
+
+model Friendship {
+  requesterId String   @map("requester_id") @db.Uuid
+  addresseeId String   @map("addressee_id") @db.Uuid
+  status      String   @default("pending") @db.VarChar(16)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  requester   User     @relation("FriendRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee   User     @relation("FriendAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@id([requesterId, addresseeId])
+  @@index([addresseeId, status], map: "friendships_addressee_idx")
+  @@map("friendships")
+}
+
+model DirectMessage {
+  id          String   @id @default(uuid()) @db.Uuid
+  senderId    String   @map("sender_id") @db.Uuid
+  recipientId String   @map("recipient_id") @db.Uuid
+  content     String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  readAt      DateTime? @map("read_at") @db.Timestamptz(3)
+  sender      User     @relation("DirectSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient   User     @relation("DirectRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, recipientId, createdAt(sort: Desc)], map: "direct_messages_sender_idx")
+  @@index([recipientId, senderId, createdAt(sort: Desc)], map: "direct_messages_recipient_idx")
+  @@map("direct_messages")
+}
+
+model Report {
+  id           String   @id @default(uuid()) @db.Uuid
+  reporterId   String   @map("reporter_id") @db.Uuid
+  targetUserId String?  @map("target_user_id") @db.Uuid
+  serverId     String?  @map("server_id") @db.Uuid
+  messageId    String?  @map("message_id") @db.Uuid
+  reason       String   @db.VarChar(1000)
+  status       String   @default("open") @db.VarChar(16)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  reporter     User     @relation("ReportCreator", fields: [reporterId], references: [id], onDelete: Cascade)
+  targetUser   User?    @relation("ReportTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+
+  @@index([serverId, status, createdAt], map: "reports_server_idx")
+  @@map("reports")
 }
 
 model Invite {

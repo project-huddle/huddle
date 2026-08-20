@@ -14,12 +14,16 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/nodemailer": "^8.0.1",
+    "prettier": "^3.9.6",
     "prisma": "^6.19.0"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.0"
+    "@prisma/client": "^6.19.0",
+    "elysia": "^1.4.29",
+    "nodemailer": "^9.0.5"
   }
 }

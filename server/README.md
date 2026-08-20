@@ -1,89 +1,28 @@
-# huddle server
+# Huddle server
 
-Back-end em Bun + TypeScript para autenticação, chat persistente e sinalização de chamadas WebRTC. A persistência usa Prisma e PostgreSQL, com migrações versionadas em `prisma/migrations`.
-
-## Executar
-
-Requer Bun 1.3 ou mais recente e PostgreSQL 14 ou mais recente.
-
-```bash
-bun install
-cp .env.example .env
-bun run db:migrate
-bun run dev
-```
-
-O servidor usa `http://localhost:3000` por padrão. As variáveis aceitas estão em `.env.example`; `DATABASE_URL` é obrigatória. Em produção, limite `CORS_ORIGINS` à origem HTTPS exata do cliente e aplique `bun run db:migrate` antes de iniciar cada nova versão.
-
-```bash
-bun run typecheck
-bun test
-```
-
-## API HTTP
-
-Todos os corpos e respostas usam JSON. Erros têm a forma `{ "error": { "code": "...", "message": "..." } }`.
-
-### Autenticação
-
-- `POST /auth/register` — `{ email, displayName, password }`; devolve `{ user, session: { token, expiresAt } }`.
-- `POST /auth/login` — `{ email, password }`; devolve o mesmo formato.
-- `GET /auth/me` — requer `Authorization: Bearer <token>`.
-- `POST /auth/logout` — requer bearer token e revoga a sessão.
-
-Senhas têm de ter entre 8 e 128 caracteres e são armazenadas com Argon2id. O token de sessão dura 30 dias; apenas seu SHA-256 fica no banco.
-
-### Mensagens
-
-`GET /messages?limit=50&before=<data ISO>` requer autenticação e devolve `{ messages: [...] }` em ordem cronológica. `limit` vai de 1 a 100. Para paginar para trás, use o `createdAt` da primeira mensagem como `before`.
-
-### Saúde
-
-`GET /health` não exige autenticação.
-
-## WebSocket
-
-Conecte a `ws://localhost:3000/ws?token=<token>`. O primeiro evento recebido é:
-
-```json
-{ "type": "ready", "user": { "id": "...", "email": "...", "displayName": "..." } }
-```
-
-Envie texto pelo socket:
-
-```json
-{ "type": "chat_message", "content": "Olá" }
-```
-
-Todos os clientes conectados recebem `{ "type": "chat_message", "message": ... }`. O servidor também emite eventos `presence` com `userId` e status `online`/`offline`.
-
-## Chamada e compartilhamento de tela
-
-O servidor é o canal de sinalização. Áudio, vídeo e tela trafegam diretamente entre navegadores por `RTCPeerConnection` — o cliente deve usar `getUserMedia()` para câmera/microfone e `getDisplayMedia()` para a tela.
-
-1. Envie `{ "type": "join_call", "callId": "general" }`.
-2. O cliente recebe `call_joined`, contendo os usuários já presentes. Eles recebem `peer_joined`.
-3. Para cada participante, crie um `RTCPeerConnection` e troque eventos direcionados:
-
-```json
-{ "type": "webrtc_offer", "targetUserId": "...", "sdp": { "type": "offer", "sdp": "..." } }
-{ "type": "webrtc_answer", "targetUserId": "...", "sdp": { "type": "answer", "sdp": "..." } }
-{ "type": "ice_candidate", "targetUserId": "...", "candidate": { "candidate": "..." } }
-{ "type": "screen_share", "targetUserId": "...", "active": true }
-```
-
-Ao receber, esses eventos trazem `fromUserId` no lugar de `targetUserId`. `peer_left` informa a saída. Também é possível enviar `leave_call` explicitamente.
-
-Ao iniciar a tela, o cliente adiciona a faixa com `addTrack()` ou substitui a faixa de vídeo com `replaceTrack()`, renegocia se necessário e envia `screen_share` a cada peer. Ao encerrar, restaura a câmera e envia `active: false`.
-
-Para uso fora da rede local, configure servidores STUN no `RTCPeerConnection`. Redes restritivas também exigem um servidor TURN; isso é infraestrutura de retransmissão de mídia e fica deliberadamente separado desta API.
+API Bun + TypeScript com PostgreSQL e Prisma.
 
 ## Estrutura
 
-- `src/index.ts`: rotas e protocolo WebSocket.
-- `prisma/schema.prisma`: modelos PostgreSQL e configuração do Prisma Client.
-- `prisma/migrations`: migrações versionadas para deploy.
-- `src/database.ts`: repositórios assíncronos baseados no Prisma Client.
-- `src/auth.ts`: emissão, validação e revogação de sessões.
-- `src/config.ts`: configuração por ambiente.
-- `src/index.test.ts`: integração HTTP + dois clientes WebSocket.
+- `src/core`: regras puras de domínio;
+- `src/app`: casos de uso;
+- `src/infra`: Prisma, criptografia e Nodemailer;
+- `src/interfaces`: adaptadores HTTP e tempo real;
+- `src/index.ts`: bootstrap e rotas legadas em migração;
+- `prisma/migrations`: evolução versionada do banco.
+
+## Executar e validar
+
+```bash
+bun install --frozen-lockfile
+cp .env.example .env
+bun run db:generate
+bun run db:migrate
+bun run dev
+bun run typecheck
+DATABASE_URL=postgresql://.../huddle_test bun test --coverage
+```
+
+Os testes apagam os dados do banco informado. Use exclusivamente um banco isolado de testes.
+
+WebSockets são autenticados por tickets descartáveis obtidos em `POST /auth/ws-ticket`; tokens de sessão não devem ser colocados em URLs. Consulte os ADRs em `docs/ADR` para decisões de arquitetura, dados, e-mail e privacidade.
