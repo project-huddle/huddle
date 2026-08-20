@@ -1,0 +1,253 @@
+import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { api, websocketUrl, type ChatMessage, type User } from "@/lib/api";
+import type { RealtimePeer, SocketEvent } from "@/types/realtime";
+
+type Options = {
+	token: string; channelId: string;
+	socketRef: MutableRefObject<WebSocket | null>;
+	peerUsers: MutableRefObject<Map<string, User>>;
+	displayStream: MutableRefObject<MediaStream | null>;
+	remoteSharing: MutableRefObject<Set<string>>;
+	connections: MutableRefObject<Map<string, RTCPeerConnection>>;
+	pendingCandidates: MutableRefObject<Map<string, RTCIceCandidateInit[]>>;
+	closeCall: (notify: boolean) => void;
+	createPeer: (userId: string) => RTCPeerConnection;
+	flushCandidates: (userId: string, peer: RTCPeerConnection) => Promise<void>;
+	makeOffer: (userId: string, peer: RTCPeerConnection) => Promise<void>;
+	send: (event: object) => boolean;
+	updatePeer: (userId: string, changes: Partial<RealtimePeer>) => void;
+	setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
+	setConnected: Dispatch<SetStateAction<boolean>>;
+	setError: Dispatch<SetStateAction<string | null>>;
+	setPeers: Dispatch<SetStateAction<RealtimePeer[]>>;
+	setJoining: Dispatch<SetStateAction<boolean>>;
+	setInCall: Dispatch<SetStateAction<boolean>>;
+};
+
+export function useRealtimeConnection(options: Options) {
+	const { token, channelId, socketRef, peerUsers, displayStream, remoteSharing, connections, pendingCandidates,
+		closeCall, createPeer, flushCandidates, makeOffer, send, updatePeer,
+		setMessages, setConnected, setError, setPeers, setJoining, setInCall } = options;
+	useEffect(() => {
+		if (!channelId) return;
+		let alive = true;
+		api<{ messages: ChatMessage[] }>(
+			`/messages?channelId=${encodeURIComponent(channelId)}&limit=100`,
+			{},
+			token,
+		)
+			.then(({ messages }) => alive && setMessages(messages))
+			.catch(
+				(cause: unknown) =>
+					alive &&
+					setError(
+						cause instanceof Error
+							? cause.message
+							: "Não foi possível carregar as mensagens.",
+					),
+			);
+
+		let socket: WebSocket | null = null;
+		const connect = async () => {
+			const { ticket } = await api<{ ticket: string }>(
+				"/auth/ws-ticket",
+				{ method: "POST" },
+				token,
+			);
+			if (!alive) return;
+			socket = new WebSocket(websocketUrl(ticket));
+			socketRef.current = socket;
+			socket.onopen = () => setConnected(true);
+			socket.onclose = () => {
+				setConnected(false);
+				closeCall(false);
+			};
+			socket.onerror = () =>
+				setError("A conexão em tempo real foi interrompida.");
+			socket.onmessage = async ({ data }) => {
+				try {
+					const event = JSON.parse(String(data)) as SocketEvent;
+					if (event.type === "chat_message") {
+						const message = event.message as ChatMessage;
+						setMessages((items) =>
+							items.some(({ id }) => id === message.id)
+								? items
+								: [...items, message],
+						);
+					}
+					if (
+						[
+							"edit_message",
+							"delete_message",
+							"react_message",
+						].includes(event.type)
+					) {
+						const message = event.message as ChatMessage;
+						setMessages((items) =>
+							items.map((item) =>
+								item.id === message.id ? message : item,
+							),
+						);
+					}
+					if (event.type === "call_joined") {
+						const users = event.peers as User[];
+						users.forEach((user) =>
+							peerUsers.current.set(user.id, user),
+						);
+						setPeers(
+							users.map((user) => ({
+								user,
+								audioStream: null,
+								cameraStream: null,
+								screenStream: null,
+								sharing: false,
+							})),
+						);
+						setJoining(false);
+						setInCall(true);
+						for (const user of users) {
+							const pc = createPeer(user.id);
+							if (displayStream.current)
+								send({
+									type: "screen_share",
+									targetUserId: user.id,
+									active: true,
+								});
+							await makeOffer(user.id, pc);
+						}
+					}
+					if (event.type === "peer_joined") {
+						const user = event.user as User;
+						peerUsers.current.set(user.id, user);
+						updatePeer(user.id, {});
+					}
+					if (event.type === "webrtc_offer") {
+						const userId = event.fromUserId as string;
+						const pc =
+							connections.current.get(userId) ??
+							createPeer(userId);
+						if (displayStream.current)
+							send({
+								type: "screen_share",
+								targetUserId: userId,
+								active: true,
+							});
+						await pc.setRemoteDescription(
+							event.sdp as RTCSessionDescriptionInit,
+						);
+						await flushCandidates(userId, pc);
+						await pc.setLocalDescription(await pc.createAnswer());
+						send({
+							type: "webrtc_answer",
+							targetUserId: userId,
+							sdp: pc.localDescription,
+						});
+					}
+					if (event.type === "webrtc_answer") {
+						const userId = event.fromUserId as string;
+						const pc = connections.current.get(userId);
+						if (pc) {
+							await pc.setRemoteDescription(
+								event.sdp as RTCSessionDescriptionInit,
+							);
+							await flushCandidates(userId, pc);
+						}
+					}
+					if (event.type === "ice_candidate") {
+						const userId = event.fromUserId as string;
+						const pc = connections.current.get(userId);
+						const candidate =
+							event.candidate as RTCIceCandidateInit;
+						if (pc?.remoteDescription)
+							await pc.addIceCandidate(candidate);
+						else
+							pendingCandidates.current.set(userId, [
+								...(pendingCandidates.current.get(userId) ??
+									[]),
+								candidate,
+							]);
+					}
+					if (event.type === "screen_share") {
+						const userId = event.fromUserId as string;
+						if (event.active === true)
+							remoteSharing.current.add(userId);
+						else remoteSharing.current.delete(userId);
+						updatePeer(
+							userId,
+							event.active === true
+								? { sharing: true }
+								: { sharing: false, screenStream: null },
+						);
+					}
+					if (event.type === "peer_left") {
+						const userId = event.userId as string;
+						connections.current.get(userId)?.close();
+						connections.current.delete(userId);
+						remoteSharing.current.delete(userId);
+						pendingCandidates.current.delete(userId);
+						peerUsers.current.delete(userId);
+						setPeers((items) =>
+							items.filter((item) => item.user.id !== userId),
+						);
+					}
+					if (event.type === "error") {
+						setJoining(false);
+						setError(
+							String(event.message ?? "Erro de comunicação."),
+						);
+					}
+					if (event.type === "access_revoked") {
+						closeCall(false);
+						setError(
+							"Seu acesso a este canal foi removido. Atualize ou selecione outro servidor.",
+						);
+					}
+				} catch (cause) {
+					console.error("Realtime event failed", cause);
+					setError("Falha ao processar um evento da chamada.");
+				}
+			};
+			const subscribe = () =>
+				socket?.readyState === WebSocket.OPEN &&
+				socket.send(
+					JSON.stringify({ type: "subscribe_channel", channelId }),
+				);
+			socket.addEventListener("open", subscribe);
+		};
+		void connect().catch((cause: unknown) => {
+			if (alive)
+				setError(
+					cause instanceof Error
+						? cause.message
+						: "Não foi possível abrir a conexão em tempo real.",
+				);
+		});
+		return () => {
+			alive = false;
+			socket?.close();
+			if (socketRef.current === socket) socketRef.current = null;
+			closeCall(false);
+		};
+	}, [
+		channelId,
+		closeCall,
+		createPeer,
+		flushCandidates,
+		makeOffer,
+		send,
+		token,
+		updatePeer,
+		setInCall,
+		setJoining,
+		setPeers,
+		setConnected,
+		setError,
+		setMessages,
+		connections,
+		displayStream,
+		peerUsers,
+		pendingCandidates,
+		remoteSharing,
+		socketRef,
+	]);
+}
