@@ -23,7 +23,9 @@ export function ChatConversation({ realtime }: { realtime: ReturnType<typeof use
 	const onOpenNavigation = () => setMobileNavOpen(true);
 	const onOpenSocial = () => setSocialOpen(true);
 	const onOpenSettings = () => setSettingsOpen(true);
-	useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), [realtime.messages]);
+	useEffect(() => {
+		endRef.current?.scrollIntoView({ behavior: "smooth" });
+	}, [realtime.messages]);
 	if (!user || !token) return null;
 	return (
 <section className="flex min-w-0 flex-col border-[var(--ink)]/10 lg:border-r">
