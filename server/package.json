@@ -17,7 +17,7 @@
     "@types/bun": "latest",
     "@types/nodemailer": "^8.0.1",
     "prettier": "^3.9.6",
-    "prisma": "^6.19.0"
+    "prisma": "^7.9.1"
   },
   "peerDependencies": {
     "typescript": "^5"
