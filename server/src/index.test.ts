@@ -204,6 +204,59 @@ describe("huddle API", () => {
     expect(oversized.status).toBe(400);
   });
 
+  test("validates native routes and preserves authorization and not-found responses", async () => {
+    const owner = await register("native-owner@example.com", "Native Owner");
+    const outsider = await register(
+      "native-outsider@example.com",
+      "Native Outsider",
+    );
+    const ownerHeaders = { authorization: `Bearer ${owner.session.token}` };
+    const outsiderHeaders = {
+      authorization: `Bearer ${outsider.session.token}`,
+    };
+    const created = await fetch(`${baseUrl}/servers`, {
+      method: "POST",
+      headers: { ...ownerHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ name: "Native routes" }),
+    });
+    const serverId = ((await created.json()) as { server: { id: string } })
+      .server.id;
+
+    const forbidden = await fetch(`${baseUrl}/servers/${serverId}/channels`, {
+      headers: outsiderHeaders,
+    });
+    expect(forbidden.status).toBe(403);
+    expect(await forbidden.json()).toMatchObject({
+      error: { code: "FORBIDDEN" },
+    });
+
+    const invalid = await fetch(`${baseUrl}/servers`, {
+      method: "POST",
+      headers: { ...ownerHeaders, "content-type": "application/json" },
+      body: JSON.stringify([]),
+    });
+    expect(invalid.status).toBe(400);
+    expect(await invalid.json()).toMatchObject({
+      error: { code: "INVALID_INPUT" },
+    });
+
+    expect(
+      (
+        await fetch(`${baseUrl}/route-that-does-not-exist`, {
+          headers: ownerHeaders,
+        })
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await fetch(`${baseUrl}/servers`, {
+          method: "OPTIONS",
+          headers: { origin: "http://localhost:5173" },
+        })
+      ).status,
+    ).toBe(204);
+  });
+
   test("uses short-lived, single-use WebSocket tickets instead of session tokens in URLs", async () => {
     const account = await register("ticket@example.com", "Ticket");
     const response = await fetch(`${baseUrl}/auth/ws-ticket`, {

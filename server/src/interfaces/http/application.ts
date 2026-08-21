@@ -1,46 +1,45 @@
 import { Elysia, t } from "elysia";
 import { config } from "../../config";
-import { corsHeaders, error, securityHeaders } from "../../http";
-import { clientAddress, FixedWindowRateLimiter } from "../../rate-limit";
 import {
   hasValidWebSocketTicket,
   realtimeWebSocket,
 } from "../realtime/realtime-gateway";
-import { routeRequest } from "./router";
+import { errorHandling } from "./plugins/errors";
+import { security } from "./plugins/security";
+import { accountSecurityRoutes } from "./routes/account-security";
+import { accountRoutes } from "./routes/account";
+import { authRoutes } from "./routes/auth";
+import { channelRoutes } from "./routes/channels";
+import { directMessageRoutes } from "./routes/direct-messages";
+import { friendRoutes } from "./routes/friends";
+import { gifRoutes } from "./routes/gifs";
+import { messageRoutes } from "./routes/messages";
+import { publicRoutes } from "./routes/public";
+import { reportRoutes } from "./routes/reports";
+import { serverInviteRoutes } from "./routes/server-invites";
+import { serverMemberRoutes } from "./routes/server-members";
+import { serverRoutes } from "./routes/servers";
+import { uploadRoutes } from "./routes/uploads";
 
 export function createHttpApplication() {
-  const requestLimiter = new FixedWindowRateLimiter(config.requestsPerMinute);
-  const authLimiter = new FixedWindowRateLimiter(config.authAttemptsPerMinute);
-
   return new Elysia({ name: "huddle-http" })
-    .onRequest(({ request, server, set }) => {
-      set.headers["X-Content-Type-Options"] = "nosniff";
-      set.headers["X-Frame-Options"] = "DENY";
-      set.headers["Referrer-Policy"] = "no-referrer";
-      set.headers["Permissions-Policy"] =
-        "camera=(), microphone=(), geolocation=()";
-      set.headers["Cache-Control"] = "no-store";
-      for (const [key, value] of corsHeaders(request)) set.headers[key] = value;
-
-      const pathname = new URL(request.url).pathname;
-      const limiter =
-        pathname === "/auth/login" || pathname === "/auth/register"
-          ? authLimiter
-          : requestLimiter;
-      if (limiter.consume(clientAddress(request, server))) return;
-
-      const response = error(
-        429,
-        "RATE_LIMITED",
-        "Too many requests. Try again later.",
-      );
-      response.headers.set("Retry-After", "60");
-      return response;
-    })
-    .onError(({ error: cause }) => {
-      console.error(cause);
-      return error(500, "INTERNAL_ERROR", "An unexpected error occurred.");
-    })
+    .use(errorHandling)
+    .use(security())
+    .options("/*", () => new Response(null, { status: 204 }))
+    .use(publicRoutes)
+    .use(authRoutes)
+    .use(accountRoutes)
+    .use(accountSecurityRoutes)
+    .use(serverRoutes)
+    .use(serverMemberRoutes)
+    .use(serverInviteRoutes)
+    .use(channelRoutes)
+    .use(uploadRoutes)
+    .use(gifRoutes)
+    .use(messageRoutes)
+    .use(friendRoutes)
+    .use(directMessageRoutes)
+    .use(reportRoutes)
     .ws("/ws", {
       query: t.Object({ ticket: t.Optional(t.String({ minLength: 1 })) }),
       beforeHandle({ request, query, status }) {
@@ -71,12 +70,5 @@ export function createHttpApplication() {
         return JSON.stringify(message);
       },
       ...realtimeWebSocket,
-    })
-    .all("*", async ({ request }) => {
-      const response = await routeRequest(request);
-      if (!response) return;
-      for (const [key, value] of corsHeaders(request))
-        response.headers.set(key, value);
-      return securityHeaders(response);
     });
 }
