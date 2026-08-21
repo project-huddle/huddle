@@ -1,24 +1,24 @@
-Contributing to Huddle
+# Contribuindo com o Huddle
 
-Thanks for your interest in contributing to Huddle.
+Obrigado pelo interesse em contribuir com o Huddle.
 
-Huddle is an open-source communication platform, and contributions from the community are welcome — whether they involve code, documentation, testing, design, accessibility, bug reports, or ideas.
+O Huddle é uma plataforma de comunicação open source, e contribuições da comunidade são bem-vindas — seja com código, documentação, testes, design, acessibilidade, relatos de bugs ou novas ideias.
 
-Getting Started
+## Primeiros passos
 
-Before making a significant contribution:
+Antes de iniciar uma contribuição significativa:
 
-1. Check the existing issues and pull requests to see whether the problem or feature is already being discussed.
-2. For substantial features or architectural changes, open an issue or discussion before starting implementation.
-3. Keep contributions focused. Smaller, well-scoped pull requests are generally easier to review and merge.
+1. Verifique issues e pull requests existentes para confirmar se o problema ou funcionalidade já está sendo discutido.
+2. Para funcionalidades maiores ou mudanças arquiteturais relevantes, abra uma issue ou discussão antes de iniciar a implementação.
+3. Mantenha as contribuições focadas. Pull requests menores e bem delimitados geralmente são mais fáceis de revisar e integrar.
 
-Small bug fixes, documentation improvements, tests, and similar changes usually do not require prior discussion.
+Pequenas correções de bugs, melhorias de documentação, testes e alterações semelhantes normalmente não exigem discussão prévia.
 
-Development Setup
+## Ambiente de desenvolvimento
 
-Huddle is organized as a monorepo containing the client, server, and supporting infrastructure.
+O Huddle é organizado como um monorepo contendo o cliente, o servidor e a infraestrutura de suporte.
 
-The main technologies currently include:
+As principais tecnologias utilizadas atualmente incluem:
 
 * TypeScript
 * React
@@ -30,81 +30,179 @@ The main technologies currently include:
 * WebRTC
 * Docker
 
-Refer to the repository README and project documentation for the current development setup and commands.
+Consulte o `README.md` e a documentação do projeto para instruções atualizadas sobre configuração do ambiente e comandos de desenvolvimento.
 
-Architecture
+## Arquitetura
 
-The server follows a modular architecture with responsibilities separated between layers such as:
+O backend do Huddle segue uma arquitetura modular baseada em:
 
-* core — domain concepts and rules.
-* app — application services and use cases.
-* infra — database, email, and external infrastructure.
-* interfaces — HTTP, WebSocket, and other external interfaces.
+* Vertical Slice Architecture
+* Functional Core / Imperative Shell
+* limites de domínio explícitos
+* separação clara entre domínio, infraestrutura e interfaces externas
 
-When contributing to the backend, avoid introducing framework-specific dependencies into the domain or application layers unless there is a strong reason to do so.
+Regras de negócio devem permanecer, sempre que possível, independentes de frameworks, bibliotecas de transporte e detalhes de infraestrutura.
 
-Elysia and other transport-specific concerns should generally remain within the interface/infrastructure boundaries.
+Elysia e outras dependências relacionadas a HTTP, WebSocket, persistência ou integração externa devem permanecer nas bordas apropriadas do sistema.
 
-The project is currently evolving, so architectural conventions may change. When in doubt, follow the patterns used by recently updated parts of the codebase or discuss the change before implementing it.
+Evite introduzir abstrações genéricas, facades de compatibilidade ou camadas intermediárias sem uma necessidade arquitetural clara.
 
-Code Guidelines
+Quando uma migração exigir compatibilidade temporária, essa camada deve ser explicitamente tratada como transitória e possuir uma estratégia de remoção.
 
-When contributing code:
+A arquitetura do projeto continua evoluindo. Em caso de dúvida, siga os padrões utilizados nas partes mais recentemente atualizadas do código ou abra uma discussão antes de implementar mudanças estruturais significativas.
 
-* Follow the existing TypeScript conventions.
-* Prefer clear and explicit code over unnecessary abstractions.
-* Keep modules focused on a well-defined responsibility.
-* Avoid introducing new dependencies unless they provide a meaningful benefit.
-* Validate data received from untrusted clients.
-* Never rely exclusively on the frontend for authorization or security decisions.
-* Avoid committing secrets, credentials, tokens, private keys, or environment-specific configuration.
-* Add or update tests when changing important behavior.
+## Diretrizes de código
 
-For realtime functionality, treat WebSocket messages as an external API. New events should have clearly defined payloads and appropriate validation and authorization.
+Ao contribuir com código:
 
-Pull Requests
+* Siga as convenções TypeScript existentes no projeto.
+* Prefira código claro e explícito a abstrações desnecessárias.
+* Mantenha módulos focados em responsabilidades bem definidas.
+* Evite novas dependências quando o benefício não justificar o custo de manutenção.
+* Valide dados recebidos de clientes ou sistemas externos.
+* Nunca dependa exclusivamente do frontend para decisões de autorização ou segurança.
+* Não faça commit de segredos, credenciais, tokens, chaves privadas ou configurações específicas de ambiente.
+* Adicione ou atualize testes ao modificar comportamentos importantes.
+* Prefira funções pequenas e legíveis.
+* Evite funções ou módulos que acumulem responsabilidades de múltiplos domínios.
+* Não introduza código de compatibilidade legado sem um plano explícito de remoção.
 
-Pull requests should:
+Para funcionalidades realtime, trate mensagens WebSocket como uma API externa.
 
-* Have a clear title and description.
-* Explain what problem is being solved.
-* Describe significant implementation decisions when relevant.
-* Remain focused on the intended change.
-* Include tests where appropriate.
-* Pass the project’s automated checks.
+Novos eventos devem possuir:
 
-Screenshots or recordings are encouraged for significant visual changes.
+* payload claramente definido;
+* validação de entrada;
+* regras de autorização apropriadas;
+* tratamento explícito de erros quando necessário.
 
-A pull request may be requested to change before being merged. This is a normal part of the review process.
+## Convenção de branches
 
-Security
+Branches devem seguir o formato:
 
-Do not publicly report or submit fixes for previously undisclosed security vulnerabilities through normal issues or pull requests.
+`<tipo>/<descricao-em-kebab-case>`
 
-Please follow the instructions in SECURITY.md to report security vulnerabilities privately.
+Tipos permitidos:
 
-Licensing
+* `feat` — nova funcionalidade.
+* `fix` — correção de bug.
+* `refactor` — refatoração sem mudança intencional de comportamento.
+* `chore` — manutenção, configuração ou tarefas internas.
+* `docs` — documentação.
+* `test` — testes.
+* `perf` — melhorias de performance.
+* `ci` — CI/CD e automações.
+* `security` — alterações relacionadas à segurança.
+* `build` — sistema de build, containers ou empacotamento.
 
-Huddle is licensed under the GNU Affero General Public License version 3.0 (AGPL-3.0-only).
+Exemplos válidos:
 
-By submitting a contribution to Huddle, you agree that your contribution may be distributed under the same license as the project.
+* `feat/channel-permissions`
+* `fix/websocket-reconnect`
+* `refactor/remove-legacy-auth-facade`
+* `chore/github-governance`
+* `docs/architecture-guidelines`
+* `security/session-hardening`
 
-You also represent that you have the right to submit the contribution.
+A descrição deve utilizar letras minúsculas, números quando necessário e `kebab-case`.
 
-Do not submit code, assets, or other material that you do not have permission to distribute under terms compatible with the Huddle license.
+Evite:
 
-AI-Assisted Contributions
+* nomes vagos;
+* nomes pessoais;
+* underscores;
+* branches como `teste`, `nova`, `ajuste`, `temp` ou similares;
+* tipos fora da convenção estabelecida.
 
-The use of AI-assisted development tools is allowed.
+O padrão utilizado pelo Ruleset do repositório é:
 
-Contributors remain responsible for understanding, reviewing, testing, and ensuring the correctness and licensing compatibility of any code or content they submit.
+`^(feat|fix|refactor|chore|docs|test|perf|ci|security|build)\/[a-z0-9]+(?:-[a-z0-9]+)*$`
 
-Pull requests containing large amounts of unreviewed or unexplained generated code may be rejected.
+## Commits
 
-Community
+Os commits devem seguir, sempre que possível, a convenção Conventional Commits.
 
-Be respectful and constructive when interacting with maintainers and other contributors.
+Formato recomendado:
 
-Technical disagreement is welcome. Personal attacks, harassment, discrimination, or abusive behavior are not.
+`<tipo>(<escopo>): <descrição>`
 
-The goal is to build Huddle collaboratively while maintaining a healthy environment for contributors and users.
+Exemplos:
+
+* `feat(auth): add session expiration handling`
+* `fix(websocket): reject expired connection tickets`
+* `refactor(server): remove legacy database facade`
+* `docs(architecture): document vertical slice adoption`
+* `chore(github): add repository governance templates`
+
+Commits devem representar mudanças coesas e compreensíveis.
+
+Evite commits como:
+
+* `fix`
+* `changes`
+* `update`
+* `ajustes`
+* `teste`
+* `final`
+* `final-final`
+
+## Pull Requests
+
+Pull requests devem:
+
+* possuir título e descrição claros;
+* explicar qual problema está sendo resolvido;
+* descrever decisões de implementação relevantes;
+* permanecer focados no objetivo proposto;
+* incluir testes quando aplicável;
+* passar pelas verificações automatizadas do projeto;
+* atualizar documentação quando necessário.
+
+Mudanças arquiteturais relevantes devem explicar seus impactos e trade-offs.
+
+Screenshots ou gravações são recomendados para alterações visuais significativas.
+
+Durante a revisão, alterações podem ser solicitadas antes do merge. Isso faz parte do fluxo normal de desenvolvimento.
+
+O método preferencial de integração na `master` é **squash merge**, mantendo o histórico principal limpo e cada pull request representado por um commit coeso.
+
+## Segurança
+
+Não relate vulnerabilidades de segurança ainda não divulgadas por meio de issues, discussions ou pull requests públicos.
+
+Siga as instruções do `SECURITY.md` para relatar vulnerabilidades de maneira privada.
+
+## Licenciamento
+
+O Huddle é licenciado sob a GNU Affero General Public License versão 3.0 (`AGPL-3.0-only`).
+
+Ao enviar uma contribuição para o Huddle, você concorda que ela poderá ser distribuída sob a mesma licença do projeto.
+
+Você também declara possuir o direito de enviar o código, assets, documentação ou qualquer outro material incluído na contribuição.
+
+Não envie conteúdo cuja distribuição não seja permitida sob termos compatíveis com a licença do Huddle.
+
+## Contribuições assistidas por IA
+
+O uso de ferramentas de desenvolvimento assistido por IA é permitido.
+
+Entretanto, o colaborador continua responsável por:
+
+* compreender o código enviado;
+* revisar a implementação;
+* verificar sua correção;
+* executar ou adicionar testes;
+* garantir compatibilidade de licenciamento;
+* evitar introdução de código legado, abstrações desnecessárias ou vulnerabilidades.
+
+Pull requests contendo grandes quantidades de código gerado automaticamente sem revisão, explicação ou entendimento adequado poderão ser rejeitados.
+
+## Comunidade
+
+Seja respeitoso e construtivo ao interagir com mantenedores e outros colaboradores.
+
+Discordâncias técnicas são bem-vindas.
+
+Ataques pessoais, assédio, discriminação ou comportamento abusivo não são aceitáveis.
+
+O objetivo é desenvolver o Huddle de forma colaborativa, mantendo um ambiente saudável para contribuidores e usuários.
