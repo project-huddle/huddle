@@ -1,86 +1,99 @@
-Security Policy
+# Política de Segurança
 
-Security is an important part of Huddle. We appreciate the security community and users who take the time to responsibly report potential vulnerabilities.
+Segurança é uma parte importante do Huddle.
 
-Supported Versions
+Agradecemos a usuários, contribuidores e pesquisadores de segurança que dedicam tempo para relatar vulnerabilidades de maneira responsável.
 
-Huddle is currently under active development and has not yet reached a stable release.
+## Versões suportadas
 
-Security fixes are generally applied to the latest version available on the master branch.
+O Huddle está atualmente em desenvolvimento ativo e ainda não possui uma versão estável.
 
-Older commits, forks, unofficial builds, and modified deployments may not receive security updates.
+Correções de segurança são, em geral, aplicadas à versão mais recente disponível na branch `master`.
 
-Reporting a Vulnerability
+Commits antigos, forks, builds não oficiais e deployments modificados podem não receber atualizações de segurança.
 
-Please do not report security vulnerabilities through public GitHub issues, discussions, pull requests, or other public channels.
+## Reportando uma vulnerabilidade
 
-If you believe you have discovered a security vulnerability in Huddle, please report it privately through GitHub Private Vulnerability Reporting in the Security section of this repository.
+Não reporte vulnerabilidades de segurança por meio de:
 
-When submitting a report, please include as much of the following information as possible:
+* GitHub Issues públicas;
+* GitHub Discussions;
+* Pull Requests;
+* comentários públicos;
+* qualquer outro canal público do projeto.
 
-* A clear description of the vulnerability.
-* The affected component or feature.
-* Steps required to reproduce the issue.
-* The potential security impact.
-* Any relevant logs, screenshots, requests, responses, or proof-of-concept code.
-* A suggested mitigation or fix, if available.
+Caso tenha identificado uma possível vulnerabilidade no Huddle, utilize o **GitHub Private Vulnerability Reporting**, disponível na seção **Security** do repositório.
 
-Please avoid including unnecessary personal data, credentials, access tokens, or other sensitive information in your report.
+Ao enviar o relatório, inclua, sempre que possível:
 
-What to Report
+* uma descrição clara da vulnerabilidade;
+* o componente ou funcionalidade afetada;
+* passos necessários para reproduzir o problema;
+* o impacto de segurança esperado;
+* logs, screenshots, requests, responses ou provas de conceito relevantes;
+* uma possível mitigação ou correção, caso tenha alguma sugestão.
 
-Examples of security issues that should be reported privately include:
+Evite incluir informações pessoais desnecessárias, credenciais, tokens de acesso, chaves privadas ou outros dados sensíveis no relatório.
 
-* Authentication or session bypasses.
-* Authorization or permission vulnerabilities.
-* Account takeover vulnerabilities.
-* Cross-site scripting (XSS).
-* Cross-site request forgery (CSRF), where applicable.
-* SQL injection or other injection vulnerabilities.
-* Server-side request forgery (SSRF).
-* Unauthorized access to messages, servers, channels, files, or user information.
-* WebSocket authentication or authorization vulnerabilities.
-* WebRTC signaling vulnerabilities that could affect user security or privacy.
-* Session, token, or WebSocket ticket leakage.
-* Arbitrary file upload, file access, or path traversal vulnerabilities.
-* Remote code execution.
-* Exposure of secrets or sensitive information.
-* Security vulnerabilities that could significantly affect the availability of a Huddle deployment.
+## O que deve ser reportado
 
-General bugs, feature requests, performance problems, and issues without security implications should be reported through the regular GitHub issue tracker.
+Exemplos de problemas que devem ser reportados de forma privada incluem:
 
-Responsible Disclosure
+* bypass de autenticação;
+* bypass de autorização ou permissões;
+* tomada de controle de contas;
+* Cross-Site Scripting (XSS);
+* Cross-Site Request Forgery (CSRF), quando aplicável;
+* SQL Injection;
+* outras vulnerabilidades de injeção;
+* Server-Side Request Forgery (SSRF);
+* acesso não autorizado a mensagens, servidores, canais, arquivos ou informações de usuários;
+* vulnerabilidades de autenticação ou autorização em WebSocket;
+* vulnerabilidades relacionadas à sinalização WebRTC;
+* vazamento de sessões, tokens ou tickets WebSocket;
+* upload arbitrário de arquivos;
+* acesso indevido a arquivos;
+* path traversal;
+* execução remota de código;
+* exposição de segredos ou informações sensíveis;
+* vulnerabilidades capazes de afetar significativamente a disponibilidade de uma instalação do Huddle.
 
-We ask security researchers to:
+Bugs comuns, solicitações de funcionalidades, problemas de performance ou situações sem impacto de segurança devem ser relatados pelo fluxo normal de Issues.
 
-* Give us a reasonable amount of time to investigate and address a vulnerability before publicly disclosing it.
-* Avoid accessing, modifying, deleting, or downloading data that does not belong to you.
-* Avoid intentionally degrading or disrupting Huddle services or infrastructure.
-* Test against your own Huddle deployment whenever possible.
-* Stop testing and contact us if you unexpectedly gain access to sensitive or private information.
+## Divulgação responsável
 
-We will make a reasonable effort to:
+Pedimos que pesquisadores de segurança:
 
-* Acknowledge valid vulnerability reports.
-* Investigate reported vulnerabilities.
-* Keep reporters informed when appropriate.
-* Release fixes for confirmed vulnerabilities according to their severity and impact.
-* Credit researchers who responsibly disclose vulnerabilities, if they wish to be credited.
+* concedam tempo razoável para investigação e correção antes da divulgação pública;
+* evitem acessar, modificar, excluir ou baixar dados que não lhes pertençam;
+* não degradem ou interrompam intencionalmente serviços e infraestrutura;
+* realizem testes em sua própria instalação do Huddle sempre que possível;
+* interrompam os testes e entrem em contato conosco caso obtenham acesso inesperado a dados privados ou sensíveis.
 
-Security Updates
+## Nosso compromisso
 
-Security fixes may be released without prior public disclosure when early disclosure could put Huddle users or deployments at risk.
+Faremos um esforço razoável para:
 
-After a vulnerability has been addressed, relevant information may be published through GitHub Security Advisories or release notes when appropriate.
+* confirmar o recebimento de relatórios válidos;
+* investigar vulnerabilidades relatadas;
+* manter o pesquisador informado quando apropriado;
+* corrigir vulnerabilidades confirmadas de acordo com sua severidade e impacto;
+* creditar pesquisadores que realizarem divulgação responsável, caso desejem ser creditados.
 
-Scope
+## Atualizações de segurança
 
-This policy applies to the official Huddle source code maintained under the project-huddle organization.
+Correções de segurança podem ser disponibilizadas antes de qualquer divulgação pública quando a publicação antecipada de detalhes puder colocar usuários ou instalações do Huddle em risco.
 
-Third-party services, dependencies, unofficial deployments, forks, and modified versions of Huddle may have their own security policies and are outside the scope of this policy.
+Após a correção, informações relevantes poderão ser publicadas por meio de GitHub Security Advisories, release notes ou outros canais apropriados.
 
-Contact
+## Escopo
 
-The preferred method for reporting vulnerabilities is GitHub Private Vulnerability Reporting.
+Esta política se aplica ao código-fonte oficial do Huddle mantido pela organização `project-huddle`.
 
-If private vulnerability reporting is temporarily unavailable, please contact the Huddle maintainers privately rather than publishing the vulnerability.
+Serviços de terceiros, dependências externas, forks, deployments não oficiais e versões modificadas podem possuir políticas de segurança próprias e estão fora deste escopo.
+
+## Contato
+
+O método preferencial para relatar vulnerabilidades é o **GitHub Private Vulnerability Reporting**.
+
+Caso esse mecanismo esteja temporariamente indisponível, entre em contato com os mantenedores de forma privada em vez de publicar detalhes da vulnerabilidade.
