@@ -1,0 +1,77 @@
+name: Feature request
+description: Suggest a new capability or meaningful improvement
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feature requests should describe the problem before proposing the implementation.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem, limitation, or user need does this address?
+      placeholder: Describe the problem rather than only the desired implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe how Huddle should behave after this feature is implemented.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected area
+      options:
+        - Server
+        - Client
+        - Messaging
+        - Voice / WebRTC
+        - Authentication
+        - Servers / Channels
+        - Infrastructure
+        - Developer experience
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Are there simpler alternatives or workarounds?
+    validations:
+      required: false
+
+  - type: textarea
+    id: architecture
+    attributes:
+      label: Architectural considerations
+      description: Describe relevant domain, API, persistence, realtime, or infrastructure implications.
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add examples, mockups, references, screenshots, or related issues.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and discussions for similar proposals.
+          required: true
