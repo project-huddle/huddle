@@ -2,6 +2,30 @@
 
 # Huddle
 
+<p align="center">
+  <a href="https://github.com/project-huddle/huddle/blob/master/LICENSE">
+    <img src="https://img.shields.io/badge/License-AGPL--3.0-blue?style=for-the-badge" alt="License: AGPL-3.0">
+  </a>
+  <a href="https://github.com/project-huddle/huddle/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/project-huddle/huddle/ci.yml?branch=master&style=for-the-badge&label=Build" alt="Build Status">
+  </a>
+  <a href="https://github.com/project-huddle/huddle/stargazers">
+    <img src="https://img.shields.io/github/stars/project-huddle/huddle?style=for-the-badge" alt="GitHub Stars">
+  </a>
+  <a href="https://github.com/project-huddle/huddle/network/members">
+    <img src="https://img.shields.io/github/forks/project-huddle/huddle?style=for-the-badge" alt="GitHub Forks">
+  </a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Bun-Runtime-black?style=flat-square&logo=bun&logoColor=white" alt="Bun">
+  <img src="https://img.shields.io/badge/Elysia-Framework-black?style=flat-square" alt="Elysia">
+  <img src="https://img.shields.io/badge/React-19-black?style=flat-square&logo=react" alt="React 19">
+  <img src="https://img.shields.io/badge/TypeScript-5-black?style=flat-square&logo=typescript" alt="TypeScript">
+  <img src="https://img.shields.io/badge/PostgreSQL-17-black?style=flat-square&logo=postgresql" alt="PostgreSQL 17">
+  <img src="https://img.shields.io/badge/Docker-ready-black?style=flat-square&logo=docker" alt="Docker">
+</p>
+
 **Seu espaço. Do seu jeito.** Uma plataforma brasileira de comunicação para comunidades conversarem por texto, voz e vídeo.
 
 > [!WARNING]
@@ -44,12 +68,12 @@ Não há um roadmap versionado no repositório. Por isso, intenções futuras n�
 
 O Huddle é organizado nas seguintes camadas:
 
-| Camada | Tecnologias | Responsabilidade |
-| --- | --- | --- |
-| Cliente | React 19, TypeScript, Vite, Tailwind CSS, Zustand e Zod | Interface, estado local, chamadas WebRTC e conexão em tempo real |
-| API | Bun, Elysia, TypeScript e Prisma | Autenticação, autorização, persistência, WebSocket, upload e regras de negócio |
-| Dados | PostgreSQL 17 | Usuários, sessões, comunidades, canais, mensagens, reações e convites |
-| Entrega | Docker Compose e Nginx | Orquestração local, cliente estático e proxy de HTTP/WebSocket |
+| Camada  | Tecnologias                                             | Responsabilidade                                                               |
+| ------- | ------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Cliente | React 19, TypeScript, Vite, Tailwind CSS, Zustand e Zod | Interface, estado local, chamadas WebRTC e conexão em tempo real               |
+| API     | Bun, Elysia, TypeScript e Prisma                        | Autenticação, autorização, persistência, WebSocket, upload e regras de negócio |
+| Dados   | PostgreSQL 17                                           | Usuários, sessões, comunidades, canais, mensagens, reações e convites          |
+| Entrega | Docker Compose e Nginx                                  | Orquestração local, cliente estático e proxy de HTTP/WebSocket                 |
 
 No ambiente empacotado, o navegador acessa somente o Nginx. Ele serve o cliente e encaminha `/api`, `/media` e `/ws` para a API. Mensagens e eventos de presença passam pelo WebSocket; áudio, vídeo e tela trafegam diretamente entre navegadores por WebRTC. Em redes restritivas, essa mídia pode precisar de um servidor TURN externo.
 
@@ -133,34 +157,34 @@ Use [`.env.example`](.env.example) com Docker Compose. Para executar apenas a AP
 
 ### Docker Compose
 
-| Variável | Necessária | Finalidade |
-| --- | --- | --- |
-| `APP_PORT` | Não | Porta pública do Nginx; padrão `8080` |
-| `APP_ORIGIN` | Não | Origem exata permitida pela API; padrão `http://localhost:8080` |
-| `POSTGRES_DB` | Não | Nome do banco criado pelo contêiner |
-| `POSTGRES_USER` | Não | Usuário do PostgreSQL |
-| `POSTGRES_PASSWORD` | Não | Senha do PostgreSQL; deve ser trocada fora do desenvolvimento local |
-| `DATABASE_URL` | Não no Compose | URL de conexão usada pela API; o Compose fornece um valor local padrão |
-| `TURN_URL` | Não | URL do servidor TURN usada pelo cliente |
-| `TURN_USERNAME` | Não | Usuário TURN |
-| `TURN_CREDENTIAL` | Não | Credencial TURN |
-| `TENOR_API_KEY` | Não | Chave existente da API do Tenor para busca de GIFs |
-| `TENOR_CLIENT_KEY` | Não | Identificador de cliente enviado ao Tenor; padrão `huddle` |
+| Variável            | Necessária     | Finalidade                                                             |
+| ------------------- | -------------- | ---------------------------------------------------------------------- |
+| `APP_PORT`          | Não            | Porta pública do Nginx; padrão `8080`                                  |
+| `APP_ORIGIN`        | Não            | Origem exata permitida pela API; padrão `http://localhost:8080`        |
+| `POSTGRES_DB`       | Não            | Nome do banco criado pelo contêiner                                    |
+| `POSTGRES_USER`     | Não            | Usuário do PostgreSQL                                                  |
+| `POSTGRES_PASSWORD` | Não            | Senha do PostgreSQL; deve ser trocada fora do desenvolvimento local    |
+| `DATABASE_URL`      | Não no Compose | URL de conexão usada pela API; o Compose fornece um valor local padrão |
+| `TURN_URL`          | Não            | URL do servidor TURN usada pelo cliente                                |
+| `TURN_USERNAME`     | Não            | Usuário TURN                                                           |
+| `TURN_CREDENTIAL`   | Não            | Credencial TURN                                                        |
+| `TENOR_API_KEY`     | Não            | Chave existente da API do Tenor para busca de GIFs                     |
+| `TENOR_CLIENT_KEY`  | Não            | Identificador de cliente enviado ao Tenor; padrão `huddle`             |
 
 ### API
 
-| Variável | Necessária | Finalidade |
-| --- | --- | --- |
-| `DATABASE_URL` | Sim | Conexão PostgreSQL usada pelo Prisma |
-| `HOST` | Não | Interface de rede; padrão `0.0.0.0` |
-| `PORT` | Não | Porta da API; padrão `3000` |
-| `UPLOADS_PATH` | Não | Diretório dos uploads; padrão `data/uploads` |
-| `CORS_ORIGINS` | Não | Lista de origens permitidas, separadas por vírgula |
-| `MAX_JSON_BYTES` | Não | Limite dos corpos JSON; padrão `16384` |
-| `AUTH_ATTEMPTS_PER_MINUTE` | Não | Limite por IP para login e cadastro; padrão `20` |
-| `REQUESTS_PER_MINUTE` | Não | Limite geral de requisições por IP; padrão `300` |
-| `TENOR_API_KEY` | Não | Habilita a busca integrada de GIFs |
-| `TENOR_CLIENT_KEY` | Não | Identificador usado nas requisições ao Tenor |
+| Variável                   | Necessária | Finalidade                                         |
+| -------------------------- | ---------- | -------------------------------------------------- |
+| `DATABASE_URL`             | Sim        | Conexão PostgreSQL usada pelo Prisma               |
+| `HOST`                     | Não        | Interface de rede; padrão `0.0.0.0`                |
+| `PORT`                     | Não        | Porta da API; padrão `3000`                        |
+| `UPLOADS_PATH`             | Não        | Diretório dos uploads; padrão `data/uploads`       |
+| `CORS_ORIGINS`             | Não        | Lista de origens permitidas, separadas por vírgula |
+| `MAX_JSON_BYTES`           | Não        | Limite dos corpos JSON; padrão `16384`             |
+| `AUTH_ATTEMPTS_PER_MINUTE` | Não        | Limite por IP para login e cadastro; padrão `20`   |
+| `REQUESTS_PER_MINUTE`      | Não        | Limite geral de requisições por IP; padrão `300`   |
+| `TENOR_API_KEY`            | Não        | Habilita a busca integrada de GIFs                 |
+| `TENOR_CLIENT_KEY`         | Não        | Identificador usado nas requisições ao Tenor       |
 
 No cliente, `VITE_API_URL` define a origem da API. `VITE_TURN_URL`, `VITE_TURN_USERNAME` e `VITE_TURN_CREDENTIAL` são incorporadas ao build e, portanto, chegam ao navegador. Em produção, prefira credenciais TURN temporárias.
 

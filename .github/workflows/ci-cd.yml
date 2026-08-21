@@ -3,8 +3,16 @@ name: CI and container delivery
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [master]
 
+jobs:
+  validate:
+    # tests, typecheck, lint, build
+
+  containers:
+    needs: validate
+    # docker build on PR
+    # docker build + push on master
 permissions:
   contents: read
 
