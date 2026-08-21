@@ -5,14 +5,6 @@ on:
   push:
     branches: [master]
 
-jobs:
-  validate:
-    # tests, typecheck, lint, build
-
-  containers:
-    needs: validate
-    # docker build on PR
-    # docker build + push on master
 permissions:
   contents: read
 
@@ -23,6 +15,7 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:17-alpine
@@ -60,6 +53,7 @@ jobs:
   containers:
     runs-on: ubuntu-latest
     needs: validate
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write

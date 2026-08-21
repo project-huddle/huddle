@@ -7,7 +7,7 @@
     <img src="https://img.shields.io/badge/License-AGPL--3.0-blue?style=for-the-badge" alt="License: AGPL-3.0">
   </a>
   <a href="https://github.com/project-huddle/huddle/actions">
-    <img src="https://img.shields.io/github/actions/workflow/status/project-huddle/huddle/ci.yml?branch=master&style=for-the-badge&label=Build" alt="Build Status">
+    <img src="https://img.shields.io/github/actions/workflow/status/project-huddle/huddle/ci-cd.yml?branch=master&style=for-the-badge&label=Build" alt="Build Status">
   </a>
   <a href="https://github.com/project-huddle/huddle/stargazers">
     <img src="https://img.shields.io/github/stars/project-huddle/huddle?style=for-the-badge" alt="GitHub Stars">
@@ -224,7 +224,7 @@ bunx playwright install chromium
 DATABASE_URL=postgresql://USUARIO:SENHA@localhost:5432/huddle_test?schema=public bun run e2e
 ```
 
-O repositório não possui atualmente um comando próprio de formatação. A CI executa testes e verificação de tipos da API, além de lint e build do cliente. Em `main`, ela também publica imagens do cliente e do servidor no GitHub Container Registry.
+O repositório não possui atualmente um comando próprio de formatação. A CI executa testes e verificação de tipos da API, além de lint e build do cliente. Em `master`, ela também publica imagens do cliente e do servidor no GitHub Container Registry.
 
 ## Estrutura do projeto
 
@@ -241,6 +241,45 @@ server/
 ```
 
 Os endpoints de saúde são `/health` na API e `/healthz` no Nginx.
+
+### Arquitetura do frontend
+
+O frontend não impõe um padrão arquitetural formal. A organização atual separa composição de telas, componentes visuais, estado compartilhado, integrações e validação da seguinte forma:
+
+```text
+client/src/
+├── assets/       # Logos e outros arquivos estáticos importados pela interface
+├── components/   # Blocos visuais reutilizáveis e componentes de chat, chamadas e autenticação
+├── hooks/        # Estado e efeitos de fluxos da interface, API, WebSocket e WebRTC
+├── lib/          # Cliente HTTP, construção da URL WebSocket e utilitários de mídia e apresentação
+├── schemas/      # Schemas Zod para validar formulários, comandos e arquivos antes do envio
+├── stores/       # Estado global Zustand de autenticação, navegação e recursos do chat
+├── styles/       # CSS global, tokens visuais e configuração de temas
+├── types/        # Tipos compartilhados de chat, eventos realtime e recursos sociais
+├── views/        # Composição das telas completas de login e chat
+├── App.tsx       # Seleção da tela conforme a sessão autenticada
+└── main.tsx      # Bootstrap do React, tema e estilos globais
+```
+
+As `views` coordenam telas completas e conectam os componentes ao estado e aos fluxos necessários. `components` concentra apresentação e interações reutilizáveis, incluindo primitivas de UI e conjuntos específicos de chat, chamadas, perfil e autenticação. Estado que precisa atravessar componentes fica nas stores Zustand: `auth-store` persiste a sessão e executa operações de autenticação; `chat-store` mantém servidores, canais, membros, seleção e diálogos, além das operações HTTP relacionadas. Estado efêmero e efeitos mais especializados ficam em hooks customizados, como composição de mensagens, perfil, recursos sociais e a coordenação de WebSocket/WebRTC.
+
+O cliente HTTP tipado e os tipos das respostas principais ficam em `lib/api.ts`; esse módulo também resolve URLs de mídia e a URL autenticada do WebSocket. A configuração e as mensagens de erro de mídia WebRTC ficam em `lib/realtime.ts`. Schemas Zod validam dados na borda da interface antes das stores, hooks ou formulários enviarem comandos. `types` reúne contratos usados por mais de um componente ou hook, enquanto `styles/globals.css` define estilos globais, tokens e temas, e `assets` contém as marcas importadas pela interface.
+
+O fluxo predominante é:
+
+```text
+Views / Components
+        ↓
+Hooks / Stores + schemas de validação
+        ↓
+Cliente HTTP / WebSocket (sinalização e eventos)
+        ↓
+Huddle Server
+
+WebRTC: Hooks de chamada ↔ navegadores participantes
+```
+
+Ao adicionar funcionalidades, mantenha a composição de página em `views`, a apresentação reutilizável em `components`, o estado compartilhado e suas operações em `stores`, e efeitos locais ou integrações de um fluxo em hooks. Reutilize `lib/api.ts` para HTTP e conexão WebSocket e valide entradas nos schemas; isso evita espalhar acesso à API, estado global e regras de apresentação pelo mesmo componente.
 
 ## Contribuindo
 
