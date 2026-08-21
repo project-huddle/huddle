@@ -23,7 +23,7 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.0",
+    "@prisma/client": "^7.9.1",
     "elysia": "^1.4.29",
     "nodemailer": "^9.0.5"
   }
