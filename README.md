@@ -221,46 +221,25 @@ Os endpoints de saúde são `/health` na API e `/healthz` no Nginx.
 
 ## Como contribuir
 
-Você pode participar reportando bugs, propondo melhorias, testando fluxos ou contribuindo com código e documentação.
+Contribuições são bem-vindas!
 
-1. Crie uma branch curta e focada.
-2. Faça a alteração e inclua testes quando aplicável.
-3. Execute as validações das áreas alteradas.
-4. Abra uma contribuição explicando o problema, a solução e como ela foi verificada.
+Seja corrigindo bugs, melhorando a documentação, trabalhando em acessibilidade ou propondo novas funcionalidades, consulte nosso Guia de Contribuição antes de começar.
 
-Antes de relatar um bug, evite incluir tokens, senhas, dados pessoais, conteúdo privado de comunidades ou outros segredos.
+Para funcionalidades maiores ou mudanças significativas na arquitetura, recomendamos abrir uma issue ou discussão primeiro para que possamos alinhar a abordagem.
 
-> **TODO:** adicionar os links oficiais do repositório e do rastreador de issues quando forem definidos. 
+## Segurança
 
-## Segurança e privacidade
+Vulnerabilidades de segurança não devem ser reportadas por meio de issues públicas.
 
-O compromisso público do Huddle é construir uma plataforma responsável, alinhada à legislação brasileira de proteção de dados, à LGPD e aos princípios de proteção integral previstos no ECA. Esse é um trabalho contínuo, não uma declaração de que a versão atual passou por auditoria independente ou está pronta para produção.
-
-Na implementação atual:
-
-- senhas são derivadas com Argon2id;
-- somente o hash SHA-256 dos tokens de sessão é persistido;
-- conexões WebSocket usam tickets descartáveis com validade de 30 segundos;
-- acesso a servidores, canais e mensagens é verificado na API;
-- há limites de requisições HTTP e eventos WebSocket;
-- uploads têm tamanho, assinatura e formatos validados;
-- respostas recebem cabeçalhos básicos de segurança;
-- mídia de chamadas usa WebRTC entre navegadores; a API atua na sinalização.
-
-Não há uma política formal de divulgação de vulnerabilidades versionada neste repositório. Até que ela exista, não publique credenciais, dados pessoais ou detalhes exploráveis em relatos públicos.
-
-## Estado atual e limitações
-
-- O produto está em desenvolvimento ativo e pode mudar sem garantia de compatibilidade.
-- A arquitetura WebRTC atual é ponto a ponto e pode precisar de TURN em redes restritivas.
-- Fora de `localhost`, recursos de mídia dependem de HTTPS.
-- A busca de GIFs depende de uma chave existente do Tenor; sem ela, uploads locais de GIF continuam funcionando.
-- Não há evidência de auditoria independente de segurança ou prontidão para produção.
-- Não há política de segurança, código de conduta ou guia de contribuição dedicados no repositório neste momento.
+Se você acredita ter encontrado uma vulnerabilidade de segurança no Huddle, consulte nossa Política de Segurança para saber como reportá-la de forma responsável e privada.
 
 ## Licença
 
-> **TODO:** definir e adicionar um arquivo de licença. Embora o projeto se apresente publicamente como open source, nenhuma licença pôde ser confirmada neste repositório; até que uma seja publicada, não presuma permissões de uso, modificação ou redistribuição.
+O Huddle é um software livre e de código aberto, licenciado sob a GNU Affero General Public License v3.0 (AGPL-3.0-only).
+
+Você pode usar, estudar, modificar e distribuir o Huddle de acordo com os termos da licença. Versões modificadas disponibilizadas para interação por usuários através de uma rede estão sujeitas aos requisitos de disponibilização do código-fonte estabelecidos pela AGPL.
+
+Consulte o arquivo ``LICENSE`` para os termos completos da licença.
 
 ## Apoie o Huddle
 
