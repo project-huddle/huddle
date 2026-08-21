@@ -42,12 +42,12 @@ Não há um roadmap versionado no repositório. Por isso, intenções futuras n�
 
 ## Tecnologias e arquitetura
 
-O Huddle é organizado como uma aplicação web com três serviços:
+O Huddle é organizado nas seguintes camadas:
 
 | Camada | Tecnologias | Responsabilidade |
 | --- | --- | --- |
 | Cliente | React 19, TypeScript, Vite, Tailwind CSS, Zustand e Zod | Interface, estado local, chamadas WebRTC e conexão em tempo real |
-| API | Bun, TypeScript e Prisma | Autenticação, regras de negócio, HTTP, WebSocket e sinalização WebRTC |
+| API | Bun, Elysia, TypeScript e Prisma | Autenticação, autorização, persistência, WebSocket, upload e regras de negócio |
 | Dados | PostgreSQL 17 | Usuários, sessões, comunidades, canais, mensagens, reações e convites |
 | Entrega | Docker Compose e Nginx | Orquestração local, cliente estático e proxy de HTTP/WebSocket |
 
@@ -205,39 +205,40 @@ O repositório não possui atualmente um comando próprio de formatação. A CI 
 ## Estrutura do projeto
 
 ```text
-.
-├── client/                 # aplicação React e testes Playwright
-│   ├── e2e/
-│   └── src/
-├── server/                 # API Bun, WebSocket e regras de negócio
-│   ├── prisma/             # schema e migrações do PostgreSQL
-│   └── src/
-├── docs/                   # identidade visual e relatórios técnicos
-├── compose.yaml            # ambiente empacotado
-└── compose.dev.yaml        # sobreposições para desenvolvimento
+server/
+├── prisma/             # Schema e migrações do banco
+├── src/
+│   ├── core/           # Domínio e regras centrais
+│   ├── app/            # Casos de uso e serviços da aplicação
+│   ├── infra/          # Banco, e-mail e integrações externas
+│   ├── interfaces/     # HTTP, WebSocket e interfaces externas
+│   └── index.ts        # Bootstrap da aplicação
+└── tests/              # Testes do backend
 ```
 
 Os endpoints de saúde são `/health` na API e `/healthz` no Nginx.
 
-## Como contribuir
+## Contribuindo
 
 Contribuições são bem-vindas!
 
-Seja corrigindo bugs, melhorando a documentação, trabalhando em acessibilidade ou propondo novas funcionalidades, consulte nosso Guia de Contribuição antes de começar.
+Seja corrigindo bugs, melhorando a documentação, trabalhando em acessibilidade ou propondo novas funcionalidades, consulte nosso [Guia de Contribuição](CONTRIBUTING.md) antes de começar.
 
 Para funcionalidades maiores ou mudanças significativas na arquitetura, recomendamos abrir uma issue ou discussão primeiro para que possamos alinhar a abordagem.
 
 ## Segurança
 
-Vulnerabilidades de segurança não devem ser reportadas por meio de issues públicas.
+Vulnerabilidades de segurança **não devem ser reportadas por meio de issues públicas**.
 
-Se você acredita ter encontrado uma vulnerabilidade de segurança no Huddle, consulte nossa Política de Segurança para saber como reportá-la de forma responsável e privada.
+Se você acredita ter encontrado uma vulnerabilidade de segurança no Huddle, consulte nossa [Política de Segurança](SECURITY.md) para saber como reportá-la de forma responsável e privada.
 
 ## Licença
 
-O Huddle é um software livre e de código aberto, licenciado sob a GNU Affero General Public License v3.0 (AGPL-3.0-only).
+O Huddle é um software livre e de código aberto, licenciado sob a **GNU Affero General Public License v3.0 (`AGPL-3.0-only`)**.
 
 Você pode usar, estudar, modificar e distribuir o Huddle de acordo com os termos da licença. Versões modificadas disponibilizadas para interação por usuários através de uma rede estão sujeitas aos requisitos de disponibilização do código-fonte estabelecidos pela AGPL.
+
+Consulte o arquivo [LICENSE](LICENSE) para os termos completos da licença.
 
 Consulte o arquivo ``LICENSE`` para os termos completos da licença.
 
