@@ -1,0 +1,105 @@
+name: Architecture proposal
+description: Propose or discuss a significant architectural change
+title: "architecture: "
+labels:
+  - architecture
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for significant architectural decisions.
+
+        The purpose of this issue is to discuss the decision before implementation.
+        Accepted decisions may later be documented as an ADR.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Describe the current situation and why this topic matters.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What architectural problem are we trying to solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints
+      description: Describe technical, product, compatibility, performance, security, or maintenance constraints.
+      placeholder: |
+        Examples:
+        - Existing public API compatibility
+        - PostgreSQL persistence
+        - Elysia transport boundary
+        - WebSocket compatibility
+        - Incremental migration requirement
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed direction
+      description: Describe the proposed architecture or design direction.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: List meaningful alternatives and explain their trade-offs.
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected
+    attributes:
+      label: Affected areas
+      description: Which modules, slices, domains, interfaces, or infrastructure components are affected?
+      placeholder: |
+        Example:
+        - server/src/server/...
+        - HTTP interface
+        - WebSocket interface
+        - persistence
+        - authentication
+    validations:
+      required: true
+
+  - type: textarea
+    id: migration
+    attributes:
+      label: Migration strategy
+      description: If existing code is affected, explain how the migration should happen without creating long-lived compatibility layers.
+    validations:
+      required: false
+
+  - type: textarea
+    id: consequences
+    attributes:
+      label: Expected consequences
+      description: What becomes easier, harder, safer, or more complex if this proposal is accepted?
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: principles
+    attributes:
+      label: Architectural principles
+      options:
+        - label: The proposal preserves clear domain boundaries.
+          required: true
+        - label: Framework and transport concerns remain outside the functional/domain core where practical.
+          required: true
+        - label: Transitional compatibility layers are avoided or explicitly temporary.
+          required: true
+        - label: The proposal favors readable code over unnecessary abstraction.
+          required: true

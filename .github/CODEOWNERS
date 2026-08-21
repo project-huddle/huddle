@@ -1,0 +1,4 @@
+/server/ @gui-pavas
+/client/ @gui-pavas
+/docs/ @gui-pavas
+/.github/ @gui-pavas

@@ -1,0 +1,102 @@
+name: Bug report
+description: Report a reproducible problem or unexpected behavior
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem.
+
+        Please provide enough information for the issue to be reproduced and investigated.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Clearly describe the problem.
+      placeholder: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Provide the smallest reliable sequence of steps that reproduces the issue.
+      placeholder: |
+        1. Start...
+        2. Open...
+        3. Perform...
+        4. Observe...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      options:
+        - Server
+        - Client
+        - Database
+        - WebSocket
+        - WebRTC
+        - Authentication
+        - Docker / Infrastructure
+        - GitHub / CI
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Provide relevant environment information.
+      placeholder: |
+        OS:
+        Browser:
+        Bun version:
+        Node version:
+        Docker version:
+        Huddle commit/version:
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or additional context
+      description: Add relevant logs, screenshots, stack traces, or other information.
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true
+        - label: I removed secrets, credentials, tokens, and personal information from logs or screenshots.
+          required: true
