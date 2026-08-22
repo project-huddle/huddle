@@ -1,10 +1,10 @@
 import { Elysia } from "elysia";
-import { error, json } from "../../../http";
+import { error, json } from "@/interfaces/http/responses";
 import {
   createServer,
   listServers,
   serverForUser,
-} from "../../../infra/database/server-repository";
+} from "@/infra/database/server-repository";
 import { authenticatedRoutes } from "../plugins/auth";
 import { createServerBody, serverIdParams } from "../schemas";
 

@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import type { User } from "../infra/database/identity-repository";
 import { db } from "../infra/database/client";
-import { messageContent, validEmail } from "../validation";
+import { messageContent, validEmail } from "./validation";
 
 const publicUserSelect = {
   id: true,

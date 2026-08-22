@@ -11,7 +11,7 @@ import {
   type ServerRole,
   type User,
 } from "./mappers";
-import { can, type Permission } from "../../core/moderation/permissions";
+import { can, type Permission } from "@/core/moderation/permissions";
 
 export type {
   Channel,
@@ -203,22 +203,6 @@ export async function createInvite(
     serverId,
     expiresAt: invite.expiresAt.toISOString(),
   };
-}
-export async function joinServer(
-  userId: string,
-  code: string,
-): Promise<Server | null> {
-  const invite = await db.invite.findFirst({
-    where: { code, expiresAt: { gt: new Date() } },
-    include: { server: true },
-  });
-  if (!invite) return null;
-  await db.serverMember.upsert({
-    where: { serverId_userId: { serverId: invite.serverId, userId } },
-    create: { serverId: invite.serverId, userId },
-    update: {},
-  });
-  return serverView(invite.server);
 }
 export async function leaveServer(
   userId: string,

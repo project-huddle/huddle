@@ -1,10 +1,7 @@
 import { Elysia, t } from "elysia";
-import {
-  directMessageHistory,
-  sendDirectMessage,
-} from "../../../app/social-service";
-import { error, json } from "../../../http";
-import { notifyUser } from "../../realtime/realtime-gateway";
+import { directMessageHistory, sendDirectMessage } from "@/app/social-service";
+import { error, json } from "@/interfaces/http/responses";
+import { notifyUser } from "@/interfaces/realtime/realtime-gateway";
 import { authenticatedRoutes } from "../plugins/auth";
 import { resourceId } from "../schemas";
 

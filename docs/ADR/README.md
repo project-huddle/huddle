@@ -9,3 +9,5 @@ Os ADRs documentam decisões duradouras, seu contexto e consequências. O estado
 - [ADR-005 — WebSocket e WebRTC](./005-realtime-e-webrtc.md)
 - [ADR-006 — E-mail com Nodemailer](./006-email-e-identidade.md)
 - [ADR-007 — CPF, idade e minimização de dados](./007-cpf-idade-e-privacidade.md)
+- [ADR-008 — Elysia como adaptador HTTP e WebSocket](./008-elysia-como-adaptador-http.md)
+- [ADR-009 — Vertical Slices com Functional Core e Imperative Shell](./009-vertical-slices-functional-core-imperative-shell.md)

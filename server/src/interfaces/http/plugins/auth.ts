@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { authenticate } from "../../../auth";
+import { authenticate } from "@/interfaces/http/authentication";
 
 export class NotAuthenticatedError extends Error {
   constructor() {

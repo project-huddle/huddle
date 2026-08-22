@@ -1,11 +1,11 @@
 import { Elysia } from "elysia";
-import { error, json } from "../../../http";
+import { error, json } from "@/interfaces/http/responses";
 import {
   removeMember,
   serverMembers,
   setMemberRole,
-} from "../../../infra/database/server-repository";
-import { revokeUnauthorizedSocketAccess } from "../../realtime/realtime-gateway";
+} from "@/infra/database/server-repository";
+import { revokeUnauthorizedSocketAccess } from "@/interfaces/realtime/realtime-gateway";
 import { authenticatedRoutes } from "../plugins/auth";
 import { memberRoleBody, serverIdParams, serverMemberParams } from "../schemas";
 

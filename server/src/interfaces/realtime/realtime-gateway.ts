@@ -2,17 +2,17 @@ import type { ElysiaWS } from "elysia/ws";
 import {
   channelForUser,
   firstChannelForUser,
-} from "../../infra/database/server-repository";
+} from "@/infra/database/server-repository";
 import {
   deleteMessage,
   editMessage,
   messageForUser,
   reactMessage,
   saveMessage,
-} from "../../infra/database/message-repository";
-import type { User } from "../../infra/database/identity-repository";
-import { FixedWindowRateLimiter } from "../../rate-limit";
-import { messageContent, messageMedia } from "../../validation";
+} from "@/infra/database/message-repository";
+import type { User } from "@/infra/database/identity-repository";
+import { FixedWindowRateLimiter } from "@/interfaces/rate-limit";
+import { messageContent, messageMedia } from "@/app/validation";
 
 type RealtimeSocket = ElysiaWS<any, any>;
 type SocketSession = {

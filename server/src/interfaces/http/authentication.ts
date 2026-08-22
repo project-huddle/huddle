@@ -1,11 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
-import { config } from "./config";
+import { config } from "../../bootstrap/config";
 import {
   createSession,
   deleteSession,
   userForSession,
   type User,
-} from "./database";
+} from "../../infra/database/identity-repository";
 
 export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");

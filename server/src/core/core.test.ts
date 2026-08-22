@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { isAdult, isValidCpf, normalizeCpf } from "./identity/cpf";
 import { can, permissionsFor } from "./moderation/permissions";
-import { FixedWindowRateLimiter } from "../rate-limit";
+import { FixedWindowRateLimiter } from "../interfaces/rate-limit";
 
 describe("core domain rules", () => {
   test("normalizes and validates CPF without accepting repeated digits", () => {

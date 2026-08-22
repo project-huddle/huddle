@@ -1,4 +1,4 @@
-import { isAdult } from "../../core/identity/cpf";
+import { isAdult } from "@/core/identity/cpf";
 
 export type AgeVerificationResult = {
   ageGroup: "adult" | "minor";

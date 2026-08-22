@@ -1,12 +1,8 @@
 import { Elysia, t } from "elysia";
-import {
-  can,
-  permissions,
-  type Role,
-} from "../../../core/moderation/permissions";
-import { error, json } from "../../../http";
-import { db } from "../../../infra/database/client";
-import { sendMail } from "../../../infra/email/mailer";
+import { can, permissions, type Role } from "@/core/moderation/permissions";
+import { error, json } from "@/interfaces/http/responses";
+import { db } from "@/infra/database/client";
+import { sendMail } from "@/infra/email/mailer";
 import { authenticatedRoutes } from "../plugins/auth";
 import { resourceId, serverIdParams, serverMemberParams } from "../schemas";
 

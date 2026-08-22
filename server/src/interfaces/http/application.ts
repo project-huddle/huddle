@@ -1,5 +1,7 @@
 import { Elysia, t } from "elysia";
-import { config } from "../../config";
+import type { JoinServerHandler } from "@/features/servers/join-server/join-server";
+import { joinServerRoute } from "@/features/servers/join-server/join-server.route";
+import { config } from "@/bootstrap/config";
 import {
   hasValidWebSocketTicket,
   realtimeWebSocket,
@@ -21,7 +23,9 @@ import { serverMemberRoutes } from "./routes/server-members";
 import { serverRoutes } from "./routes/servers";
 import { uploadRoutes } from "./routes/uploads";
 
-export function createHttpApplication() {
+export function createHttpApplication(dependencies: {
+  joinServer: JoinServerHandler;
+}) {
   return new Elysia({ name: "huddle-http" })
     .use(errorHandling)
     .use(security())
@@ -33,6 +37,7 @@ export function createHttpApplication() {
     .use(serverRoutes)
     .use(serverMemberRoutes)
     .use(serverInviteRoutes)
+    .use(joinServerRoute(dependencies.joinServer))
     .use(channelRoutes)
     .use(uploadRoutes)
     .use(gifRoutes)
