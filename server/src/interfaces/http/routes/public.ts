@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { Elysia, t } from "elysia";
-import { config } from "../../../config";
-import { error, json } from "../../../http";
+import { config } from "@/config";
+import { error, json } from "@/http";
 
 export const publicRoutes = new Elysia({ name: "public-routes" })
   .get("/health", () =>

@@ -1,10 +1,10 @@
 import { Elysia } from "elysia";
-import { error, json } from "../../../http";
+import { error, json } from "@/http";
 import {
   createInvite,
   leaveServer,
-} from "../../../infra/database/server-repository";
-import { revokeUnauthorizedSocketAccess } from "../../realtime/realtime-gateway";
+} from "@/infra/database/server-repository";
+import { revokeUnauthorizedSocketAccess } from "@/interfaces/realtime/realtime-gateway";
 import { authenticatedRoutes } from "../plugins/auth";
 import { serverIdParams } from "../schemas";
 

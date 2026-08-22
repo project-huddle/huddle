@@ -1,7 +1,7 @@
 import { Prisma, PrismaClient } from "@prisma/client";
-import type { InviteSnapshot } from "../../domain/servers/invite";
-import type { ServerSnapshot } from "../../domain/servers/server";
-import type { JoinServerRepository } from "../../features/servers/join-server/join-server.port";
+import type { InviteSnapshot } from "@/domain/servers/invite";
+import type { ServerSnapshot } from "@/domain/servers/server";
+import type { JoinServerRepository } from "@/features/servers/join-server/join-server.port";
 import { db as defaultDatabase, serverView } from "./mappers";
 
 export function createJoinServerRepository(

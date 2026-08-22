@@ -11,7 +11,7 @@ import {
   type ServerRole,
   type User,
 } from "./mappers";
-import { can, type Permission } from "../../core/moderation/permissions";
+import { can, type Permission } from "@/core/moderation/permissions";
 
 export type {
   Channel,

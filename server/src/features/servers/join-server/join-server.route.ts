@@ -1,7 +1,7 @@
 import { Elysia } from "elysia";
-import { error, json } from "../../../http";
-import { authenticatedRoutes } from "../../../interfaces/http/plugins/auth";
-import { joinInviteBody } from "../../../interfaces/http/schemas";
+import { error, json } from "@/http";
+import { authenticatedRoutes } from "@/interfaces/http/plugins/auth";
+import { joinInviteBody } from "@/interfaces/http/schemas";
 import type { JoinServerHandler } from "./join-server";
 
 export function joinServerRoute(joinServer: JoinServerHandler) {

@@ -2,12 +2,12 @@ import { Elysia, t } from "elysia";
 import {
   changePassword,
   setTwoFactorEnabled,
-} from "../../../app/account-service";
+} from "@/app/account-service";
 import {
   sendIdentityCode,
   verifyIdentityCode,
-} from "../../../app/identity-service";
-import { error } from "../../../http";
+} from "@/app/identity-service";
+import { error } from "@/http";
 import { authenticatedRoutes } from "../plugins/auth";
 
 const passwordBody = t.Object({

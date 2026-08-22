@@ -1,17 +1,17 @@
 import { Elysia, t } from "elysia";
-import { issueSession, revoke } from "../../../auth";
+import { issueSession, revoke } from "@/auth";
 import {
   sendIdentityCode,
   verifyTwoFactorChallenge,
-} from "../../../app/identity-service";
-import { db } from "../../../infra/database/client";
+} from "@/app/identity-service";
+import { db } from "@/infra/database/client";
 import {
   createUser,
   findUserByEmail,
-} from "../../../infra/database/identity-repository";
-import { error, json } from "../../../http";
-import { validEmail } from "../../../validation";
-import { issueWebSocketTicket } from "../../realtime/realtime-gateway";
+} from "@/infra/database/identity-repository";
+import { error, json } from "@/http";
+import { validEmail } from "@/validation";
+import { issueWebSocketTicket } from "@/interfaces/realtime/realtime-gateway";
 import { authenticatedRoutes } from "../plugins/auth";
 
 const registrationBody = t.Object({

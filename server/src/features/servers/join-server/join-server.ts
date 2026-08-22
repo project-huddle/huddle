@@ -1,5 +1,5 @@
-import { Invite } from "../../../domain/servers/invite";
-import { Server } from "../../../domain/servers/server";
+import { Invite } from "@/domain/servers/invite";
+import { Server } from "@/domain/servers/server";
 import type { JoinServerRepository } from "./join-server.port";
 
 export type JoinServerCommand = {

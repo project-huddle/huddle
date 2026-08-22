@@ -3,8 +3,8 @@ import {
   getProfile,
   updateProfile,
   type UpdateProfileResult,
-} from "../../../app/account-service";
-import { error, json } from "../../../http";
+} from "@/app/account-service";
+import { error, json } from "@/http";
 import { authenticatedRoutes } from "../plugins/auth";
 
 const profileBody = t.Object({

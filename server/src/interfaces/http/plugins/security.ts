@@ -1,7 +1,7 @@
 import { Elysia } from "elysia";
-import { config } from "../../../config";
-import { corsHeaders, error } from "../../../http";
-import { clientAddress, FixedWindowRateLimiter } from "../../../rate-limit";
+import { config } from "@/config";
+import { corsHeaders, error } from "@/http";
+import { clientAddress, FixedWindowRateLimiter } from "@/rate-limit";
 
 export function security() {
   const requestLimiter = new FixedWindowRateLimiter(config.requestsPerMinute);

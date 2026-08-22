@@ -1,5 +1,5 @@
-import type { InviteSnapshot } from "../../../domain/servers/invite";
-import type { ServerSnapshot } from "../../../domain/servers/server";
+import type { InviteSnapshot } from "@/domain/servers/invite";
+import type { ServerSnapshot } from "@/domain/servers/server";
 
 export type JoinServerRepository = {
   findInvite(code: string): Promise<InviteSnapshot | null>;

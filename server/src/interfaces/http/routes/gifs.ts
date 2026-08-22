@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
-import { config } from "../../../config";
-import { error, json } from "../../../http";
+import { config } from "@/config";
+import { error, json } from "@/http";
 import { authenticatedRoutes } from "../plugins/auth";
 
 type TenorPayload = {

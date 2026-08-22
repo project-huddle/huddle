@@ -1,10 +1,10 @@
 import { Elysia } from "elysia";
-import { error, json } from "../../../http";
+import { error, json } from "@/http";
 import {
   createChannel,
   isServerMember,
   listChannels,
-} from "../../../infra/database/server-repository";
+} from "@/infra/database/server-repository";
 import { authenticatedRoutes } from "../plugins/auth";
 import { createChannelBody, serverIdParams } from "../schemas";
 

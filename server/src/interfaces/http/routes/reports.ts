@@ -3,10 +3,10 @@ import {
   can,
   permissions,
   type Role,
-} from "../../../core/moderation/permissions";
-import { error, json } from "../../../http";
-import { db } from "../../../infra/database/client";
-import { sendMail } from "../../../infra/email/mailer";
+} from "@/core/moderation/permissions";
+import { error, json } from "@/http";
+import { db } from "@/infra/database/client";
+import { sendMail } from "@/infra/email/mailer";
 import { authenticatedRoutes } from "../plugins/auth";
 import { resourceId, serverIdParams, serverMemberParams } from "../schemas";
 

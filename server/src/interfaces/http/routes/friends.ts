@@ -4,9 +4,9 @@ import {
   deleteFriendship,
   listFriendships,
   requestFriend,
-} from "../../../app/social-service";
-import { error, json } from "../../../http";
-import { notifyUser } from "../../realtime/realtime-gateway";
+} from "@/app/social-service";
+import { error, json } from "@/http";
+import { notifyUser } from "@/interfaces/realtime/realtime-gateway";
 import { authenticatedRoutes } from "../plugins/auth";
 import { emailBody, userIdParams } from "../schemas";
 

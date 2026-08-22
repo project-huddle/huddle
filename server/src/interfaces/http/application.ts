@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
-import type { JoinServerHandler } from "../../features/servers/join-server/join-server";
-import { joinServerRoute } from "../../features/servers/join-server/join-server.route";
-import { config } from "../../config";
+import type { JoinServerHandler } from "@/features/servers/join-server/join-server";
+import { joinServerRoute } from "@/features/servers/join-server/join-server.route";
+import { config } from "@/config";
 import {
   hasValidWebSocketTicket,
   realtimeWebSocket,

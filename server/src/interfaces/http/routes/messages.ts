@@ -1,11 +1,11 @@
 import { Elysia, t } from "elysia";
-import { config } from "../../../config";
-import { error, json } from "../../../http";
-import { messageHistory } from "../../../infra/database/message-repository";
+import { config } from "@/config";
+import { error, json } from "@/http";
+import { messageHistory } from "@/infra/database/message-repository";
 import {
   channelForUser,
   firstChannelForUser,
-} from "../../../infra/database/server-repository";
+} from "@/infra/database/server-repository";
 import { authenticatedRoutes } from "../plugins/auth";
 
 const messageHistoryQuery = t.Object({
