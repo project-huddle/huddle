@@ -1,0 +1,19 @@
+Index: .idea/material_theme_project_new.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project version=\"4\">\n  <component name=\"MaterialThemeProjectNewConfig\">\n    <option name=\"metadata\">\n      <MTProjectMetadataState>\n        <option name=\"userId\" value=\"6eb5a7c2:1a015a5f487:-7e6c\" />\n      </MTProjectMetadataState>\n    </option>\n  </component>\n</project>
+===================================================================
+diff --git a/.idea/material_theme_project_new.xml b/.idea/material_theme_project_new.xml
+--- a/.idea/material_theme_project_new.xml	(revision 45183a8babc68392d6d6976f613cfc6a988a6802)
++++ b/.idea/material_theme_project_new.xml	(date 1787345103149)
+@@ -3,7 +3,9 @@
+   <component name="MaterialThemeProjectNewConfig">
+     <option name="metadata">
+       <MTProjectMetadataState>
+-        <option name="userId" value="6eb5a7c2:1a015a5f487:-7e6c" />
++        <option name="migrated" value="true" />
++        <option name="pristineConfig" value="false" />
++        <option name="userId" value="-2e81dd93:19f850a2708:-7ff9" />
+       </MTProjectMetadataState>
+     </option>
+   </component>

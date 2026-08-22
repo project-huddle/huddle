@@ -314,11 +314,12 @@ describe("huddle API", () => {
     const inviteCode = (
       (await inviteResponse.json()) as { invite: { code: string } }
     ).invite.code;
-    await fetch(`${baseUrl}/invites/join`, {
+    const joined = await fetch(`${baseUrl}/invites/join`, {
       method: "POST",
       headers: { ...bobHeaders, "content-type": "application/json" },
       body: JSON.stringify({ code: inviteCode }),
     });
+    expect(joined.status).toBe(201);
     const channelsResponse = await fetch(
       `${baseUrl}/servers/${sharedServerId}/channels`,
       { headers: aliceHeaders },

@@ -1,8 +1,8 @@
 import { config } from "./config";
-import { createHttpApplication } from "./interfaces/http/application";
+import { createServerApplication } from "./bootstrap/server";
 
 export function createRuntimeServer() {
-  const application = createHttpApplication().listen({
+  const application = createServerApplication().listen({
     hostname: config.host,
     port: config.port,
   });

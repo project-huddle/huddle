@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="be69ada2-382e-4c2d-8c5a-b54297b1992c" name="Changes" comment="adiciona novos modulos" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ComposerSettings">
+    <execution>
+      <executable />
+    </execution>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="1.0164924292424058" />
+      <entry key="MS500" value="1.8546319982378563" />
+      <entry key="S2" value="3.8439051922893417" />
+      <entry key="S5" value="4.935186868113087" />
+      <entry key="S10" value="5.424994312386501" />
+      <entry key="S30" value="5.797832911262724" />
+      <entry key="S60" value="5.897533315390535" />
+      <entry key="M2" value="5.948415303452869" />
+      <entry key="M5" value="5.979281072265844" />
+      <entry key="M10" value="5.9896263026471415" />
+      <entry key="M15" value="5.993084205393679" />
+      <entry key="M30" value="6.001669141947534" />
+      <entry key="H1" value="6.218526362559283" />
+      <entry key="H2" value="7.472379213509513" />
+      <entry key="H4" value="9.830720330797458" />
+      <entry key="D1" value="14.519980910782127" />
+      <entry key="W1" value="15.77372167662139" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="0.0" />
+      <entry key="S2" value="0.0" />
+      <entry key="S5" value="0.0" />
+      <entry key="S10" value="0.0" />
+      <entry key="S30" value="0.0" />
+      <entry key="S60" value="0.0" />
+      <entry key="M2" value="0.0" />
+      <entry key="M5" value="0.0" />
+      <entry key="M10" value="0.0" />
+      <entry key="M15" value="0.0" />
+      <entry key="M30" value="0.0" />
+      <entry key="H1" value="0.0" />
+      <entry key="H2" value="0.0" />
+      <entry key="H4" value="0.0" />
+      <entry key="D1" value="0.0" />
+      <entry key="W1" value="0.0" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="0.9956856693851359" />
+      <entry key="MS500" value="1.8479413410195664" />
+      <entry key="S2" value="3.8402315335356203" />
+      <entry key="S5" value="4.933209626079476" />
+      <entry key="S10" value="5.423887630647066" />
+      <entry key="S30" value="5.797433633347435" />
+      <entry key="S60" value="5.897329586253291" />
+      <entry key="M2" value="5.948312393062915" />
+      <entry key="M5" value="5.979239654073301" />
+      <entry key="M10" value="5.9896055509556065" />
+      <entry key="M15" value="5.993070361443423" />
+      <entry key="M30" value="6.001662211347761" />
+      <entry key="H1" value="6.218522812005174" />
+      <entry key="H2" value="7.4723771882741765" />
+      <entry key="H4" value="9.830719080548816" />
+      <entry key="D1" value="14.519980623047411" />
+      <entry key="W1" value="15.773721632473913" />
+    </decayedShown>
+  </component>
+  <component name="PhpWorkspaceProjectConfiguration" interpreter_name="/bin/php" />
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 0,
+  "fromUser": false
+}]]></component>
+  <component name="ProjectId" id="3I6K0qVqng5Z4Fy0K20L7th7bbX" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "git-widget-placeholder": "master",
+    "junie.onboarding.icon.badge.shown": "true",
+    "last_opened_file_path": "/var/www/huddle",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "to.speed.mode.migration.done": "true",
+    "ts.external.directory.path": "/var/www/huddle/client/node_modules/typescript/lib"
+  }
+}]]></component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-php-predefined-a98d8de5180a-ff90ddd8021d-com.jetbrains.php.sharedIndexes-PS-262.8665.325" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="be69ada2-382e-4c2d-8c5a-b54297b1992c" name="Changes" comment="" />
+      <created>1787079357364</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1787079357364</updated>
+      <workItem from="1787079358605" duration="4908000" />
+    </task>
+    <task id="LOCAL-00001" summary="adiciona novos modulos">
+      <option name="closed" value="true" />
+      <created>1787100606268</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1787100606268</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="adiciona novos modulos" />
+    <option name="LAST_COMMIT_MESSAGE" value="adiciona novos modulos" />
+  </component>
+</project>
