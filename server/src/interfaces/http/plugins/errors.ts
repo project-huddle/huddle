@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { error } from "@/http";
+import { error } from "@/interfaces/http/responses";
 import { NotAuthenticatedError } from "./auth";
 
 export const errorHandling = new Elysia({ name: "http-errors" }).onError(

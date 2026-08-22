@@ -1,5 +1,10 @@
-import { config } from "./config";
-import type { MessageMedia } from "./infra/database/message-repository";
+const maxMessageLength = 2_000;
+
+type MessageMedia = {
+  url: string;
+  type: "image" | "gif";
+  alt: string;
+};
 
 export function validEmail(value: unknown): value is string {
   return (
@@ -15,7 +20,7 @@ export function messageContent(
 ): string | null {
   if (typeof value !== "string") return allowEmpty ? "" : null;
   const content = value.trim();
-  return (allowEmpty || content) && content.length <= config.maxMessageLength
+  return (allowEmpty || content) && content.length <= maxMessageLength
     ? content
     : null;
 }

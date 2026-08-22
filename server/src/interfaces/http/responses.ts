@@ -1,4 +1,4 @@
-import { config } from "./config";
+import { config } from "../../bootstrap/config";
 
 export function json(data: unknown, status = 200, headers?: Headers): Response {
   return Response.json(data, { status, headers });

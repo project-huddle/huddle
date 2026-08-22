@@ -1,6 +1,6 @@
 import { Elysia, t } from "elysia";
-import { config } from "@/config";
-import { error, json } from "@/http";
+import { config } from "@/bootstrap/config";
+import { error, json } from "@/interfaces/http/responses";
 import { messageHistory } from "@/infra/database/message-repository";
 import {
   channelForUser,

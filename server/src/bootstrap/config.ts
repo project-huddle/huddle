@@ -27,7 +27,6 @@ export const config = {
       .filter(Boolean),
   ),
   sessionLifetimeSeconds: 60 * 60 * 24 * 30,
-  maxMessageLength: 2_000,
   maxHistoryLimit: 100,
   maxUploadBytes: 8 * 1024 * 1024,
   maxJsonBytes: positiveInteger("MAX_JSON_BYTES", 16 * 1024),

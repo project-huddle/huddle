@@ -12,7 +12,10 @@ Organizar novas regras em `core` (domínio puro), `app` (casos de uso), `infra` 
 
 ## Consequências
 
-Regras de CPF e permissões podem ser testadas sem banco. Integrações ficam substituíveis. A implementação de persistência está dividida por agregado; `database.ts` permanece apenas como fachada temporária até a migração das importações legadas dos testes.
+Regras de CPF e permissões podem ser testadas sem banco. Integrações ficam substituíveis. A implementação de persistência está dividida por agregado.
+
+A fachada temporária `database.ts` foi removida em 22/08/2026 após a migração dos últimos consumidores para os módulos específicos de `infra/database`.
+
 # Complemento — limites da infraestrutura (2026-08-20)
 
 O entrypoint `server/src/index.ts` é exclusivamente um composition root. Adaptadores de transporte são construídos por fábricas e não devem iniciar processos como efeito colateral de importação.

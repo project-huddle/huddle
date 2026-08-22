@@ -1,5 +1,5 @@
-import { config } from "./config";
-import { createRuntimeServer } from "./runtime";
+import { config } from "./bootstrap/config";
+import { createRuntimeServer } from "./bootstrap/runtime";
 
 export const server = createRuntimeServer();
 

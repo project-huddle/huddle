@@ -4,7 +4,7 @@ import {
   updateProfile,
   type UpdateProfileResult,
 } from "@/app/account-service";
-import { error, json } from "@/http";
+import { error, json } from "@/interfaces/http/responses";
 import { authenticatedRoutes } from "../plugins/auth";
 
 const profileBody = t.Object({

@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { error, json } from "@/http";
+import { error, json } from "@/interfaces/http/responses";
 import {
   createChannel,
   isServerMember,

@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import { error, json } from "@/http";
+import { error, json } from "@/interfaces/http/responses";
 import { authenticatedRoutes } from "@/interfaces/http/plugins/auth";
 import { joinInviteBody } from "@/interfaces/http/schemas";
 import type { JoinServerHandler } from "./join-server";

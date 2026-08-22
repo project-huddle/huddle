@@ -1,5 +1,5 @@
 import { Elysia, t } from "elysia";
-import { issueSession, revoke } from "@/auth";
+import { issueSession, revoke } from "@/interfaces/http/authentication";
 import {
   sendIdentityCode,
   verifyTwoFactorChallenge,
@@ -9,8 +9,8 @@ import {
   createUser,
   findUserByEmail,
 } from "@/infra/database/identity-repository";
-import { error, json } from "@/http";
-import { validEmail } from "@/validation";
+import { error, json } from "@/interfaces/http/responses";
+import { validEmail } from "@/app/validation";
 import { issueWebSocketTicket } from "@/interfaces/realtime/realtime-gateway";
 import { authenticatedRoutes } from "../plugins/auth";
 

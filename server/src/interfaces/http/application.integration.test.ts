@@ -10,7 +10,7 @@ process.env.HOST = "127.0.0.1";
 process.env.UPLOADS_PATH = join(temporaryDirectory, "uploads");
 process.env.SERPRO_AGE_VERIFICATION_TOKEN = "integration-test-serpro-token";
 
-let server: typeof import("./index").server;
+let server: typeof import("../../index").server;
 let serproServer: ReturnType<typeof Bun.serve>;
 let baseUrl: string;
 
@@ -32,7 +32,7 @@ beforeAll(async () => {
     throw new Error(
       "DATABASE_URL must point to an isolated PostgreSQL test database",
     );
-  const { db } = await import("./database");
+  const { db } = await import("../../infra/database/client");
   await db.$transaction([
     db.emailToken.deleteMany(),
     db.report.deleteMany(),
@@ -69,14 +69,14 @@ beforeAll(async () => {
     },
   });
   process.env.SERPRO_AGE_VERIFICATION_URL = `http://127.0.0.1:${serproPort}/verify-age`;
-  ({ server } = await import("./index"));
+  ({ server } = await import("../../index"));
   baseUrl = `http://127.0.0.1:${server.port}`;
 });
 
 afterAll(async () => {
   server?.stop(true);
   serproServer?.stop(true);
-  const { db } = await import("./database");
+  const { db } = await import("../../infra/database/client");
   await db.$disconnect();
   rmSync(temporaryDirectory, { recursive: true, force: true });
 });
@@ -627,7 +627,7 @@ describe("huddle API", () => {
       ageGroup: "adult",
     });
     const stored = await (
-      await import("./database")
+      await import("../../infra/database/client")
     ).db.user.findUniqueOrThrow({ where: { id: alice.user.id } });
     expect(stored.ageGroup).toBe("adult");
     expect(stored.ageVerifiedAt).toBeTruthy();
@@ -666,7 +666,7 @@ describe("huddle API", () => {
       ],
     });
 
-    const { db } = await import("./database");
+    const { db } = await import("../../infra/database/client");
     const verificationCode = "123456";
     await db.emailToken.create({
       data: {

@@ -1,5 +1,5 @@
 import { config } from "./config";
-import { createServerApplication } from "./bootstrap/server";
+import { createServerApplication } from "./server";
 
 export function createRuntimeServer() {
   const application = createServerApplication().listen({

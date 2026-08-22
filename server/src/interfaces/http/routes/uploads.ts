@@ -1,8 +1,8 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { Elysia, t } from "elysia";
-import { config } from "@/config";
-import { error, json } from "@/http";
+import { config } from "@/bootstrap/config";
+import { error, json } from "@/interfaces/http/responses";
 import { authenticatedRoutes } from "../plugins/auth";
 
 mkdirSync(config.uploadsPath, { recursive: true });
