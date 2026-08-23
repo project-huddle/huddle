@@ -1,11 +1,21 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, type MessageMedia, type UserProfile } from "@/lib/api";
-import { emailCodeSchema, passwordChangeSchema, profileSchema } from "@/schemas/profile-schema";
+import {
+	emailCodeSchema,
+	passwordChangeSchema,
+	profileSchema,
+} from "@/schemas/profile-schema";
 
-export function useProfileSettings({ token, open, onUpdated }: { token: string; open: boolean; onUpdated: (user: UserProfile) => void }) {
+export function useProfileSettings({
+	token,
+	open,
+	onUpdated,
+}: {
+	token: string;
+	open: boolean;
+	onUpdated: (user: UserProfile) => void;
+}) {
 	const [profile, setProfile] = useState<UserProfile | null>(null);
-	const [cpf, setCpf] = useState("");
-	const [birthDate, setBirthDate] = useState("");
 	const [code, setCode] = useState("");
 	const [message, setMessage] = useState<string | null>(null);
 	const [currentPassword, setCurrentPassword] = useState("");
@@ -20,7 +30,10 @@ export function useProfileSettings({ token, open, onUpdated }: { token: string; 
 	const save = async (event: FormEvent) => {
 		event.preventDefault();
 		if (!profile) return;
-		const input = profileSchema.parse({ displayName: profile.displayName, countryCode: profile.countryCode, cpf, birthDate });
+		const input = profileSchema.parse({
+			displayName: profile.displayName,
+			countryCode: profile.countryCode,
+		});
 		try {
 			const result = await api<{ user: UserProfile }>(
 				"/profile",
@@ -29,17 +42,13 @@ export function useProfileSettings({ token, open, onUpdated }: { token: string; 
 					body: JSON.stringify({
 						displayName: input.displayName,
 						avatarUrl: profile.avatarUrl,
-						countryCode: profile.countryCode,
-						...(profile.countryCode === "BR" && cpf
-							? { cpf, birthDate }
-							: {}),
+						countryCode: input.countryCode,
 					}),
 				},
 				token,
 			);
 			setProfile(result.user);
 			onUpdated(result.user);
-			setCpf("");
 			setMessage("Perfil atualizado.");
 		} catch (cause) {
 			setMessage(
@@ -90,7 +99,10 @@ export function useProfileSettings({ token, open, onUpdated }: { token: string; 
 	};
 	const changePassword = async (event: FormEvent) => {
 		event.preventDefault();
-		const passwords = passwordChangeSchema.parse({ currentPassword, newPassword });
+		const passwords = passwordChangeSchema.parse({
+			currentPassword,
+			newPassword,
+		});
 		await api(
 			"/profile/password",
 			{
@@ -103,7 +115,22 @@ export function useProfileSettings({ token, open, onUpdated }: { token: string; 
 		setNewPassword("");
 		setMessage("Senha alterada. Entre novamente com a nova senha.");
 	};
-	return { profile, setProfile, cpf, setCpf, birthDate, setBirthDate, code, setCode,
-		message, currentPassword, setCurrentPassword, newPassword, setNewPassword,
-		avatarRef, save, uploadAvatar, sendCode, verifyEmail, toggle2fa, changePassword };
+	return {
+		profile,
+		setProfile,
+		code,
+		setCode,
+		message,
+		currentPassword,
+		setCurrentPassword,
+		newPassword,
+		setNewPassword,
+		avatarRef,
+		save,
+		uploadAvatar,
+		sendCode,
+		verifyEmail,
+		toggle2fa,
+		changePassword,
+	};
 }

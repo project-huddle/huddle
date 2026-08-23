@@ -20,9 +20,6 @@ export type User = {
 export type UserProfile = User & {
 	emailVerifiedAt: string | null;
 	countryCode: string | null;
-	ageGroup: "adult" | "minor" | null;
-	ageVerifiedAt: string | null;
-	ageVerificationProvider: string | null;
 	twoFactorEnabled: boolean;
 };
 

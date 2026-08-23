@@ -11,9 +11,6 @@ const publicUserSelect = {
   createdAt: true,
   emailVerifiedAt: true,
   countryCode: true,
-  ageGroup: true,
-  ageVerifiedAt: true,
-  ageVerificationProvider: true,
   twoFactorEnabled: true,
 } satisfies Prisma.UserSelect;
 type PublicUserRow = Prisma.UserGetPayload<{ select: typeof publicUserSelect }>;
@@ -23,7 +20,6 @@ function publicUser(row: PublicUserRow) {
     ...row,
     createdAt: row.createdAt.toISOString(),
     emailVerifiedAt: row.emailVerifiedAt?.toISOString() ?? null,
-    ageVerifiedAt: row.ageVerifiedAt?.toISOString() ?? null,
   };
 }
 

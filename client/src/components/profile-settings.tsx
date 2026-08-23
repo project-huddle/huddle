@@ -13,9 +13,23 @@ export function ProfileSettings({
 	onClose: () => void;
 	onUpdated: (user: UserProfile) => void;
 }) {
-	const { profile, setProfile, cpf, setCpf, birthDate, setBirthDate, code, setCode,
-		message, currentPassword, setCurrentPassword, newPassword, setNewPassword,
-		avatarRef, save, uploadAvatar, sendCode, verifyEmail, toggle2fa, changePassword,
+	const {
+		profile,
+		setProfile,
+		code,
+		setCode,
+		message,
+		currentPassword,
+		setCurrentPassword,
+		newPassword,
+		setNewPassword,
+		avatarRef,
+		save,
+		uploadAvatar,
+		sendCode,
+		verifyEmail,
+		toggle2fa,
+		changePassword,
 	} = useProfileSettings({ token, open, onUpdated });
 	return (
 		<Modal
@@ -77,56 +91,6 @@ export function ProfileSettings({
 								<option value="ZZ">Outro</option>
 							</select>
 						</label>
-						{profile.countryCode === "BR" && (
-							<div className="rounded-2xl border border-[var(--brand)]/30 bg-[var(--brand-soft)] p-4 text-sm">
-								<strong>
-									Por que pedimos CPF e nascimento?
-								</strong>
-								<p className="mt-1 text-[var(--muted-text)]">
-									Seu CPF e sua data de nascimento serão
-									enviados à Serpro exclusivamente para
-									verificar sua faixa etária. Conforme o art.
-									13 do ECA Digital, eles não serão usados
-									para nenhuma outra finalidade. O Huddle não
-									armazena CPF nem data de nascimento após a
-									verificação; conserva somente o resultado da
-									faixa etária e a data da verificação.
-								</p>
-								{profile.ageVerifiedAt && (
-									<p className="mt-2 font-bold text-[#477a50]">
-										Idade verificada pela Serpro:{" "}
-										{profile.ageGroup === "adult"
-											? "18 anos ou mais"
-											: "menor de 18 anos"}
-										.
-									</p>
-								)}
-								<label className="mt-3 block font-bold">
-									Data de nascimento
-									<input
-										type="date"
-										value={birthDate}
-										onChange={(event) =>
-											setBirthDate(event.target.value)
-										}
-										required={!profile.ageVerifiedAt}
-										className="mt-1 h-11 w-full rounded-xl bg-[var(--surface)] px-3"
-									/>
-								</label>
-								<label className="mt-3 block font-bold">
-									CPF
-									<input
-										value={cpf}
-										onChange={(event) =>
-											setCpf(event.target.value)
-										}
-										required={!profile.ageVerifiedAt}
-										placeholder="000.000.000-00"
-										className="mt-1 h-11 w-full rounded-xl bg-[var(--surface)] px-3"
-									/>
-								</label>
-							</div>
-						)}
 						<button className="rounded-xl bg-[var(--solid)] px-5 py-3 font-bold text-[var(--on-solid)]">
 							Salvar perfil
 						</button>

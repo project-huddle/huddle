@@ -40,23 +40,11 @@ A revisão tratou as falhas que impediam os fluxos básicos, redesenhou o onboar
 - alteração de senha com confirmação da senha atual e revogação de todas as sessões;
 - confirmação de e-mail por código com hash e expiração;
 - 2FA por e-mail com desafio pré-sessão, código de seis dígitos, hash, expiração de dez minutos e consumo único;
-- telas para país, nascimento, CPF brasileiro, confirmação de e-mail e 2FA.
+- telas para país, confirmação de e-mail e 2FA.
 
-## CPF, idade e responsabilidade legal
+## Identificação e aferição de idade
 
-A implementação não afirma que a legislação obriga toda rede social a coletar CPF. A [Lei 15.211/2025](https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2025/lei/l15211.htm) exige proteção de crianças e adolescentes, e o [Decreto 12.880/2026](https://planalto.gov.br/ccivil_03/_ato2023-2026/2026/decreto/d12880.htm) exige proporcionalidade, finalidade exclusiva, minimização e segurança nos mecanismos de aferição de idade. A [LGPD](https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709compilado.htm) exige finalidade, adequação, necessidade, transparência e segurança.
-
-Para perfis que declaram Brasil:
-
-- nascimento e CPF são solicitados com explicação visível;
-- o CPF é normalizado e validado pelos dígitos verificadores antes do envio;
-- CPF e nascimento são enviados exclusivamente ao gateway contratado da Serpro;
-- o Huddle não persiste CPF, hash, últimos dígitos nem data de nascimento;
-- somente faixa etária, provedor e instante da verificação são conservados;
-- o adaptador não inclui CPF no tipo de retorno e não registra o corpo da requisição;
-- `SERPRO_AGE_VERIFICATION_TOKEN` deve vir de um gerenciador de segredos em produção.
-
-O art. 13 do ECA Digital veda qualquer outra finalidade. O gateway normaliza a resposta contratada da Serpro para um resultado mínimo e não pode registrar o corpo. Ainda são necessários contratação/credenciamento aplicável, avaliação jurídica e relatório de impacto à proteção de dados antes da produção.
+Atualização de 22/08/2026: a proposta de identificar usuários e aferir idade por CPF foi rejeitada após a avaliação de custo, privacidade e complexidade operacional. A integração externa avaliada foi removida, assim como a coleta de CPF e data de nascimento, os resultados derivados de idade e as configurações específicas. A [ADR-007](../ADR/007-cpf-idade-e-privacidade.md) registra a decisão e condiciona qualquer alternativa futura a uma nova investigação.
 
 ## Moderação, roles e permissions
 
@@ -80,9 +68,9 @@ Foram criadas as camadas:
 
 ```text
 server/src/
-├── core/        # CPF, idade, roles e permissions sem infraestrutura
+├── core/        # roles e permissions sem infraestrutura
 ├── app/         # casos de uso de identidade
-├── infra/       # Nodemailer, gateway Serpro e Prisma
+├── infra/       # Nodemailer e Prisma
 ├── interfaces/  # rotas HTTP das novas áreas
 ├── database.ts  # fachada legada de persistência
 └── index.ts     # bootstrap e rotas/protocolo legados
@@ -94,7 +82,7 @@ Todo o código foi formatado, eliminando o estilo de múltiplas operações comp
 
 A migração `20260820020000_identity_social_moderation` adiciona:
 
-- perfil, confirmação de e-mail, identidade protegida e 2FA;
+- perfil, confirmação de e-mail e 2FA;
 - tokens de e-mail;
 - amizades;
 - mensagens privadas;
@@ -110,7 +98,7 @@ Executado em PostgreSQL 17 temporário e Bun 1.3.11:
 - migrações: aprovadas;
 - suíte de back-end com cobertura: **10 testes, 77 asserções e 0 falhas**;
 - cobertura medida: **93,14% de funções e 89,71% de linhas**;
-- regras unitárias: CPF, maioridade, permissions e rate limiter;
+- regras unitárias: permissions e rate limiter;
 - integração: autenticação, ticket WebSocket, servidores, convites, canais, chat, uploads, WebRTC, reações, revogação, perfil protegido, amizades e mensagens privadas;
 - typecheck do servidor: aprovado;
 - lint e build do cliente: aprovados;
@@ -125,7 +113,6 @@ O Playwright foi atualizado e o Chromium baixado. A execução não chegou aos c
 1. Concluir a extração das fachadas legadas para repositórios e casos de uso por agregado.
 2. Executar Playwright em CI/imagem oficial com todas as bibliotecas do Chromium.
 3. Adicionar TOTP ou WebAuthn; e-mail 2FA depende da segurança da própria caixa postal.
-4. Elaborar RIPD, política de privacidade, retenção e processo de direitos do titular antes de produção.
-5. Validar o contrato final do gateway Serpro/Datavalid e seus controles de descarte, auditoria e contestação.
-6. Mover tickets WebSocket e desafios para armazenamento compartilhado antes de múltiplas réplicas.
-7. Acompanhar quatro advisories altos transitivos do CLI Prisma. O npm recomenda downgrade para 6.12, que não foi aplicado por risco de incompatibilidade; o cliente não apresentou advisories.
+4. Elaborar política de privacidade, retenção e processo de direitos do titular antes de produção.
+5. Mover tickets WebSocket e desafios para armazenamento compartilhado antes de múltiplas réplicas.
+6. Acompanhar quatro advisories altos transitivos do CLI Prisma. O npm recomenda downgrade para 6.12, que não foi aplicado por risco de incompatibilidade; o cliente não apresentou advisories.

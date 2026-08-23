@@ -8,10 +8,8 @@ import { createHash } from "node:crypto";
 const temporaryDirectory = mkdtempSync(join(tmpdir(), "huddle-test-"));
 process.env.HOST = "127.0.0.1";
 process.env.UPLOADS_PATH = join(temporaryDirectory, "uploads");
-process.env.SERPRO_AGE_VERIFICATION_TOKEN = "integration-test-serpro-token";
 
 let server: typeof import("../../index").server;
-let serproServer: ReturnType<typeof Bun.serve>;
 let baseUrl: string;
 
 function availablePort(): Promise<number> {
@@ -48,34 +46,12 @@ beforeAll(async () => {
     db.user.deleteMany(),
   ]);
   process.env.PORT = String(await availablePort());
-  const serproPort = await availablePort();
-  serproServer = Bun.serve({
-    hostname: "127.0.0.1",
-    port: serproPort,
-    async fetch(request) {
-      const input = (await request.json()) as {
-        cpf?: string;
-        birthDate?: string;
-        purpose?: string;
-      };
-      return Response.json({
-        matched:
-          request.headers.get("authorization") ===
-            "Bearer integration-test-serpro-token" &&
-          input.cpf === "52998224725" &&
-          input.birthDate === "1990-05-10" &&
-          input.purpose === "age_verification",
-      });
-    },
-  });
-  process.env.SERPRO_AGE_VERIFICATION_URL = `http://127.0.0.1:${serproPort}/verify-age`;
   ({ server } = await import("../../index"));
   baseUrl = `http://127.0.0.1:${server.port}`;
 });
 
 afterAll(async () => {
   server?.stop(true);
-  serproServer?.stop(true);
   const { db } = await import("../../infra/database/client");
   await db.$disconnect();
   rmSync(temporaryDirectory, { recursive: true, force: true });
@@ -613,24 +589,19 @@ describe("huddle API", () => {
       body: JSON.stringify({
         displayName: "Alice BR",
         countryCode: "BR",
-        birthDate: "1990-05-10",
-        cpf: "529.982.247-25",
       }),
     });
     expect(profile.status).toBe(200);
     expect(await profile.json()).toMatchObject({
       user: {
         displayName: "Alice BR",
-        ageGroup: "adult",
-        ageVerificationProvider: "serpro",
+        countryCode: "BR",
       },
-      ageGroup: "adult",
     });
     const stored = await (
       await import("../../infra/database/client")
     ).db.user.findUniqueOrThrow({ where: { id: alice.user.id } });
-    expect(stored.ageGroup).toBe("adult");
-    expect(stored.ageVerifiedAt).toBeTruthy();
+    expect(stored.countryCode).toBe("BR");
 
     const requested = await fetch(`${baseUrl}/friends`, {
       method: "POST",
