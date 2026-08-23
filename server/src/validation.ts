@@ -1,5 +1,5 @@
 import { config } from "./config";
-import type { MessageMedia } from "./infra/database/message-repository";
+import type { MessageMedia } from "./infra/database/mappers";
 
 export function validEmail(value: unknown): value is string {
   return (

@@ -22,6 +22,7 @@ services:
     environment:
       HOST: 0.0.0.0
       PORT: 3000
+      TRUST_PROXY: ${TRUST_PROXY:-true}
       DATABASE_URL: ${DATABASE_URL:-postgresql://huddle:huddle@database:5432/huddle?schema=public}
       UPLOADS_PATH: /app/data/uploads
       TENOR_API_KEY: ${TENOR_API_KEY:-}

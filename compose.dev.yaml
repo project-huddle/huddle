@@ -24,5 +24,6 @@ services:
     restart: "no"
 
 volumes:
+  huddle-data:
   client-node-modules:
   server-node-modules:

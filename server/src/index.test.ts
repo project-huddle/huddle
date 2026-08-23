@@ -32,7 +32,7 @@ beforeAll(async () => {
     throw new Error(
       "DATABASE_URL must point to an isolated PostgreSQL test database",
     );
-  const { db } = await import("./database");
+  const { db } = await import("./infra/database/client");
   await db.$transaction([
     db.emailToken.deleteMany(),
     db.report.deleteMany(),
@@ -76,7 +76,7 @@ beforeAll(async () => {
 afterAll(async () => {
   server?.stop(true);
   serproServer?.stop(true);
-  const { db } = await import("./database");
+  const { db } = await import("./infra/database/client");
   await db.$disconnect();
   rmSync(temporaryDirectory, { recursive: true, force: true });
 });
@@ -627,7 +627,7 @@ describe("huddle API", () => {
       ageGroup: "adult",
     });
     const stored = await (
-      await import("./database")
+      await import("./infra/database/client")
     ).db.user.findUniqueOrThrow({ where: { id: alice.user.id } });
     expect(stored.ageGroup).toBe("adult");
     expect(stored.ageVerifiedAt).toBeTruthy();
@@ -666,7 +666,7 @@ describe("huddle API", () => {
       ],
     });
 
-    const { db } = await import("./database");
+    const { db } = await import("./infra/database/client");
     const verificationCode = "123456";
     await db.emailToken.create({
       data: {

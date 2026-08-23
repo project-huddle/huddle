@@ -161,6 +161,7 @@ Use [`.env.example`](.env.example) com Docker Compose. Para executar apenas a AP
 | ------------------- | -------------- | ---------------------------------------------------------------------- |
 | `APP_PORT`          | Não            | Porta pública do Nginx; padrão `8080`                                  |
 | `APP_ORIGIN`        | Não            | Origem exata permitida pela API; padrão `http://localhost:8080`        |
+| `TRUST_PROXY`       | Não            | Usa `X-Forwarded-For` para rate limit; habilite apenas atrás de proxy confiável |
 | `POSTGRES_DB`       | Não            | Nome do banco criado pelo contêiner                                    |
 | `POSTGRES_USER`     | Não            | Usuário do PostgreSQL                                                  |
 | `POSTGRES_PASSWORD` | Não            | Senha do PostgreSQL; deve ser trocada fora do desenvolvimento local    |

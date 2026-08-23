@@ -55,6 +55,14 @@ export async function userForSession(tokenHash: string): Promise<User | null> {
   });
   return session ? userView(session.user) : null;
 }
+
+export async function userForId(userId: string): Promise<User | null> {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: userSelect,
+  });
+  return user ? userView(user) : null;
+}
 export async function deleteSession(tokenHash: string): Promise<void> {
   await db.session.deleteMany({ where: { tokenHash } });
 }

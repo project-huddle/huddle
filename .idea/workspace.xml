@@ -4,7 +4,41 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="be69ada2-382e-4c2d-8c5a-b54297b1992c" name="Changes" comment="adiciona novos modulos" />
+    <list default="true" id="be69ada2-382e-4c2d-8c5a-b54297b1992c" name="Changes" comment="adiciona novos modulos">
+      <change beforePath="$PROJECT_DIR$/.env.example" beforeDir="false" afterPath="$PROJECT_DIR$/.env.example" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/.dockerignore" beforeDir="false" afterPath="$PROJECT_DIR$/client/.dockerignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/nginx.conf" beforeDir="false" afterPath="$PROJECT_DIR$/client/nginx.conf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/compose.dev.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/compose.dev.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/compose.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/compose.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/.dockerignore" beforeDir="false" afterPath="$PROJECT_DIR$/server/.dockerignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/.env.example" beforeDir="false" afterPath="$PROJECT_DIR$/server/.env.example" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/app/account-service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/app/account-service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/app/identity-service.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/app/identity-service.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/app/social-service.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/auth.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/auth.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/bootstrap/server.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/bootstrap/server.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/config.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/database.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/index.test.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/index.test.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/infra/database/identity-repository.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/infra/database/identity-repository.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/interfaces/http/application.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/interfaces/http/application.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/interfaces/http/plugins/security.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/interfaces/http/plugins/security.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/interfaces/http/routes/account-security.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/interfaces/http/routes/account-security.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/interfaces/http/routes/account.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/interfaces/http/routes/account.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/interfaces/http/routes/auth.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/interfaces/http/routes/auth.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/interfaces/http/routes/channels.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/interfaces/http/routes/direct-messages.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/interfaces/http/routes/direct-messages.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/interfaces/http/routes/friends.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/interfaces/http/routes/friends.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/interfaces/http/routes/messages.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/interfaces/http/routes/reports.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/interfaces/http/routes/reports.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/interfaces/http/routes/server-invites.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/interfaces/http/routes/server-members.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/interfaces/http/routes/servers.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/interfaces/realtime/realtime-gateway.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/interfaces/realtime/realtime-gateway.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/rate-limit.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/rate-limit.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/src/validation.ts" beforeDir="false" afterPath="$PROJECT_DIR$/server/src/validation.ts" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -24,23 +58,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0164924292424058" />
-      <entry key="MS500" value="1.8546319982378563" />
-      <entry key="S2" value="3.8439051922893417" />
-      <entry key="S5" value="4.935186868113087" />
-      <entry key="S10" value="5.424994312386501" />
-      <entry key="S30" value="5.797832911262724" />
-      <entry key="S60" value="5.897533315390535" />
-      <entry key="M2" value="5.948415303452869" />
-      <entry key="M5" value="5.979281072265844" />
-      <entry key="M10" value="5.9896263026471415" />
-      <entry key="M15" value="5.993084205393679" />
-      <entry key="M30" value="6.001669141947534" />
-      <entry key="H1" value="6.218526362559283" />
-      <entry key="H2" value="7.472379213509513" />
-      <entry key="H4" value="9.830720330797458" />
-      <entry key="D1" value="14.519980910782127" />
-      <entry key="W1" value="15.77372167662139" />
+      <entry key="MS100" value="1.0022626811702333" />
+      <entry key="MS500" value="1.9071424083807798" />
+      <entry key="S2" value="5.790592713480889" />
+      <entry key="S5" value="8.315060639208369" />
+      <entry key="S10" value="9.523590752366376" />
+      <entry key="S30" value="10.473893723398216" />
+      <entry key="S60" value="10.732403087412063" />
+      <entry key="M2" value="10.865041829437452" />
+      <entry key="M5" value="10.945735293152861" />
+      <entry key="M10" value="10.972820480644357" />
+      <entry key="M15" value="10.981872986985191" />
+      <entry key="M30" value="10.996056795165456" />
+      <entry key="H1" value="11.215654912408125" />
+      <entry key="H2" value="12.470755818053936" />
+      <entry key="H4" value="14.829732201542747" />
+      <entry key="D1" value="19.519757756852602" />
+      <entry key="W1" value="20.773687564407986" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -62,30 +96,30 @@
       <entry key="W1" value="0.0" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.9956856693851359" />
-      <entry key="MS500" value="1.8479413410195664" />
-      <entry key="S2" value="3.8402315335356203" />
-      <entry key="S5" value="4.933209626079476" />
-      <entry key="S10" value="5.423887630647066" />
-      <entry key="S30" value="5.797433633347435" />
-      <entry key="S60" value="5.897329586253291" />
-      <entry key="M2" value="5.948312393062915" />
-      <entry key="M5" value="5.979239654073301" />
-      <entry key="M10" value="5.9896055509556065" />
-      <entry key="M15" value="5.993070361443423" />
-      <entry key="M30" value="6.001662211347761" />
-      <entry key="H1" value="6.218522812005174" />
-      <entry key="H2" value="7.4723771882741765" />
-      <entry key="H4" value="9.830719080548816" />
-      <entry key="D1" value="14.519980623047411" />
-      <entry key="W1" value="15.773721632473913" />
+      <entry key="MS100" value="0.9816233741194715" />
+      <entry key="MS500" value="1.8888652386943219" />
+      <entry key="S2" value="5.7722247798297195" />
+      <entry key="S5" value="8.304802217891076" />
+      <entry key="S10" value="9.51782111626924" />
+      <entry key="S30" value="10.471809104787866" />
+      <entry key="S60" value="10.731339255738355" />
+      <entry key="M2" value="10.864504425535129" />
+      <entry key="M5" value="10.945519000410862" />
+      <entry key="M10" value="10.972712111227114" />
+      <entry key="M15" value="10.981800691048575" />
+      <entry key="M30" value="10.996020618472922" />
+      <entry key="H1" value="11.215636733803489" />
+      <entry key="H2" value="12.470746477566669" />
+      <entry key="H4" value="14.829727293360516" />
+      <entry key="D1" value="19.519756859415608" />
+      <entry key="W1" value="20.77368743315891" />
     </decayedShown>
   </component>
   <component name="PhpWorkspaceProjectConfiguration" interpreter_name="/bin/php" />
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 0,
-  "fromUser": false
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 0,
+  &quot;fromUser&quot;: false
+}</component>
   <component name="ProjectId" id="3I6K0qVqng5Z4Fy0K20L7th7bbX" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -100,7 +134,7 @@
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
     "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
-    "git-widget-placeholder": "master",
+    "git-widget-placeholder": "feature/ajustes-infra",
     "junie.onboarding.icon.badge.shown": "true",
     "last_opened_file_path": "/var/www/huddle",
     "node.js.detected.package.eslint": "true",
@@ -127,6 +161,7 @@
       <option name="presentableId" value="Default" />
       <updated>1787079357364</updated>
       <workItem from="1787079358605" duration="4908000" />
+      <workItem from="1787451247369" duration="6180000" />
     </task>
     <task id="LOCAL-00001" summary="adiciona novos modulos">
       <option name="closed" value="true" />

@@ -30,6 +30,12 @@ export class FixedWindowRateLimiter {
 export function clientAddress(
   request: Request,
   server: Pick<Bun.Server<unknown>, "requestIP"> | null,
+  trustProxy = false,
 ): string {
+  if (trustProxy) {
+    const forwardedFor = request.headers.get("x-forwarded-for");
+    const forwardedAddress = forwardedFor?.split(",", 1)[0]?.trim();
+    if (forwardedAddress) return forwardedAddress;
+  }
   return server?.requestIP(request)?.address ?? "unknown";
 }

@@ -1,7 +1,6 @@
 import { Elysia, t } from "elysia";
 import {
-  getProfile,
-  updateProfile,
+  type AccountService,
   type UpdateProfileResult,
 } from "../../../app/account-service";
 import { error, json } from "../../../http";
@@ -70,15 +69,16 @@ function profileError(
   }
 }
 
-export const accountRoutes = new Elysia({ name: "account-routes" })
+export function createAccountRoutes(accountService: AccountService) {
+  return new Elysia({ name: "account-routes" })
   .use(authenticatedRoutes("authenticated-account-routes"))
   .get("/profile", async ({ currentUser }) => {
-    return json({ user: await getProfile(currentUser.id) });
+    return json({ user: await accountService.getProfile(currentUser.id) });
   })
   .patch(
     "/profile",
     async ({ currentUser, body }) => {
-      const result = await updateProfile(currentUser.id, body);
+      const result = await accountService.updateProfile(currentUser.id, body);
       if (result.type !== "success") return profileError(result);
       return json({
         user: result.profile,
@@ -87,3 +87,4 @@ export const accountRoutes = new Elysia({ name: "account-routes" })
     },
     { body: profileBody },
   );
+}

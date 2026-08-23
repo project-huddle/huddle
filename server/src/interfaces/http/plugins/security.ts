@@ -30,7 +30,8 @@ export function security() {
         pathname === "/auth/login" || pathname === "/auth/register"
           ? authLimiter
           : requestLimiter;
-      if (limiter.consume(clientAddress(request, server))) return;
+      if (limiter.consume(clientAddress(request, server, config.trustProxy)))
+        return;
       const response = error(
         429,
         "RATE_LIMITED",
