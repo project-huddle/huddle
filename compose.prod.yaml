@@ -1,0 +1,84 @@
+name: huddle
+
+services:
+  database:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Defina POSTGRES_DB no .env.production}
+      POSTGRES_USER: ${POSTGRES_USER:?Defina POSTGRES_USER no .env.production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no .env.production}
+    volumes:
+      - huddle-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+    restart: unless-stopped
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL no .env.production}
+      UPLOADS_PATH: /app/data/uploads
+      TENOR_API_KEY: ${TENOR_API_KEY:-}
+      TENOR_CLIENT_KEY: ${TENOR_CLIENT_KEY:-huddle}
+      CORS_ORIGINS: ${APP_ORIGIN:?Defina APP_ORIGIN no .env.production}
+      SERPRO_AGE_VERIFICATION_URL: ${SERPRO_AGE_VERIFICATION_URL:-}
+      SERPRO_AGE_VERIFICATION_TOKEN: ${SERPRO_AGE_VERIFICATION_TOKEN:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-Huddle <no-reply@example.com>}
+      MODERATION_EMAIL: ${MODERATION_EMAIL:-}
+    volumes:
+      - huddle-data:/app/data
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
+        VITE_TURN_URL: ${TURN_URL:-}
+        VITE_TURN_USERNAME: ${TURN_USERNAME:-}
+        VITE_TURN_CREDENTIAL: ${TURN_CREDENTIAL:-}
+    depends_on:
+      server:
+        condition: service_healthy
+    networks:
+      - internal
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.huddle.rule=Host(`${APP_DOMAIN:?Defina APP_DOMAIN no .env.production}`)
+      - traefik.http.routers.huddle.entrypoints=websecure
+      - traefik.http.routers.huddle.tls=true
+      - traefik.http.routers.huddle.tls.certresolver=letsencrypt
+      - traefik.http.services.huddle.loadbalancer.server.port=8080
+    restart: unless-stopped
+
+volumes:
+  huddle-data:
+  huddle-postgres:
+
+networks:
+  internal:
+    driver: bridge
+  proxy:
+    external: true
