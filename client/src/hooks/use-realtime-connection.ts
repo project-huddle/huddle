@@ -65,8 +65,25 @@ export function useRealtimeConnection(options: Options) {
 			socket.onerror = () =>
 				setError("A conexão em tempo real foi interrompida.");
 			socket.onmessage = async ({ data }) => {
+				if (!alive || socketRef.current !== socket) return;
 				try {
 					const event = JSON.parse(String(data)) as SocketEvent;
+					const callEvent = [
+						"call_joined",
+						"peer_joined",
+						"peer_left",
+						"webrtc_offer",
+						"webrtc_answer",
+						"ice_candidate",
+						"screen_share",
+					].includes(event.type);
+					const expectedCallId = `channel-${channelId}`;
+					if (
+						callEvent &&
+						typeof event.callId === "string" &&
+						event.callId !== expectedCallId
+					)
+						return;
 					if (event.type === "chat_message") {
 						const message = event.message as ChatMessage;
 						setMessages((items) =>
@@ -90,7 +107,11 @@ export function useRealtimeConnection(options: Options) {
 						);
 					}
 					if (event.type === "call_joined") {
-						const users = event.peers as User[];
+						const users = Array.from(
+							new Map(
+								(event.peers as User[]).map((user) => [user.id, user]),
+							).values(),
+						);
 						users.forEach((user) =>
 							peerUsers.current.set(user.id, user),
 						);
@@ -118,6 +139,8 @@ export function useRealtimeConnection(options: Options) {
 					}
 					if (event.type === "peer_joined") {
 						const user = event.user as User;
+						if (!user?.id || user.id === peerUsers.current.get(user.id)?.id)
+							return;
 						peerUsers.current.set(user.id, user);
 						updatePeer(user.id, {});
 					}
@@ -203,7 +226,7 @@ export function useRealtimeConnection(options: Options) {
 						);
 					}
 				} catch (cause) {
-					console.error("Realtime event failed", cause);
+					console.error("Realtime event failed", String(data), cause);
 					setError("Falha ao processar um evento da chamada.");
 				}
 			};
