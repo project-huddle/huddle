@@ -28,7 +28,7 @@ export function ChatConversation({ realtime }: { realtime: ReturnType<typeof use
 	}, [realtime.messages]);
 	if (!user || !token) return null;
 	return (
-<section className="flex min-w-0 flex-col border-[var(--ink)]/10 lg:border-r">
+<section className="flex min-h-0 min-w-0 flex-col border-[var(--ink)]/10 lg:border-r">
 					<header className="flex h-19 shrink-0 items-center gap-3 border-b border-[var(--ink)]/10 px-4 sm:px-7">
 						<button
 							onClick={() => onOpenNavigation()}
@@ -83,7 +83,7 @@ export function ChatConversation({ realtime }: { realtime: ReturnType<typeof use
 						</div>
 					</header>
 
-					<div className="flex-1 overflow-y-auto px-4 py-6 sm:px-7">
+					<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-7">
 						<div className="mx-auto max-w-4xl">
 							{!activeServer ? (
 								<div className="grid min-h-[60svh] place-items-center text-center">
