@@ -236,7 +236,7 @@ export function useRealtime(token: string, channelId: string) {
 		}
 	};
 
-	const leaveCall = () => closeCall(true);
+	const leaveCall = useCallback(() => closeCall(true), [closeCall]);
 
 	const toggleMute = () => {
 		const next = !muted;
