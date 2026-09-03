@@ -272,6 +272,10 @@ export const realtimeWebSocket = {
         });
       leaveCall(ws);
       const peers = calls.get(key) ?? new Set();
+      for (const peer of peers) {
+        if (peer !== ws && session(peer).user.id === session(ws).user.id)
+          leaveCall(peer);
+      }
       peers.add(ws);
       calls.set(key, peers);
       session(ws).callId = callId;

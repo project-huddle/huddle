@@ -37,7 +37,10 @@ export default function ChatPage() {
 		else setCallRoomOpen(false);
 	}, [realtime.inCall, setCallRoomOpen]);
 
-	const closeCallRoom = useCallback(() => setCallRoomOpen(false), [setCallRoomOpen]);
+	const closeCallRoom = useCallback(() => {
+		realtime.leaveCall();
+		setCallRoomOpen(false);
+	}, [realtime.leaveCall, setCallRoomOpen]);
 
 	return (
 		<main className="chat-page relative h-svh overflow-hidden bg-(--canvas) text-(--ink)">
