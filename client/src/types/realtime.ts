@@ -1,5 +1,7 @@
 import type { User } from "@/lib/api";
 
+export type CallLifecycle = "idle" | "joining" | "active";
+
 export type RealtimePeer = {
 	user: User;
 	audioStream: MediaStream | null;
