@@ -1,6 +1,10 @@
 import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { api, websocketUrl, type ChatMessage, type User } from "@/lib/api";
-import type { RealtimePeer, SocketEvent } from "@/types/realtime";
+import type {
+	CallLifecycle,
+	RealtimePeer,
+	SocketEvent,
+} from "@/types/realtime";
 
 type Options = {
 	token: string; channelId: string;
@@ -10,6 +14,7 @@ type Options = {
 	remoteSharing: MutableRefObject<Set<string>>;
 	connections: MutableRefObject<Map<string, RTCPeerConnection>>;
 	pendingCandidates: MutableRefObject<Map<string, RTCIceCandidateInit[]>>;
+	callLifecycle: MutableRefObject<CallLifecycle>;
 	closeCall: (notify: boolean) => void;
 	createPeer: (userId: string) => RTCPeerConnection;
 	flushCandidates: (userId: string, peer: RTCPeerConnection) => Promise<void>;
@@ -26,6 +31,7 @@ type Options = {
 
 export function useRealtimeConnection(options: Options) {
 	const { token, channelId, socketRef, peerUsers, displayStream, remoteSharing, connections, pendingCandidates,
+		callLifecycle,
 		closeCall, createPeer, flushCandidates, makeOffer, send, updatePeer,
 		setMessages, setConnected, setError, setPeers, setJoining, setInCall } = options;
 	useEffect(() => {
@@ -107,6 +113,7 @@ export function useRealtimeConnection(options: Options) {
 						);
 					}
 					if (event.type === "call_joined") {
+						if (callLifecycle.current !== "joining") return;
 						const users = Array.from(
 							new Map(
 								(event.peers as User[]).map((user) => [user.id, user]),
@@ -126,7 +133,9 @@ export function useRealtimeConnection(options: Options) {
 						);
 						setJoining(false);
 						setInCall(true);
+						callLifecycle.current = "active";
 						for (const user of users) {
+							if (callLifecycle.current !== "active") break;
 							const pc = createPeer(user.id);
 							if (displayStream.current)
 								send({
@@ -138,6 +147,7 @@ export function useRealtimeConnection(options: Options) {
 						}
 					}
 					if (event.type === "peer_joined") {
+						if (callLifecycle.current !== "active") return;
 						const user = event.user as User;
 						if (!user?.id || user.id === peerUsers.current.get(user.id)?.id)
 							return;
@@ -145,6 +155,7 @@ export function useRealtimeConnection(options: Options) {
 						updatePeer(user.id, {});
 					}
 					if (event.type === "webrtc_offer") {
+						if (callLifecycle.current !== "active") return;
 						const userId = event.fromUserId as string;
 						const pc =
 							connections.current.get(userId) ??
@@ -158,7 +169,9 @@ export function useRealtimeConnection(options: Options) {
 						await pc.setRemoteDescription(
 							event.sdp as RTCSessionDescriptionInit,
 						);
+						if (callLifecycle.current !== "active") return;
 						await flushCandidates(userId, pc);
+						if (callLifecycle.current !== "active") return;
 						await pc.setLocalDescription(await pc.createAnswer());
 						send({
 							type: "webrtc_answer",
@@ -167,6 +180,7 @@ export function useRealtimeConnection(options: Options) {
 						});
 					}
 					if (event.type === "webrtc_answer") {
+						if (callLifecycle.current !== "active") return;
 						const userId = event.fromUserId as string;
 						const pc = connections.current.get(userId);
 						if (pc) {
@@ -177,6 +191,7 @@ export function useRealtimeConnection(options: Options) {
 						}
 					}
 					if (event.type === "ice_candidate") {
+						if (callLifecycle.current !== "active") return;
 						const userId = event.fromUserId as string;
 						const pc = connections.current.get(userId);
 						const candidate =
@@ -191,6 +206,7 @@ export function useRealtimeConnection(options: Options) {
 							]);
 					}
 					if (event.type === "screen_share") {
+						if (callLifecycle.current !== "active") return;
 						const userId = event.fromUserId as string;
 						if (event.active === true)
 							remoteSharing.current.add(userId);
@@ -203,6 +219,7 @@ export function useRealtimeConnection(options: Options) {
 						);
 					}
 					if (event.type === "peer_left") {
+						if (callLifecycle.current !== "active") return;
 						const userId = event.userId as string;
 						connections.current.get(userId)?.close();
 						connections.current.delete(userId);
@@ -267,6 +284,7 @@ export function useRealtimeConnection(options: Options) {
 		setError,
 		setMessages,
 		connections,
+		callLifecycle,
 		displayStream,
 		peerUsers,
 		pendingCandidates,
