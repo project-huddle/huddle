@@ -94,6 +94,10 @@ test.describe("call lifecycle", () => {
 		await expect(page.getByRole("dialog", { name: "Chamada da sala" })).toBeHidden();
 		await expect(page.getByRole("button", { name: "entrar na chamada" })).toBeVisible();
 
+		await page.reload();
+		await expect(page.getByText(/Servidor de chamadas · #/)).toBeVisible();
+		await expect(page.getByRole("button", { name: "entrar na chamada" })).toBeEnabled();
+
 		await enterCall(page);
 		await expect(page.getByRole("dialog", { name: "Chamada da sala" })).toBeVisible();
 		await expect(page.locator("video").first()).toBeVisible();
@@ -155,7 +159,7 @@ test.describe("call lifecycle", () => {
 			data: { code: inviteBody.invite.code },
 			headers: { Authorization: `Bearer ${guestToken}` },
 		});
-		expect(joinResponse.status()).toBe(200);
+		expect(joinResponse.status()).toBe(201);
 
 		await openExistingServer(page, owner);
 		const guestContext = await browser.newContext({

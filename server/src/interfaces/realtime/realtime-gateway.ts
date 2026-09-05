@@ -58,16 +58,23 @@ function callKey(
     : null;
 }
 
-function leaveCall(ws: RealtimeSocket): void {
-  const callId = session(ws).callId;
-  if (!callId) return;
-  const key = callKey(ws, callId);
-  const peers = key ? calls.get(key) : undefined;
-  peers?.delete(ws);
-  for (const peer of peers ?? [])
-    send(peer, { type: "peer_left", callId, userId: session(ws).user.id });
-  if (!peers?.size && key) calls.delete(key);
-  session(ws).callId = null;
+function leaveCall(ws: RealtimeSocket, removeUserSockets = false): void {
+	const callId = session(ws).callId;
+	if (!callId) return;
+	const key = callKey(ws, callId);
+	const peers = key ? calls.get(key) : undefined;
+	const socketsToRemove = removeUserSockets
+		? [...(peers ?? [])].filter(
+			(peer) => session(peer).user.id === session(ws).user.id,
+		  )
+		: [ws];
+	for (const socket of socketsToRemove) {
+		peers?.delete(socket);
+		session(socket).callId = null;
+	}
+	for (const peer of peers ?? [])
+		send(peer, { type: "peer_left", callId, userId: session(ws).user.id });
+	if (!peers?.size && key) calls.delete(key);
 }
 
 export function issueWebSocketTicket(user: User): string {
@@ -274,7 +281,7 @@ export const realtimeWebSocket = {
       const peers = calls.get(key) ?? new Set();
       for (const peer of peers) {
         if (peer !== ws && session(peer).user.id === session(ws).user.id)
-          leaveCall(peer);
+          leaveCall(peer, true);
       }
       peers.add(ws);
       calls.set(key, peers);
@@ -292,7 +299,7 @@ export const realtimeWebSocket = {
       return;
     }
     if (event.type === "leave_call") {
-      leaveCall(ws);
+      leaveCall(ws, true);
       return;
     }
     if (
