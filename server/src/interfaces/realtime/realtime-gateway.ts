@@ -292,7 +292,9 @@ export const realtimeWebSocket = {
           type: "call_joined",
           callId,
           peers: [...(calls.get(key) ?? [])]
-            .filter((peer) => peer !== ws)
+            .filter(
+              (peer) => session(peer).user.id !== session(ws).user.id,
+            )
             .map((peer) => session(peer).user),
         });
       leaveCall(ws);
@@ -305,7 +307,9 @@ export const realtimeWebSocket = {
         type: "call_joined",
         callId,
         peers: [...peers]
-          .filter((peer) => peer !== ws)
+          .filter(
+            (peer) => session(peer).user.id !== session(ws).user.id,
+          )
           .map((peer) => session(peer).user),
       });
       for (const peer of peers)

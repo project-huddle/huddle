@@ -43,18 +43,28 @@ const ZOOM_STEP = 25;
 export function CallRoom(props: CallRoomProps) {
 	const [selectedScreenName, setSelectedScreenName] = useState<string | null>(null);
 	const [zoom, setZoom] = useState(100);
+	const peers = useMemo(
+		() => [
+			...new Map(
+				props.peers
+					.filter((peer) => peer.user.id !== props.user.id)
+					.map((peer) => [peer.user.id, peer]),
+			).values(),
+		],
+		[props.peers, props.user.id],
+	);
 	const sharedScreens = useMemo(
 		() => [
 			...(props.localDisplayStream
 				? [{ name: props.user.displayName, stream: props.localDisplayStream }]
 				: []),
-			...props.peers.flatMap((peer) =>
+			...peers.flatMap((peer) =>
 				peer.screenStream
 					? [{ name: peer.user.displayName, stream: peer.screenStream }]
 					: [],
 			),
 		],
-		[props.localDisplayStream, props.peers, props.user.displayName],
+		[peers, props.localDisplayStream, props.user.displayName],
 	);
 	const selectedScreen =
 		sharedScreens.find(({ name }) => name === selectedScreenName) ??
@@ -79,7 +89,7 @@ export function CallRoom(props: CallRoomProps) {
 					<h1 className="text-xl font-black">Chamada do canal</h1>
 					<p className="text-sm text-(--muted-text)">
 						{props.inCall
-							? `${props.peers.length + 1} ${props.peers.length ? "pessoas conectadas" : "pessoa conectada"}`
+							? `${peers.length + 1} ${peers.length ? "pessoas conectadas" : "pessoa conectada"}`
 							: "Conectando ao canal de voz..."}
 					</p>
 				</div>
@@ -143,12 +153,12 @@ export function CallRoom(props: CallRoomProps) {
 					</p>
 					<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
 						<Participant user={props.user} stream={props.localMediaStream} cameraOff={props.cameraOff} muted={props.muted} self />
-						{props.peers.map((peer) => <Participant key={peer.user.id} user={peer.user} stream={peer.cameraStream} />)}
+						{peers.map((peer) => <Participant key={peer.user.id} user={peer.user} stream={peer.cameraStream} />)}
 					</div>
 				</aside>
 			</div>
 
-			{props.peers.map((peer) => <PeerAudio key={`audio-${peer.user.id}`} stream={peer.audioStream} />)}
+			{peers.map((peer) => <PeerAudio key={`audio-${peer.user.id}`} stream={peer.audioStream} />)}
 		</div>
 	);
 }
