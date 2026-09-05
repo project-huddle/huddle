@@ -9,7 +9,7 @@ export function Participant({ user, stream, cameraOff = false, muted = false, se
 		{stream && !cameraOff
 			? <StreamVideo stream={stream} muted={self} className="absolute inset-0 size-full object-cover" />
 			: <UserAvatar user={user} className="absolute left-1/2 top-1/2 size-12 -translate-x-1/2 -translate-y-1/2" />}
-		<span className="relative rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold">{self ? "Você" : user.displayName}</span>
+		<span className="relative rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold">{user.displayName}</span>
 		{muted && <MicOff className="relative ml-auto size-4" />}
 	</div>;
 }

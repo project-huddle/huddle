@@ -134,17 +134,6 @@ export function useRealtimeConnection(options: Options) {
 						setJoining(false);
 						setInCall(true);
 						callLifecycle.current = "active";
-						for (const user of users) {
-							if (callLifecycle.current !== "active") break;
-							const pc = createPeer(user.id);
-							if (displayStream.current)
-								send({
-									type: "screen_share",
-									targetUserId: user.id,
-									active: true,
-								});
-							await makeOffer(user.id, pc);
-						}
 					}
 					if (event.type === "peer_joined") {
 						if (callLifecycle.current !== "active") return;
@@ -153,6 +142,14 @@ export function useRealtimeConnection(options: Options) {
 							return;
 						peerUsers.current.set(user.id, user);
 						updatePeer(user.id, {});
+						const pc = createPeer(user.id);
+						if (displayStream.current)
+							send({
+								type: "screen_share",
+								targetUserId: user.id,
+								active: true,
+							});
+						await makeOffer(user.id, pc);
 					}
 					if (event.type === "webrtc_offer") {
 						if (callLifecycle.current !== "active") return;

@@ -17,7 +17,10 @@ export function PeerAudio({ stream }: { stream: MediaStream | null }) {
 
 	useEffect(() => {
 		const audio = ref.current;
-		if (audio) audio.srcObject = stream;
+		if (audio) {
+			audio.srcObject = stream;
+			if (stream) void audio.play().catch(() => undefined);
+		}
 		return () => { if (audio) audio.srcObject = null; };
 	}, [stream]);
 
