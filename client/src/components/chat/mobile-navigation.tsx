@@ -1,7 +1,8 @@
 import { useChatStore } from "@/stores/chat-store";
+import { useAuthStore } from "@/stores/auth-store";
 import { useShallow } from "zustand/react/shallow";
 import { BrandMark } from "../brand-logo";
-import { Plus, UserPlus, X } from "lucide-react";
+import { Plus, Settings, UserPlus, X } from "lucide-react";
 import ServerButton from "./server-button";
 import NavButton from "./nav-button";
 import ChannelButton from "./channel-button";
@@ -21,6 +22,7 @@ function getMemberRoleLabel(role: string) {
 }
 
 export default function MobileNavigation() {
+    const user = useAuthStore((state) => state.user);
     const {
         mobileNavOpen,
         setMobileNavOpen,
@@ -33,6 +35,7 @@ export default function MobileNavigation() {
         selectChannel,
         openDialog,
         createInvite,
+        setSettingsOpen,
     } = useChatStore(
         useShallow((state) => ({
             mobileNavOpen: state.mobileNavOpen,
@@ -46,10 +49,13 @@ export default function MobileNavigation() {
             selectChannel: state.setChannelId,
             openDialog: state.openDialog,
             createInvite: state.createInvite,
+            setSettingsOpen: state.setSettingsOpen,
         })),
     );
 
     const activeServer = servers.find((server) => server.id === serverId);
+    const textChannels = channels.filter((channel) => channel.type === "text");
+    const voiceChannels = channels.filter((channel) => channel.type === "voice");
 
     const handleClose = () => {
         setMobileNavOpen(false);
@@ -72,6 +78,10 @@ export default function MobileNavigation() {
 
     const handleCreateChannel = () => {
         openDialog("create-channel");
+    };
+
+    const handleCreateVoiceChannel = () => {
+        openDialog("create-voice-channel");
     };
 
     if (!mobileNavOpen) {
@@ -158,7 +168,7 @@ export default function MobileNavigation() {
                         <section className="mb-6">
                             <div className="mb-2 flex items-center justify-between">
                                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-(--muted-text)">
-                                    Canais
+                                    Canais de texto
                                 </p>
 
                                 <button
@@ -170,12 +180,39 @@ export default function MobileNavigation() {
                                 </button>
                             </div>
 
-                            {channels.map((channel) => (
+                            {textChannels.map((channel) => (
                                 <ChannelButton
                                     key={channel.id}
                                     id={channel.id}
                                     name={channel.name}
                                     active={channel.id === channelId}
+                                    type={channel.type}
+                                    onSelect={handleSelectChannel}
+                                    variant="mobile"
+                                />
+                            ))}
+
+                            <div className="mb-2 mt-5 flex items-center justify-between">
+                                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-(--muted-text)">
+                                    Canais de voz
+                                </p>
+
+                                <button
+                                    type="button"
+                                    onClick={handleCreateVoiceChannel}
+                                    aria-label="Criar canal de voz"
+                                >
+                                    <Plus className="size-4" />
+                                </button>
+                            </div>
+
+                            {voiceChannels.map((channel) => (
+                                <ChannelButton
+                                    key={channel.id}
+                                    id={channel.id}
+                                    name={channel.name}
+                                    active={channel.id === channelId}
+                                    type={channel.type}
                                     onSelect={handleSelectChannel}
                                     variant="mobile"
                                 />
@@ -211,6 +248,25 @@ export default function MobileNavigation() {
                         </section>
                     </div>
                 </div>
+
+                {user && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setSettingsOpen(true);
+                            handleClose();
+                        }}
+                        className="m-3 flex items-center gap-3 rounded-2xl border border-(--ink)/10 bg-(--surface) p-3 text-left"
+                        aria-label="Abrir configurações do perfil"
+                    >
+                        <UserAvatar user={user} className="size-10 rounded-xl" />
+                        <span className="min-w-0 flex-1">
+                            <strong className="block truncate text-sm">{user.displayName}</strong>
+                            <span className="block truncate text-[11px] text-(--muted-text)">{user.email}</span>
+                        </span>
+                        <Settings className="size-4 text-(--muted-text)" />
+                    </button>
+                )}
             </aside>
         </div>
     );

@@ -122,7 +122,7 @@ export const useChatStore = create<ChatState>((set) => ({
 			set({ creating: false });
 		}
 	},
-	createChannel: async (raw) => {
+	createChannel: async (raw, type = "text") => {
 		const parsed = channelNameSchema.safeParse(raw);
 		const { serverId, creating } = useChatStore.getState();
 		if (!parsed.success) {
@@ -134,7 +134,7 @@ export const useChatStore = create<ChatState>((set) => ({
 			const { token } = credentials();
 			const { channel } = await api<{
 				channel: HuddleChannel;
-			}>(`/servers/${serverId}/channels`, { method: "POST", body: JSON.stringify({ name: parsed.data }) }, token);
+			}>(`/servers/${serverId}/channels`, { method: "POST", body: JSON.stringify({ name: parsed.data, type }) }, token);
 			set((state) => ({ channels: [...state.channels, channel], channelId: channel.id, dialog: null }));
 		}
 		catch (cause) {

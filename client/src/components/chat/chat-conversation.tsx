@@ -1,4 +1,4 @@
-import { LogOut, Menu, MessageCircle, Settings } from "lucide-react";
+import { Menu, MessageCircle } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { BrandMark } from "@/components/brand-logo";
@@ -15,20 +15,19 @@ import { useShallow } from "zustand/react/shallow";
 export function ChatConversation({ realtime }: { realtime: ReturnType<typeof useRealtime> }) {
 	const user = useAuthStore((state) => state.user);
 	const token = useAuthStore((state) => state.token);
-	const onLogout = useAuthStore((state) => state.logout);
-	const { servers, channels, serverId, channelId, setReplyTo: onReply, openDialog: openTextDialog, setMobileNavOpen, setSocialOpen, setSettingsOpen } = useChatStore(useShallow((state) => ({ servers: state.servers, channels: state.channels, serverId: state.serverId, channelId: state.channelId, setReplyTo: state.setReplyTo, openDialog: state.openDialog, setMobileNavOpen: state.setMobileNavOpen, setSocialOpen: state.setSocialOpen, setSettingsOpen: state.setSettingsOpen })));
+	const { servers, channels, serverId, channelId, setReplyTo: onReply, openDialog: openTextDialog, setMobileNavOpen, setSocialOpen } = useChatStore(useShallow((state) => ({ servers: state.servers, channels: state.channels, serverId: state.serverId, channelId: state.channelId, setReplyTo: state.setReplyTo, openDialog: state.openDialog, setMobileNavOpen: state.setMobileNavOpen, setSocialOpen: state.setSocialOpen })));
 	const activeServer = servers.find(({ id }) => id === serverId);
 	const activeChannel = channels.find(({ id }) => id === channelId);
+	const isVoiceChannel = activeChannel?.type === "voice";
 	const endRef = useRef<HTMLDivElement>(null);
 	const onOpenNavigation = () => setMobileNavOpen(true);
 	const onOpenSocial = () => setSocialOpen(true);
-	const onOpenSettings = () => setSettingsOpen(true);
 	useEffect(() => {
 		endRef.current?.scrollIntoView({ behavior: "smooth" });
 	}, [realtime.messages]);
 	if (!user || !token) return null;
 	return (
-		<section className="flex min-w-0 flex-col border-(--ink)/10 lg:border-r">
+		<section className="flex min-h-0 min-w-0 flex-col border-(--ink)/10 lg:border-r">
 			<header className="flex h-19 shrink-0 items-center gap-3 border-b border-(--ink)/10 px-4 sm:px-7">
 				<button
 					onClick={() => onOpenNavigation()}
@@ -62,24 +61,10 @@ export function ChatConversation({ realtime }: { realtime: ReturnType<typeof use
 					>
 						<MessageCircle className="size-4" />
 					</button>
-					<button
-						onClick={() => onOpenSettings()}
-						className="grid size-9 place-items-center rounded-full border border-(--line)"
-						aria-label="Configurações"
-					>
-						<Settings className="size-4" />
-					</button>
-					<button
-						onClick={onLogout}
-						className="grid size-9 place-items-center rounded-full border border-(--line) transition hover:bg-(--surface)"
-						aria-label="Sair"
-					>
-						<LogOut className="size-4" />
-					</button>
 				</div>
 			</header>
 
-			<div className="flex-1 overflow-y-auto px-4 py-6 sm:px-7">
+			<div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-7">
 				<div className="mx-auto max-w-4xl">
 					{!activeServer ? (
 						<div className="grid min-h-[60svh] place-items-center text-center">
@@ -125,6 +110,16 @@ export function ChatConversation({ realtime }: { realtime: ReturnType<typeof use
 								</div>
 							</div>
 						</div>
+					) : isVoiceChannel ? (
+						<div className="grid min-h-[60svh] place-items-center text-center">
+							<div className="max-w-sm">
+								<p className="text-4xl">🔊</p>
+								<h1 className="mt-4 text-2xl font-black">{activeChannel.name}</h1>
+								<p className="mt-2 text-(--muted-text)">
+									Você entrou neste canal de voz. A sala de chamada abre automaticamente.
+								</p>
+							</div>
+						</div>
 					) : (
 						<MessageList
 							currentUserId={user.id}
@@ -151,7 +146,7 @@ export function ChatConversation({ realtime }: { realtime: ReturnType<typeof use
 				</div>
 			</div>
 
-			<MessageComposer realtime={realtime} />
+			{!isVoiceChannel && <MessageComposer realtime={realtime} />}
 		</section>
 	);
 }

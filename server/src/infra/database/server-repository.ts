@@ -220,10 +220,11 @@ export async function createChannel(
   userId: string,
   serverId: string,
   name: string,
+  type: "text" | "voice" = "text",
 ): Promise<Channel | null> {
   if (!(await hasServerPermission(userId, serverId, "channels.create")))
     return null;
-  return channelView(await db.channel.create({ data: { serverId, name } }));
+  return channelView(await db.channel.create({ data: { serverId, name, type } }));
 }
 export async function channelForUser(
   userId: string,

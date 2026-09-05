@@ -1,15 +1,20 @@
 import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import { api, websocketUrl, type ChatMessage, type User } from "@/lib/api";
-import type { RealtimePeer, SocketEvent } from "@/types/realtime";
+import { api, websocketUrl, type ChatMessage, type HuddleChannel, type User } from "@/lib/api";
+import type {
+	CallLifecycle,
+	RealtimePeer,
+	SocketEvent,
+} from "@/types/realtime";
 
 type Options = {
-	token: string; channelId: string;
+	token: string; channelId: string; channelType: HuddleChannel["type"];
 	socketRef: MutableRefObject<WebSocket | null>;
 	peerUsers: MutableRefObject<Map<string, User>>;
 	displayStream: MutableRefObject<MediaStream | null>;
 	remoteSharing: MutableRefObject<Set<string>>;
 	connections: MutableRefObject<Map<string, RTCPeerConnection>>;
 	pendingCandidates: MutableRefObject<Map<string, RTCIceCandidateInit[]>>;
+	callLifecycle: MutableRefObject<CallLifecycle>;
 	closeCall: (notify: boolean) => void;
 	createPeer: (userId: string) => RTCPeerConnection;
 	flushCandidates: (userId: string, peer: RTCPeerConnection) => Promise<void>;
@@ -25,17 +30,21 @@ type Options = {
 };
 
 export function useRealtimeConnection(options: Options) {
-	const { token, channelId, socketRef, peerUsers, displayStream, remoteSharing, connections, pendingCandidates,
+	const { token, channelId, channelType, socketRef, peerUsers, displayStream, remoteSharing, connections, pendingCandidates,
+		callLifecycle,
 		closeCall, createPeer, flushCandidates, makeOffer, send, updatePeer,
 		setMessages, setConnected, setError, setPeers, setJoining, setInCall } = options;
 	useEffect(() => {
 		if (!channelId) return;
 		let alive = true;
-		api<{ messages: ChatMessage[] }>(
-			`/messages?channelId=${encodeURIComponent(channelId)}&limit=100`,
-			{},
-			token,
-		)
+		const messagesRequest = channelType === "voice"
+			? Promise.resolve({ messages: [] as ChatMessage[] })
+			: api<{ messages: ChatMessage[] }>(
+				`/messages?channelId=${encodeURIComponent(channelId)}&limit=100`,
+				{},
+				token,
+			);
+		messagesRequest
 			.then(({ messages }) => alive && setMessages(messages))
 			.catch(
 				(cause: unknown) =>
@@ -57,16 +66,39 @@ export function useRealtimeConnection(options: Options) {
 			if (!alive) return;
 			socket = new WebSocket(websocketUrl(ticket));
 			socketRef.current = socket;
-			socket.onopen = () => setConnected(true);
+			socket.onopen = () => {
+				if (!alive || socketRef.current !== socket) return;
+				setConnected(true);
+			};
 			socket.onclose = () => {
+				if (!alive || socketRef.current !== socket) return;
 				setConnected(false);
 				closeCall(false);
 			};
-			socket.onerror = () =>
+			socket.onerror = () => {
+				if (!alive || socketRef.current !== socket) return;
 				setError("A conexão em tempo real foi interrompida.");
+			};
 			socket.onmessage = async ({ data }) => {
+				if (!alive || socketRef.current !== socket) return;
 				try {
 					const event = JSON.parse(String(data)) as SocketEvent;
+					const callEvent = [
+						"call_joined",
+						"peer_joined",
+						"peer_left",
+						"webrtc_offer",
+						"webrtc_answer",
+						"ice_candidate",
+						"screen_share",
+					].includes(event.type);
+					const expectedCallId = `channel-${channelId}`;
+					if (
+						callEvent &&
+						typeof event.callId === "string" &&
+						event.callId !== expectedCallId
+					)
+						return;
 					if (event.type === "chat_message") {
 						const message = event.message as ChatMessage;
 						setMessages((items) =>
@@ -90,7 +122,12 @@ export function useRealtimeConnection(options: Options) {
 						);
 					}
 					if (event.type === "call_joined") {
-						const users = event.peers as User[];
+						if (callLifecycle.current !== "joining") return;
+						const users = Array.from(
+							new Map(
+								(event.peers as User[]).map((user) => [user.id, user]),
+							).values(),
+						);
 						users.forEach((user) =>
 							peerUsers.current.set(user.id, user),
 						);
@@ -105,23 +142,26 @@ export function useRealtimeConnection(options: Options) {
 						);
 						setJoining(false);
 						setInCall(true);
-						for (const user of users) {
-							const pc = createPeer(user.id);
-							if (displayStream.current)
-								send({
-									type: "screen_share",
-									targetUserId: user.id,
-									active: true,
-								});
-							await makeOffer(user.id, pc);
-						}
+						callLifecycle.current = "active";
 					}
 					if (event.type === "peer_joined") {
+						if (callLifecycle.current !== "active") return;
 						const user = event.user as User;
+						if (!user?.id || user.id === peerUsers.current.get(user.id)?.id)
+							return;
 						peerUsers.current.set(user.id, user);
 						updatePeer(user.id, {});
+						const pc = createPeer(user.id);
+						if (displayStream.current)
+							send({
+								type: "screen_share",
+								targetUserId: user.id,
+								active: true,
+							});
+						await makeOffer(user.id, pc);
 					}
 					if (event.type === "webrtc_offer") {
+						if (callLifecycle.current !== "active") return;
 						const userId = event.fromUserId as string;
 						const pc =
 							connections.current.get(userId) ??
@@ -135,7 +175,9 @@ export function useRealtimeConnection(options: Options) {
 						await pc.setRemoteDescription(
 							event.sdp as RTCSessionDescriptionInit,
 						);
+						if (callLifecycle.current !== "active") return;
 						await flushCandidates(userId, pc);
+						if (callLifecycle.current !== "active") return;
 						await pc.setLocalDescription(await pc.createAnswer());
 						send({
 							type: "webrtc_answer",
@@ -144,6 +186,7 @@ export function useRealtimeConnection(options: Options) {
 						});
 					}
 					if (event.type === "webrtc_answer") {
+						if (callLifecycle.current !== "active") return;
 						const userId = event.fromUserId as string;
 						const pc = connections.current.get(userId);
 						if (pc) {
@@ -154,6 +197,7 @@ export function useRealtimeConnection(options: Options) {
 						}
 					}
 					if (event.type === "ice_candidate") {
+						if (callLifecycle.current !== "active") return;
 						const userId = event.fromUserId as string;
 						const pc = connections.current.get(userId);
 						const candidate =
@@ -168,6 +212,7 @@ export function useRealtimeConnection(options: Options) {
 							]);
 					}
 					if (event.type === "screen_share") {
+						if (callLifecycle.current !== "active") return;
 						const userId = event.fromUserId as string;
 						if (event.active === true)
 							remoteSharing.current.add(userId);
@@ -180,6 +225,7 @@ export function useRealtimeConnection(options: Options) {
 						);
 					}
 					if (event.type === "peer_left") {
+						if (callLifecycle.current !== "active") return;
 						const userId = event.userId as string;
 						connections.current.get(userId)?.close();
 						connections.current.delete(userId);
@@ -191,10 +237,15 @@ export function useRealtimeConnection(options: Options) {
 						);
 					}
 					if (event.type === "error") {
+						callLifecycle.current = "idle";
 						setJoining(false);
 						setError(
 							String(event.message ?? "Erro de comunicação."),
 						);
+					}
+					if (event.type === "call_replaced") {
+						closeCall(false);
+						setError("Você entrou em outra chamada.");
 					}
 					if (event.type === "access_revoked") {
 						closeCall(false);
@@ -203,7 +254,7 @@ export function useRealtimeConnection(options: Options) {
 						);
 					}
 				} catch (cause) {
-					console.error("Realtime event failed", cause);
+					console.error("Realtime event failed", String(data), cause);
 					setError("Falha ao processar um evento da chamada.");
 				}
 			};
@@ -230,6 +281,7 @@ export function useRealtimeConnection(options: Options) {
 		};
 	}, [
 		channelId,
+		channelType,
 		closeCall,
 		createPeer,
 		flushCandidates,
@@ -244,6 +296,7 @@ export function useRealtimeConnection(options: Options) {
 		setError,
 		setMessages,
 		connections,
+		callLifecycle,
 		displayStream,
 		peerUsers,
 		pendingCandidates,

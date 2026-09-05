@@ -23,6 +23,14 @@ const dialogContent = {
 		maxLength: 60,
 		submitLabel: "Criar",
 	},
+	"create-voice-channel": {
+		title: "Criar canal de voz",
+		description: "Escolha um nome para a nova sala de voz.",
+		label: "Nome",
+		placeholder: "Sala de conversa",
+		maxLength: 60,
+		submitLabel: "Criar",
+	},
 	"join-server": {
 		title: "Entrar em um servidor",
 		description: "Cole o código de convite que você recebeu.",
@@ -74,6 +82,7 @@ export function ChatDialogs() {
 
 		if (dialog === "create-server") void createServer(value);
 		if (dialog === "create-channel") void createChannel(value);
+		if (dialog === "create-voice-channel") void createChannel(value, "voice");
 		if (dialog === "join-server") void joinServer(value);
 	};
 

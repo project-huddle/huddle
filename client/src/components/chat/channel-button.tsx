@@ -1,10 +1,12 @@
 import { cn } from "@/lib/utils";
-import { Hash } from "lucide-react";
+import type { HuddleChannel } from "@/lib/api";
+import { Hash, Volume2 } from "lucide-react";
 
 type ChannelButtonProps = {
     id: string;
     name: string;
     active: boolean;
+    type: HuddleChannel["type"];
     onSelect: (id: string) => void;
     variant?: "desktop" | "mobile";
 };
@@ -13,6 +15,7 @@ export default function ChannelButton({
     id,
     name,
     active,
+    type,
     onSelect,
     variant = "desktop",
 }: ChannelButtonProps) {
@@ -32,7 +35,11 @@ export default function ChannelButton({
                     : "text-(--muted-text) hover:bg-(--surface)/60",
             )}
         >
-            <Hash className="size-4 shrink-0" />
+            {type === "voice" ? (
+                <Volume2 className="size-4 shrink-0" />
+            ) : (
+                <Hash className="size-4 shrink-0" />
+            )}
 
             <span className="truncate">
                 {name}

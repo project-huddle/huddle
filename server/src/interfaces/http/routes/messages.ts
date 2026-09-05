@@ -27,8 +27,11 @@ export const messageRoutes = new Elysia({ name: "message-routes" })
     async ({ currentUser, query }) => {
       const fallbackChannel = await firstChannelForUser(currentUser.id);
       const channelId = query.channelId || fallbackChannel?.id || "";
-      if (!(await channelForUser(currentUser.id, channelId)))
+      const channel = await channelForUser(currentUser.id, channelId);
+      if (!channel)
         return error(403, "FORBIDDEN", "You cannot access this channel.");
+      if (channel.type === "voice")
+        return error(400, "INVALID_CHANNEL", "Voice channels do not contain messages.");
       if (query.before && Number.isNaN(Date.parse(query.before)))
         return error(400, "INVALID_CURSOR", "before must be an ISO date.");
       const messages = await messageHistory(

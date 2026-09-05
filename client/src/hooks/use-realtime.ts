@@ -4,14 +4,18 @@ import {
 	type ChatMessage,
 	type MessageMedia,
 	type User,
+	type HuddleChannel,
 } from "@/lib/api";
 import { useCallState } from "@/hooks/use-call-state";
-import type { RealtimePeer as Peer } from "@/types/realtime";
+import type {
+	CallLifecycle,
+	RealtimePeer as Peer,
+} from "@/types/realtime";
 import { useRealtimeConnection } from "@/hooks/use-realtime-connection";
 import { mediaErrorMessage, rtcConfig } from "@/lib/realtime";
 
 
-export function useRealtime(token: string, channelId: string) {
+export function useRealtime(token: string, channelId: string, channelType: HuddleChannel["type"] = "text") {
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [connected, setConnected] = useState(false);
 	const { joining, inCall, muted, cameraOff, sharing, localMediaStream,
@@ -26,6 +30,8 @@ export function useRealtime(token: string, channelId: string) {
 	const displayStream = useRef<MediaStream | null>(null);
 	const displaySenders = useRef(new Map<string, RTCRtpSender>());
 	const remoteSharing = useRef(new Set<string>());
+	const callLifecycle = useRef<CallLifecycle>("idle");
+	const callAttempt = useRef(0);
 
 	const send = useCallback((event: object) => {
 		if (socketRef.current?.readyState !== WebSocket.OPEN) return false;
@@ -141,7 +147,9 @@ export function useRealtime(token: string, channelId: string) {
 
 	const makeOffer = useCallback(
 		async (userId: string, pc: RTCPeerConnection) => {
+			if (callLifecycle.current !== "active") return;
 			await pc.setLocalDescription(await pc.createOffer());
+			if (callLifecycle.current !== "active") return;
 			send({
 				type: "webrtc_offer",
 				targetUserId: userId,
@@ -153,6 +161,8 @@ export function useRealtime(token: string, channelId: string) {
 
 	const closeCall = useCallback(
 		(notifyServer: boolean) => {
+			callAttempt.current += 1;
+			callLifecycle.current = "idle";
 			if (notifyServer) send({ type: "leave_call" });
 			connections.current.forEach((pc) => pc.close());
 			connections.current.clear();
@@ -177,15 +187,19 @@ export function useRealtime(token: string, channelId: string) {
 	);
 
 	useRealtimeConnection({
-		token, channelId, socketRef, peerUsers, displayStream, remoteSharing,
+		token, channelId, channelType, socketRef, peerUsers, displayStream, remoteSharing,
 		connections, pendingCandidates,
+		callLifecycle,
 		closeCall, createPeer, flushCandidates, makeOffer, send, updatePeer,
 		setMessages, setConnected, setError, setPeers, setJoining, setInCall,
 	});
 
-	const joinCall = async () => {
+	const joinCall = useCallback(async () => {
 		if (joining || inCall) return;
 		setError(null);
+		const attempt = callAttempt.current + 1;
+		callAttempt.current = attempt;
+		callLifecycle.current = "joining";
 		setJoining(true);
 		try {
 			if (!navigator.mediaDevices?.getUserMedia)
@@ -222,6 +236,10 @@ export function useRealtime(token: string, channelId: string) {
 				});
 				setCameraOff(true);
 			}
+			if (callAttempt.current !== attempt || callLifecycle.current !== "joining") {
+				stream.getTracks().forEach((track) => track.stop());
+				return;
+			}
 			localStream.current = stream;
 			setLocalMediaStream(stream);
 			if (!send({ type: "join_call", callId: `channel-${channelId}` })) {
@@ -231,12 +249,14 @@ export function useRealtime(token: string, channelId: string) {
 				throw new Error("WebSocket is not connected");
 			}
 		} catch (cause) {
+			if (callAttempt.current !== attempt) return;
+			callLifecycle.current = "idle";
 			setJoining(false);
 			setError(mediaErrorMessage(cause, "microphone"));
 		}
-	};
+	}, [channelId, inCall, joining, send, setCameraOff, setError, setJoining, setLocalMediaStream]);
 
-	const leaveCall = () => closeCall(true);
+	const leaveCall = useCallback(() => closeCall(true), [closeCall]);
 
 	const toggleMute = () => {
 		const next = !muted;

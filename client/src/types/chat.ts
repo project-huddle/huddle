@@ -5,6 +5,7 @@ export type ChatDialog =
 	| "add-server"
 	| "create-server"
 	| "create-channel"
+	| "create-voice-channel"
 	| "join-server";
 
 export type ChatStoreState = {
@@ -43,7 +44,7 @@ export type ChatStoreState = {
 	loadChannels: () => Promise<void>;
 	loadMembers: () => Promise<void>;
 	createServer: (value: string) => Promise<void>;
-	createChannel: (value: string) => Promise<void>;
+	createChannel: (value: string, type?: HuddleChannel["type"]) => Promise<void>;
 	joinServer: (value: string) => Promise<void>;
 	createInvite: () => Promise<void>;
 	leaveServer: () => Promise<void>;

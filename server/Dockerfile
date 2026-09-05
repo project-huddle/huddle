@@ -10,6 +10,7 @@ ENV NODE_ENV=production \
     PORT=3000
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY package.json ./
+COPY tsconfig.json ./
 COPY prisma ./prisma
 COPY src ./src
 RUN bunx prisma generate

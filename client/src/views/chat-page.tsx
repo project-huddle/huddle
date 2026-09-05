@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { useRealtime } from "@/hooks/use-realtime";
 import { CallRoom } from "@/components/call-room";
@@ -17,8 +17,10 @@ export default function ChatPage() {
 	const user = useAuthStore((state) => state.user)!;
 	const token = useAuthStore((state) => state.token)!;
 	const updateUser = useAuthStore((state) => state.updateUser);
+	const logout = useAuthStore((state) => state.logout);
 	const serverId = useChatStore((state) => state.serverId);
 	const channelId = useChatStore((state) => state.channelId);
+	const activeChannel = useChatStore((state) => state.channels.find(({ id }) => id === state.channelId));
 	const callRoomOpen = useChatStore((state) => state.callRoomOpen);
 	const socialOpen = useChatStore((state) => state.socialOpen);
 	const settingsOpen = useChatStore((state) => state.settingsOpen);
@@ -28,7 +30,25 @@ export default function ChatPage() {
 	const loadServers = useChatStore((state) => state.loadServers);
 	const loadChannels = useChatStore((state) => state.loadChannels);
 	const loadMembers = useChatStore((state) => state.loadMembers);
-	const realtime = useRealtime(token, channelId);
+	const realtime = useRealtime(token, channelId, activeChannel?.type ?? "text");
+	const { joinCall, leaveCall } = realtime;
+	const autoJoinedChannelId = useRef("");
+
+	useEffect(() => {
+		if (activeChannel?.type !== "voice") {
+			autoJoinedChannelId.current = "";
+			return;
+		}
+		if (
+			autoJoinedChannelId.current === channelId ||
+			!realtime.connected ||
+			realtime.inCall ||
+			realtime.joining
+		)
+			return;
+		autoJoinedChannelId.current = channelId;
+		void joinCall();
+	}, [activeChannel?.type, channelId, joinCall, realtime.connected, realtime.inCall, realtime.joining]);
 
 	useEffect(() => { void loadServers(); }, [loadServers]);
 	useEffect(() => { void loadChannels(); }, [serverId, loadChannels]);
@@ -39,7 +59,10 @@ export default function ChatPage() {
 		else setCallRoomOpen(false);
 	}, [realtime.inCall, setCallRoomOpen]);
 
-	const closeCallRoom = useCallback(() => setCallRoomOpen(false), [setCallRoomOpen]);
+	const closeCallRoom = useCallback(() => {
+		leaveCall();
+		setCallRoomOpen(false);
+	}, [leaveCall, setCallRoomOpen]);
 
 	return (
 		<main className="chat-page relative h-svh overflow-hidden bg-(--canvas) text-(--ink)">
@@ -48,7 +71,7 @@ export default function ChatPage() {
 				<ChannelSidebar />
 				<ChatConversation realtime={realtime} />
 
-				<RoomSidebar realtime={realtime} />
+				<RoomSidebar />
 			</div>
 
 			<MobileNavigation />
@@ -78,6 +101,7 @@ export default function ChatPage() {
 				token={token}
 				open={settingsOpen}
 				onClose={() => setSettingsOpen(false)}
+				onLogout={logout}
 				onUpdated={updateUser}
 			/>
 			<ChatDialogs />

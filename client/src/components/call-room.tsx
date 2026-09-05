@@ -46,7 +46,7 @@ export function CallRoom(props: CallRoomProps) {
 			...(props.localDisplayStream
 				? [
 						{
-							name: `${props.user.displayName} (você)`,
+							name: props.user.displayName,
 							stream: props.localDisplayStream,
 						},
 					]

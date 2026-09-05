@@ -46,7 +46,7 @@ export type HuddleChannel = {
 	id: string;
 	serverId: string;
 	name: string;
-	type: "text";
+	type: "text" | "voice";
 };
 export type HuddleRole = "owner" | "moderator" | "member";
 export type HuddleMember = User & {

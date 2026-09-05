@@ -58,16 +58,33 @@ function callKey(
     : null;
 }
 
-function leaveCall(ws: RealtimeSocket): void {
-  const callId = session(ws).callId;
-  if (!callId) return;
-  const key = callKey(ws, callId);
-  const peers = key ? calls.get(key) : undefined;
-  peers?.delete(ws);
-  for (const peer of peers ?? [])
-    send(peer, { type: "peer_left", callId, userId: session(ws).user.id });
-  if (!peers?.size && key) calls.delete(key);
-  session(ws).callId = null;
+function leaveCall(ws: RealtimeSocket, removeUserSockets = false): void {
+	const callId = session(ws).callId;
+	if (!callId) return;
+	const key = callKey(ws, callId);
+	const peers = key ? calls.get(key) : undefined;
+	const socketsToRemove = removeUserSockets
+		? [...(peers ?? [])].filter(
+			(peer) => session(peer).user.id === session(ws).user.id,
+		  )
+		: [ws];
+	for (const socket of socketsToRemove) {
+		peers?.delete(socket);
+		session(socket).callId = null;
+	}
+	for (const peer of peers ?? [])
+		send(peer, { type: "peer_left", callId, userId: session(ws).user.id });
+	if (!peers?.size && key) calls.delete(key);
+}
+
+function leaveOtherCalls(userId: string, current: RealtimeSocket): void {
+  for (const peers of calls.values()) {
+    for (const peer of [...peers]) {
+      if (peer === current || session(peer).user.id !== userId) continue;
+      send(peer, { type: "call_replaced" });
+      leaveCall(peer, true);
+    }
+  }
 }
 
 export function issueWebSocketTicket(user: User): string {
@@ -161,11 +178,18 @@ export const realtimeWebSocket = {
         session(ws).channelId ||
         (await firstChannelForUser(session(ws).user.id))?.id ||
         "";
-      if (!(await channelForUser(session(ws).user.id, channelId)))
+      const channel = await channelForUser(session(ws).user.id, channelId);
+      if (!channel)
         return send(ws, {
           type: "error",
           code: "FORBIDDEN",
           message: "You cannot access this channel.",
+        });
+      if (channel.type === "voice")
+        return send(ws, {
+          type: "error",
+          code: "INVALID_CHANNEL",
+          message: "Voice channels do not contain messages.",
         });
       const content = messageContent(event.content, true);
       const media = messageMedia(event.media);
@@ -239,7 +263,8 @@ export const realtimeWebSocket = {
     if (event.type === "subscribe_channel") {
       const channelId =
         typeof event.channelId === "string" ? event.channelId : "";
-      if (!(await channelForUser(session(ws).user.id, channelId)))
+      const channel = await channelForUser(session(ws).user.id, channelId);
+      if (!channel)
         return send(ws, {
           type: "error",
           code: "FORBIDDEN",
@@ -271,6 +296,7 @@ export const realtimeWebSocket = {
             .map((peer) => session(peer).user),
         });
       leaveCall(ws);
+      leaveOtherCalls(session(ws).user.id, ws);
       const peers = calls.get(key) ?? new Set();
       peers.add(ws);
       calls.set(key, peers);
@@ -288,7 +314,7 @@ export const realtimeWebSocket = {
       return;
     }
     if (event.type === "leave_call") {
-      leaveCall(ws);
+      leaveCall(ws, true);
       return;
     }
     if (

@@ -10,6 +10,9 @@ export const userIdParams = t.Object({ userId: resourceId });
 
 export const emailBody = t.Object({ email: t.String() });
 export const createServerBody = t.Object({ name: t.String() });
-export const createChannelBody = t.Object({ name: t.String() });
+export const createChannelBody = t.Object({
+  name: t.String(),
+  type: t.Optional(t.Union([t.Literal("text"), t.Literal("voice")])),
+});
 export const joinInviteBody = t.Object({ code: t.String() });
 export const memberRoleBody = t.Object({ role: t.String() });
