@@ -403,11 +403,13 @@ describe("huddle API", () => {
     });
 
     const peerLeft = nextEvent(aliceSocket, "peer_left");
+    const callLeft = nextEvent(bobSocket, "call_left");
     bobSocket.send(JSON.stringify({ type: "leave_call" }));
     expect(await peerLeft).toMatchObject({
       userId: bob.user.id,
       callId: "general",
     });
+    expect(await callLeft).toMatchObject({ callId: "general" });
 
     const bobRejoined = nextEvent(aliceSocket, "peer_joined");
     await sendAndWait(bobSocket, "call_joined", {
@@ -420,11 +422,13 @@ describe("huddle API", () => {
     });
 
     const bobLeftAgain = nextEvent(aliceSocket, "peer_left");
+    const bobCallLeftAgain = nextEvent(bobSocket, "call_left");
     bobSocket.send(JSON.stringify({ type: "leave_call" }));
     expect(await bobLeftAgain).toMatchObject({
       userId: bob.user.id,
       callId: "general",
     });
+    expect(await bobCallLeftAgain).toMatchObject({ callId: "general" });
 
     const history = await fetch(
       `${baseUrl}/messages?channelId=${sharedChannelId}`,
