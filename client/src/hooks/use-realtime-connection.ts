@@ -69,7 +69,6 @@ export function useRealtimeConnection(options: Options) {
 			socketRef.current = socket;
 			socket.onopen = () => {
 				if (!alive || socketRef.current !== socket) return;
-				setConnected(true);
 			};
 			socket.onclose = () => {
 				if (!alive || socketRef.current !== socket) return;
@@ -107,6 +106,9 @@ export function useRealtimeConnection(options: Options) {
 								? items
 								: [...items, message],
 						);
+					}
+					if (event.type === "channel_subscribed") {
+						if (event.channelId === channelId) setConnected(true);
 					}
 					if (
 						[
@@ -238,6 +240,7 @@ export function useRealtimeConnection(options: Options) {
 						);
 					}
 					if (event.type === "error") {
+						if (callLifecycle.current !== "idle") closeCall(false);
 						callLifecycle.current = "idle";
 						setJoining(false);
 						setError(
