@@ -11,9 +11,9 @@ import { ThemeToggle } from "@/components/theme";
 import { TwoFactorChallenge } from "@/components/auth/two-factor-challenge";
 import { LoginHero } from "@/components/auth/login-hero";
 
-export default function LoginPage() {
+export default function LoginPage({ initialRegistering = false }: { initialRegistering?: boolean }) {
 	const [showPassword, setShowPassword] = useState(false);
-	const [isRegistering, setIsRegistering] = useState(false);
+	const [isRegistering, setIsRegistering] = useState(initialRegistering);
 	const [displayName, setDisplayName] = useState("");
 	const {
 		login,

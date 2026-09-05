@@ -5,6 +5,7 @@ import { FixedWindowRateLimiter } from "../interfaces/rate-limit";
 describe("core domain rules", () => {
   test("applies role defaults and safe permission overrides", () => {
     expect(can("member", "members.manage")).toBeFalse();
+    expect(can("member", "invites.create")).toBeTrue();
     expect(can("moderator", "reports.review")).toBeTrue();
     expect(permissionsFor("member", ["invites.create", "unknown"])).toEqual(
       new Set(["invites.create"]),

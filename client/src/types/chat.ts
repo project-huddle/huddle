@@ -5,7 +5,7 @@ export type ChatDialog =
 	| "add-server"
 	| "create-server"
 	| "create-channel"
-	| "join-server";
+	| "create-invite";
 
 export type ChatStoreState = {
 	servers: HuddleServer[];
@@ -21,7 +21,7 @@ export type ChatStoreState = {
 	settingsOpen: boolean;
 	dialog: ChatDialog | null;
 	dialogValue: string;
-	inviteCode: string | null;
+	inviteUrl: string | null;
 	error: string | null;
 	setServers: (value: SetStateAction<HuddleServer[]>) => void;
 	setChannels: (value: SetStateAction<HuddleChannel[]>) => void;
@@ -30,7 +30,7 @@ export type ChatStoreState = {
 	setChannelId: (value: SetStateAction<string>) => void;
 	setReplyTo: (value: string | null) => void;
 	setCreating: (value: boolean) => void;
-	setInviteCode: (value: string | null) => void;
+	setInviteUrl: (value: string | null) => void;
 	openDialog: (dialog: ChatDialog) => void;
 	closeDialog: () => void;
 	setDialogValue: (value: string) => void;
@@ -44,7 +44,7 @@ export type ChatStoreState = {
 	createServer: (value: string) => Promise<void>;
 	createChannel: (value: string, type?: HuddleChannel["type"]) => Promise<void>;
 	joinServer: (value: string) => Promise<void>;
-	createInvite: () => Promise<void>;
+	createInvite: (durationHours?: number) => Promise<void>;
 	leaveServer: () => Promise<void>;
 	changeMemberRole: (member: HuddleMember) => Promise<void>;
 	removeMember: (member: HuddleMember) => Promise<void>;

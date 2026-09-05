@@ -33,6 +33,10 @@ export function ChannelSidebar() {
     );
 
     const activeServer = servers.find((server) => server.id === serverId);
+    const createInviteAction = () => {
+        if (activeServer?.ownerId === user?.id) openDialog("create-invite");
+        else void createInvite();
+    };
     const textChannels = channels.filter((channel) => channel.type === "text");
     const voiceChannels = channels.filter((channel) => channel.type === "voice");
 
@@ -57,7 +61,7 @@ export function ChannelSidebar() {
                 </strong>
 
                 <div className="ml-auto flex gap-1">
-                    <NavButton label="Criar convite" onClick={createInvite}>
+                    <NavButton label="Criar convite" onClick={createInviteAction}>
                         <UserPlus />
                     </NavButton>
 

@@ -1,4 +1,4 @@
-import { Check, Hash, Plus, Users, Volume2 } from "lucide-react";
+import { Check, Hash, Plus, Volume2 } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -25,13 +25,13 @@ const dialogContent = {
 		maxLength: 60,
 		submitLabel: "Criar",
 	},
-	"join-server": {
-		title: "Entrar em um servidor",
-		description: "Cole o código de convite que você recebeu.",
-		label: "Código do convite",
-		placeholder: "Ex.: ABC123",
-		maxLength: 100,
-		submitLabel: "Entrar",
+	"create-invite": {
+		title: "Criar convite",
+		description: "Defina por quantas horas este link ficará ativo.",
+		label: "Duração em horas",
+		placeholder: "2",
+		maxLength: 8,
+		submitLabel: "Criar convite",
 	},
 } satisfies Record<Exclude<ChatDialog, "add-server">, {
 	title: string;
@@ -48,41 +48,42 @@ export function ChatDialogs() {
 		dialog,
 		value,
 		creating,
-		inviteCode,
+		inviteUrl,
 		onValueChange,
 		onCloseDialog,
 		openDialog,
-		setInviteCode,
+		setInviteUrl,
 		createServer,
 		createChannel,
-		joinServer,
+		createInvite,
 	} = useChatStore(useShallow((state) => ({
 		dialog: state.dialog,
 		value: state.dialogValue,
 		creating: state.creating,
-		inviteCode: state.inviteCode,
+		inviteUrl: state.inviteUrl,
 		onValueChange: state.setDialogValue,
 		onCloseDialog: state.closeDialog,
 		openDialog: state.openDialog,
-		setInviteCode: state.setInviteCode,
+		setInviteUrl: state.setInviteUrl,
 		createServer: state.createServer,
 		createChannel: state.createChannel,
-		joinServer: state.joinServer,
+		createInvite: state.createInvite,
 	})));
 
 	const textDialog = dialog && dialog !== "add-server" ? dialogContent[dialog] : null;
 	const isCreatingChannel = dialog === "create-channel";
+	const isCreatingInvite = dialog === "create-invite";
 
 	const [copied, setCopied] = useState(false);
 
 	const handleCopy = async () => {
-		if (!inviteCode) return;
+		if (!inviteUrl) return;
 		try {
-			await navigator.clipboard.writeText(inviteCode);
+			await navigator.clipboard.writeText(inviteUrl);
 			setCopied(true);
 			setTimeout(() => setCopied(false), 2000);
 		} catch (error) {
-			console.error("Failed to copy invite code:", error);
+			console.error("Failed to copy invite URL:", error);
 		}
 	};
 
@@ -95,7 +96,11 @@ export function ChatDialogs() {
 
 		if (dialog === "create-server") void createServer(value);
 		if (isCreatingChannel) void createChannel(value, channelType);
-		if (dialog === "join-server") void joinServer(value);
+		if (isCreatingInvite) {
+			const durationHours = Number(value);
+			if (Number.isSafeInteger(durationHours) && durationHours >= 1)
+				void createInvite(durationHours);
+		}
 	};
 
 	return (
@@ -104,7 +109,7 @@ export function ChatDialogs() {
 				open={dialog === "add-server"}
 				onClose={onCloseDialog}
 				title="Adicionar servidor"
-				description="Crie sua própria comunidade ou entre usando um código de convite."
+				description="Crie sua própria comunidade. Para entrar, use um link de convite."
 			>
 				<div className="grid gap-3 sm:grid-cols-2">
 					<ServerAction
@@ -112,12 +117,6 @@ export function ChatDialogs() {
 						title="Criar servidor"
 						description="Comece uma comunidade nova."
 						onClick={() => openDialog("create-server")}
-					/>
-					<ServerAction
-						icon={<Users className="size-6" />}
-						title="Entrar com código"
-						description="Cole o código de um convite."
-						onClick={() => openDialog("join-server")}
 					/>
 				</div>
 			</Modal>
@@ -185,20 +184,20 @@ export function ChatDialogs() {
 			</Modal>
 
 			<Modal
-				open={inviteCode !== null}
-				onClose={() => setInviteCode(null)}
+				open={inviteUrl !== null}
+				onClose={() => setInviteUrl(null)}
 				title="Convite criado"
-				description="O código já foi copiado para a área de transferência."
+				description="O link já foi copiado para a área de transferência."
 			>
-				<div className="rounded-2xl bg-(--surface) p-4 text-center font-mono text-lg font-black tracking-wider">
-					{inviteCode}
+				<div className="break-all rounded-2xl bg-(--surface) p-4 text-center font-mono text-sm font-bold">
+					{inviteUrl}
 				</div>
 				<button
 					type="button"
 					onClick={() => void handleCopy()}
 					className="mt-4 flex w-full cursor-pointer items-center justify-center rounded-xl bg-(--solid) px-4 py-3 text-sm font-bold text-(--on-solid) transition-colors hover:bg-(--brand)"
 				>
-					{copied ? <Check className="size-5" /> : "Copiar código"}
+					{copied ? <Check className="size-5" /> : "Copiar link"}
 				</button>
 			</Modal>
 		</>

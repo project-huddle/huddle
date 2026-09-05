@@ -15,4 +15,10 @@ export const createChannelBody = t.Object({
   type: t.Optional(t.Union([t.Literal("text"), t.Literal("voice")])),
 });
 export const joinInviteBody = t.Object({ code: t.String() });
+export const inviteCodeParams = t.Object({
+  code: t.String({ pattern: "^[a-z0-9]{6,16}$" }),
+});
+export const createInviteBody = t.Object({
+  durationHours: t.Optional(t.Integer({ minimum: 1 })),
+});
 export const memberRoleBody = t.Object({ role: t.String() });
