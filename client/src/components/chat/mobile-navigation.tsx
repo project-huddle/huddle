@@ -80,10 +80,6 @@ export default function MobileNavigation() {
         openDialog("create-channel");
     };
 
-    const handleCreateVoiceChannel = () => {
-        openDialog("create-voice-channel");
-    };
-
     if (!mobileNavOpen) {
         return null;
     }
@@ -197,13 +193,6 @@ export default function MobileNavigation() {
                                     Canais de voz
                                 </p>
 
-                                <button
-                                    type="button"
-                                    onClick={handleCreateVoiceChannel}
-                                    aria-label="Criar canal de voz"
-                                >
-                                    <Plus className="size-4" />
-                                </button>
                             </div>
 
                             {voiceChannels.map((channel) => (

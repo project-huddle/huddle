@@ -5,7 +5,6 @@ export type ChatDialog =
 	| "add-server"
 	| "create-server"
 	| "create-channel"
-	| "create-voice-channel"
 	| "join-server";
 
 export type ChatStoreState = {

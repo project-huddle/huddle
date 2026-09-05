@@ -24,14 +24,6 @@ const dialogContent = {
 		maxLength: 60,
 		submitLabel: "Criar",
 	},
-	"create-voice-channel": {
-		title: "Criar canal de voz",
-		description: "Escolha um nome para a nova sala de voz.",
-		label: "Nome",
-		placeholder: "Sala de conversa",
-		maxLength: 60,
-		submitLabel: "Criar",
-	},
 	"join-server": {
 		title: "Entrar em um servidor",
 		description: "Cole o código de convite que você recebeu.",
@@ -78,12 +70,10 @@ export function ChatDialogs() {
 	})));
 
 	const textDialog = dialog && dialog !== "add-server" ? dialogContent[dialog] : null;
-	const isCreatingChannel =
-		dialog === "create-channel" || dialog === "create-voice-channel";
+	const isCreatingChannel = dialog === "create-channel";
 
 	useEffect(() => {
 		if (dialog === "create-channel") setChannelType("text");
-		if (dialog === "create-voice-channel") setChannelType("voice");
 	}, [dialog]);
 
 	const onSubmit = (event: FormEvent) => {

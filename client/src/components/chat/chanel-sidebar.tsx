@@ -40,10 +40,6 @@ export function ChannelSidebar() {
         openDialog("create-channel");
     };
 
-    const handleCreateVoiceChannel = () => {
-        openDialog("create-voice-channel");
-    };
-
     const handleLeaveServer = () => {
         const serverName = activeServer?.name ?? "este servidor";
         const confirmed = window.confirm(`Sair de ${serverName}?`);
@@ -104,14 +100,6 @@ export function ChannelSidebar() {
                         Canais de voz
                     </p>
 
-                    <button
-                        type="button"
-                        onClick={handleCreateVoiceChannel}
-                        className="ml-auto text-(--muted-text) hover:text-(--ink)"
-                        aria-label="Criar canal de voz"
-                    >
-                        <Plus className="size-3.5" />
-                    </button>
                 </div>
 
                 {voiceChannels.map((channel) => (
