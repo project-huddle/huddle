@@ -409,6 +409,23 @@ describe("huddle API", () => {
       callId: "general",
     });
 
+    const bobRejoined = nextEvent(aliceSocket, "peer_joined");
+    await sendAndWait(bobSocket, "call_joined", {
+      type: "join_call",
+      callId: "general",
+    });
+    expect(await bobRejoined).toMatchObject({
+      user: { id: bob.user.id },
+      callId: "general",
+    });
+
+    const bobLeftAgain = nextEvent(aliceSocket, "peer_left");
+    bobSocket.send(JSON.stringify({ type: "leave_call" }));
+    expect(await bobLeftAgain).toMatchObject({
+      userId: bob.user.id,
+      callId: "general",
+    });
+
     const history = await fetch(
       `${baseUrl}/messages?channelId=${sharedChannelId}`,
       { headers: aliceHeaders },

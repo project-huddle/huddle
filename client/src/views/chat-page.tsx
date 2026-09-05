@@ -55,6 +55,7 @@ export default function ChatPage() {
 		if (previousChannelId.current === channelId) return;
 		previousChannelId.current = channelId;
 		if (activeChannel?.type === "voice") setCallChannelId(channelId);
+		else setCallChannelId("");
 	}, [activeChannel?.type, channelId]);
 
 	useEffect(() => {
