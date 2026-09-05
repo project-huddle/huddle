@@ -109,9 +109,11 @@ export function ChatConversation({ onLeaveCall, realtime }: ChatConversationProp
 							</div>
 						</div>
 					) : isVoiceChannel ? (
-						<CallRoom
-							inCall={realtime.inCall}
-							error={realtime.error}
+							<CallRoom
+								connected={realtime.connected}
+								inCall={realtime.inCall}
+								error={realtime.error}
+								joining={realtime.joining}
 							user={user}
 							peers={realtime.peers}
 							muted={realtime.muted}
