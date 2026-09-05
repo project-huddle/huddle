@@ -197,6 +197,8 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 	const joinCall = useCallback(async () => {
 		if (joining || inCall) return;
 		setError(null);
+		setCameraOff(true);
+		setMuted(false);
 		const attempt = callAttempt.current + 1;
 		callAttempt.current = attempt;
 		callLifecycle.current = "joining";
@@ -234,7 +236,7 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 			setJoining(false);
 			setError(mediaErrorMessage(cause, "microphone"));
 		}
-	}, [channelId, inCall, joining, send, setError, setJoining, setLocalMediaStream]);
+	}, [channelId, inCall, joining, send, setCameraOff, setError, setJoining, setLocalMediaStream, setMuted]);
 
 	const leaveCall = useCallback(() => closeCall(true), [closeCall]);
 

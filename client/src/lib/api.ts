@@ -96,9 +96,14 @@ export async function api<T>(
 	if (!response.ok) {
 		const payload = (await response.json().catch(() => ({}))) as ApiError;
 		if (response.status === 401 && token) onUnauthorized?.(token);
+		let fallbackMessage = `Não foi possível concluir a solicitação (HTTP ${response.status}).`;
+		if (response.status >= 500)
+			fallbackMessage = "O servidor está indisponível no momento.";
+		if (response.status === 429)
+			fallbackMessage = "Muitas solicitações. Tente novamente em instantes.";
 		throw new Error(
 			payload.error?.message ??
-			"Não foi possível concluir a solicitação.",
+			fallbackMessage,
 		);
 	}
 
