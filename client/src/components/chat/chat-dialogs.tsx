@@ -1,4 +1,4 @@
-import { Plus, Users } from "lucide-react";
+import { Hash, Plus, Users, Volume2 } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -139,18 +139,27 @@ export function ChatDialogs() {
 							className="mt-2 h-12 w-full rounded-2xl border border-(--line) bg-(--surface) px-4 outline-none focus:ring-2 focus:ring-(--brand)"
 						/>
 						{isCreatingChannel && (
-							<label htmlFor="channel-type" className="mt-4 block text-sm font-bold">
-								Tipo do canal
-								<select
-									id="channel-type"
-									value={channelType}
-									onChange={(event) => setChannelType(event.target.value as HuddleChannel["type"])}
-									className="mt-2 h-12 w-full rounded-2xl border border-(--line) bg-(--surface) px-4 font-normal outline-none focus:ring-2 focus:ring-(--brand)"
-								>
-									<option value="text">Texto</option>
-									<option value="voice">Voz</option>
-								</select>
-							</label>
+							<fieldset className="mt-5">
+								<legend className="text-sm font-bold">Tipo do canal</legend>
+								<div className="mt-2 grid grid-cols-2 gap-3">
+									<ChannelTypeOption
+										type="text"
+										selected={channelType === "text"}
+										icon={<Hash />}
+										title="Texto"
+										description="Mensagens e arquivos"
+										onSelect={setChannelType}
+									/>
+									<ChannelTypeOption
+										type="voice"
+										selected={channelType === "voice"}
+										icon={<Volume2 />}
+										title="Voz"
+										description="Áudio e vídeo ao vivo"
+										onSelect={setChannelType}
+									/>
+								</div>
+							</fieldset>
 						)}
 						<div className="mt-5 flex justify-end gap-2">
 							<button
@@ -210,5 +219,63 @@ function ServerAction({ icon, title, description, onClick }: ServerActionProps) 
 			<strong className="block">{title}</strong>
 			<span className="mt-1 block text-sm text-(--muted-text)">{description}</span>
 		</button>
+	);
+}
+
+type ChannelTypeOptionProps = {
+	type: HuddleChannel["type"];
+	selected: boolean;
+	icon: ReactNode;
+	title: string;
+	description: string;
+	onSelect: (type: HuddleChannel["type"]) => void;
+};
+
+function ChannelTypeOption({
+	type,
+	selected,
+	icon,
+	title,
+	description,
+	onSelect,
+}: ChannelTypeOptionProps) {
+	return (
+		<label
+			className={`relative cursor-pointer rounded-2xl border p-4 transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-(--brand) ${
+				selected
+					? "border-(--brand) bg-(--brand)/15 shadow-sm"
+					: "border-(--line) bg-(--surface) hover:border-(--muted-text)"
+			}`}
+		>
+			<input
+				type="radio"
+				name="channel-type"
+				value={type}
+				checked={selected}
+				onChange={() => onSelect(type)}
+				className="peer sr-only"
+			/>
+			<span
+				className={`mb-3 grid size-9 place-items-center rounded-xl [&>svg]:size-4 ${
+					selected
+						? "bg-(--brand) text-(--ink)"
+						: "bg-(--canvas) text-(--muted-text)"
+				}`}
+			>
+				{icon}
+			</span>
+			<strong className="block text-sm">{title}</strong>
+			<span className="mt-0.5 block text-xs text-(--muted-text)">
+				{description}
+			</span>
+			<span
+				aria-hidden="true"
+				className={`absolute right-3 top-3 size-2.5 rounded-full border ${
+					selected
+						? "border-(--brand) bg-(--brand)"
+						: "border-(--muted-text)/50"
+				}`}
+			/>
+		</label>
 	);
 }
