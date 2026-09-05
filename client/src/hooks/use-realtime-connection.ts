@@ -63,13 +63,19 @@ export function useRealtimeConnection(options: Options) {
 			if (!alive) return;
 			socket = new WebSocket(websocketUrl(ticket));
 			socketRef.current = socket;
-			socket.onopen = () => setConnected(true);
+			socket.onopen = () => {
+				if (!alive || socketRef.current !== socket) return;
+				setConnected(true);
+			};
 			socket.onclose = () => {
+				if (!alive || socketRef.current !== socket) return;
 				setConnected(false);
 				closeCall(false);
 			};
-			socket.onerror = () =>
+			socket.onerror = () => {
+				if (!alive || socketRef.current !== socket) return;
 				setError("A conexão em tempo real foi interrompida.");
+			};
 			socket.onmessage = async ({ data }) => {
 				if (!alive || socketRef.current !== socket) return;
 				try {
@@ -228,6 +234,7 @@ export function useRealtimeConnection(options: Options) {
 						);
 					}
 					if (event.type === "error") {
+						callLifecycle.current = "idle";
 						setJoining(false);
 						setError(
 							String(event.message ?? "Erro de comunicação."),
