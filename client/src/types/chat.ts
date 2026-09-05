@@ -1,7 +1,11 @@
 import type { SetStateAction } from "react";
 import type { HuddleChannel, HuddleMember, HuddleServer } from "@/lib/api";
 
-export type ChatDialog = "create-server" | "create-channel" | "join-server";
+export type ChatDialog =
+	| "add-server"
+	| "create-server"
+	| "create-channel"
+	| "join-server";
 
 export type ChatStoreState = {
 	servers: HuddleServer[];

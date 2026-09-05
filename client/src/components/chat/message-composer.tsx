@@ -173,7 +173,7 @@ export function MessageComposer({ realtime }: { realtime: ReturnType<typeof useR
 															});
 															setPicker(null);
 														}}
-														className="overflow-hidden rounded-xl bg-[var(--panel)]"
+														className="overflow-hidden rounded-xl bg-(--panel)"
 													>
 														<img
 															src={gif.previewUrl}
@@ -184,7 +184,7 @@ export function MessageComposer({ realtime }: { realtime: ReturnType<typeof useR
 												))}
 											</div>
 											{!gifs.length && (
-												<p className="py-7 text-center text-xs text-[var(--muted-text)]">
+												<p className="py-7 text-center text-xs text-(--muted-text)">
 													Digite algo para procurar.
 													Requer uma chave Tenor
 													existente.

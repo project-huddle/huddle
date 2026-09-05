@@ -4,12 +4,14 @@ import { useRealtime } from "@/hooks/use-realtime";
 import { CallRoom } from "@/components/call-room";
 import { SocialHub } from "@/components/social-hub";
 import { ProfileSettings } from "@/components/profile-settings";
-import { ChannelSidebar, MobileNavigation, ServerRail } from "@/components/chat/chat-navigation";
 import { RoomSidebar } from "@/components/chat/room-sidebar";
 import { ChatDialogs } from "@/components/chat/chat-dialogs";
 import { ChatConversation } from "@/components/chat/chat-conversation";
 import { useChatStore } from "@/stores/chat-store";
 import { useAuthStore } from "@/stores/auth-store";
+import MobileNavigation from "@/components/chat/mobile-navigation";
+import { ServerRail } from "@/components/chat/server-rail";
+import { ChannelSidebar } from "@/components/chat/chanel-sidebar";
 
 export default function ChatPage() {
 	const user = useAuthStore((state) => state.user)!;
