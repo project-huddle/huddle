@@ -25,6 +25,7 @@ type Options = {
 	setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
 	setConnected: Dispatch<SetStateAction<boolean>>;
 	onChannelSubscribed?: () => void;
+	onCallLeft?: () => void;
 	setError: Dispatch<SetStateAction<string | null>>;
 	setPeers: Dispatch<SetStateAction<RealtimePeer[]>>;
 	setJoining: Dispatch<SetStateAction<boolean>>;
@@ -34,6 +35,8 @@ type Options = {
 export function useRealtimeConnection(options: Options) {
 	const subscribedHandlerRef = useRef(options.onChannelSubscribed);
 	subscribedHandlerRef.current = options.onChannelSubscribed;
+	const callLeftHandlerRef = useRef(options.onCallLeft);
+	callLeftHandlerRef.current = options.onCallLeft;
 	const { token, channelId, channelType, socketRef, peerUsers, displayStream, remoteSharing, connections, pendingCandidates,
 		callLifecycle,
 		closeCall, createPeer, flushCandidates, makeOffer, send, updatePeer,
@@ -116,6 +119,9 @@ export function useRealtimeConnection(options: Options) {
 							setConnected(true);
 							subscribedHandlerRef.current?.();
 						}
+					}
+					if (event.type === "call_left") {
+						callLeftHandlerRef.current?.();
 					}
 					if (
 						[

@@ -325,8 +325,9 @@ export const realtimeWebSocket = {
       return;
     }
     if (event.type === "leave_call") {
+      const callId = session(ws).callId;
       leaveCall(ws, true);
-      return;
+      return send(ws, { type: "call_left", callId });
     }
     if (
       [

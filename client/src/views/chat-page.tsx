@@ -32,25 +32,35 @@ export default function ChatPage() {
 	const loadMembers = useChatStore((state) => state.loadMembers);
 	const [callChannelId, setCallChannelId] = useState("");
 	const previousChannelId = useRef("");
+	const callSwitchRequest = useRef(0);
 	const messageChannelId = activeChannel?.type === "text" ? channelId : "";
 	const messageRealtime = useRealtime(token, messageChannelId, "text");
 	const callRealtime = useRealtime(token, callChannelId, "voice");
+	const leaveCall = callRealtime.leaveCall;
 	const conversationRealtime = activeChannel?.type === "voice"
 		? callRealtime
 		: messageRealtime;
 	const leaveActiveCall = () => {
-		callRealtime.leaveCall();
-		setCallChannelId("");
-		const textChannel = channels.find((channel) => channel.type === "text");
-		setChannelId(textChannel?.id ?? "");
+		void (async () => {
+			await leaveCall();
+			setCallChannelId("");
+			const textChannel = channels.find((channel) => channel.type === "text");
+			setChannelId(textChannel?.id ?? "");
+		})();
 	};
 
 	useEffect(() => {
 		if (previousChannelId.current === channelId) return;
 		previousChannelId.current = channelId;
-		if (activeChannel?.type === "voice") setCallChannelId(channelId);
-		else setCallChannelId("");
-	}, [activeChannel?.type, channelId]);
+		const nextCallChannelId = activeChannel?.type === "voice" ? channelId : "";
+		if (callChannelId === nextCallChannelId) return;
+		const requestId = ++callSwitchRequest.current;
+		void (async () => {
+			if (callChannelId) await leaveCall();
+			if (requestId !== callSwitchRequest.current) return;
+			setCallChannelId(nextCallChannelId);
+		})();
+	}, [activeChannel?.type, callChannelId, channelId, leaveCall]);
 
 	useEffect(() => { void loadServers(); }, [loadServers]);
 	useEffect(() => { void loadChannels(); }, [serverId, loadChannels]);
@@ -83,7 +93,7 @@ export default function ChatPage() {
 					<button type="button" onClick={callRealtime.toggleMute} className={`grid size-9 place-items-center rounded-xl ${callRealtime.muted ? "bg-[#d75a4a]" : "bg-white/10"}`} aria-label={callRealtime.muted ? "Ativar microfone" : "Silenciar"}>
 						{callRealtime.muted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
 					</button>
-					<button type="button" onClick={() => { callRealtime.leaveCall(); setCallChannelId(""); }} className="grid size-9 place-items-center rounded-xl bg-[#d75a4a]" aria-label="Sair da chamada"><PhoneOff className="size-4" /></button>
+					<button type="button" onClick={() => { void callRealtime.leaveCall().then(() => setCallChannelId("")); }} className="grid size-9 place-items-center rounded-xl bg-[#d75a4a]" aria-label="Sair da chamada"><PhoneOff className="size-4" /></button>
 				</div>
 			)}
 			<SocialHub

@@ -32,6 +32,9 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 	const remoteSharing = useRef(new Set<string>());
 	const callLifecycle = useRef<CallLifecycle>("idle");
 	const callAttempt = useRef(0);
+	const pendingLeave = useRef<Promise<void> | null>(null);
+	const resolvePendingLeave = useRef<(() => void) | null>(null);
+	const leaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	const send = useCallback((event: object) => {
 		if (socketRef.current?.readyState !== WebSocket.OPEN) return false;
@@ -236,10 +239,33 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 		callLifecycle,
 		closeCall, createPeer, flushCandidates, makeOffer, send, updatePeer,
 		setMessages, setConnected, onChannelSubscribed: channelType === "voice" ? joinCall : undefined,
+		onCallLeft: () => resolvePendingLeave.current?.(),
 		setError, setPeers, setJoining, setInCall,
 	});
 
-	const leaveCall = useCallback(() => closeCall(true), [closeCall]);
+	const leaveCall = useCallback(() => {
+		if (pendingLeave.current) return pendingLeave.current;
+		const socket = socketRef.current;
+		if (!socket || socket.readyState !== WebSocket.OPEN) {
+			closeCall(false);
+			return Promise.resolve();
+		}
+
+		const leavePromise = new Promise<void>((resolve) => {
+			resolvePendingLeave.current = resolve;
+			leaveTimeout.current = setTimeout(resolve, 2_000);
+		});
+		pendingLeave.current = leavePromise;
+		if (!send({ type: "leave_call" })) resolvePendingLeave.current?.();
+
+		return leavePromise.finally(() => {
+			if (leaveTimeout.current) clearTimeout(leaveTimeout.current);
+			leaveTimeout.current = null;
+			resolvePendingLeave.current = null;
+			pendingLeave.current = null;
+			closeCall(false);
+		});
+	}, [closeCall, send]);
 
 	const toggleMute = () => {
 		const next = !muted;
