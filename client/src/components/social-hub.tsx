@@ -27,7 +27,7 @@ export function SocialHub({
 			wide
 		>
 			<div className="grid min-h-[60svh] gap-5 md:grid-cols-[280px_minmax(0,1fr)]">
-				<aside className="border-r border-[var(--line)] pr-4">
+				<aside className="border-r border-(--line) pr-4">
 					<form onSubmit={addFriend} className="flex gap-2">
 						<input
 							type="email"
@@ -35,17 +35,17 @@ export function SocialHub({
 							value={email}
 							onChange={(event) => setEmail(event.target.value)}
 							placeholder="E-mail da pessoa"
-							className="min-w-0 flex-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3"
+							className="min-w-0 flex-1 rounded-xl border border-(--line) bg-(--surface) px-3"
 						/>
 						<button
-							className="grid size-10 place-items-center rounded-xl bg-[var(--solid)] text-[var(--on-solid)]"
+							className="grid size-10 place-items-center rounded-xl bg-(--solid) text-(--on-solid)"
 							aria-label="Adicionar amigo"
 						>
 							<UserPlus className="size-4" />
 						</button>
 					</form>
 					{status && (
-						<p className="mt-2 text-xs text-[var(--muted-text)]">
+						<p className="mt-2 text-xs text-(--muted-text)">
 							{status}
 						</p>
 					)}
@@ -53,7 +53,7 @@ export function SocialHub({
 						{friendships.map((friendship) => (
 							<div
 								key={friendship.user.id}
-								className="flex items-center gap-2 rounded-xl p-2 hover:bg-[var(--surface)]"
+								className="flex items-center gap-2 rounded-xl p-2 hover:bg-(--surface)"
 							>
 								<UserAvatar
 									user={friendship.user}
@@ -70,17 +70,17 @@ export function SocialHub({
 									<span className="block truncate text-sm font-bold">
 										{friendship.user.displayName}
 									</span>
-									<span className="text-xs text-[var(--muted-text)]">
+									<span className="text-xs text-(--muted-text)">
 										{friendship.status === "accepted"
 											? "amigo"
 											: friendship.direction ===
-												  "incoming"
+												"incoming"
 												? "quer adicionar você"
 												: "convite enviado"}
 									</span>
 								</button>
 								{friendship.status === "pending" &&
-								friendship.direction === "incoming" ? (
+									friendship.direction === "incoming" ? (
 									<button
 										onClick={() =>
 											void accept(friendship.user.id)
@@ -90,7 +90,7 @@ export function SocialHub({
 										<Check className="size-4" />
 									</button>
 								) : (
-									<MessageCircle className="size-4 text-[var(--muted-text)]" />
+									<MessageCircle className="size-4 text-(--muted-text)" />
 								)}
 							</div>
 						))}
@@ -99,7 +99,7 @@ export function SocialHub({
 				<section className="flex min-h-0 flex-col">
 					{selected ? (
 						<>
-							<header className="flex items-center gap-3 border-b border-[var(--line)] pb-3">
+							<header className="flex items-center gap-3 border-b border-(--line) pb-3">
 								<UserAvatar user={selected} />
 								<strong>{selected.displayName}</strong>
 							</header>
@@ -107,7 +107,7 @@ export function SocialHub({
 								{messages.map((message) => (
 									<div
 										key={message.id}
-										className={`max-w-[75%] rounded-2xl px-4 py-2 ${message.senderId === currentUser.id ? "ml-auto bg-[var(--solid)] text-[var(--on-solid)]" : "bg-[var(--surface)]"}`}
+										className={`max-w-[75%] rounded-2xl px-4 py-2 ${message.senderId === currentUser.id ? "ml-auto bg-(--solid) text-(--on-solid)" : "bg-(--surface)"}`}
 									>
 										{message.content}
 									</div>
@@ -122,15 +122,15 @@ export function SocialHub({
 										)
 									}
 									placeholder={`Mensagem para ${selected.displayName}`}
-									className="h-11 min-w-0 flex-1 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4"
+									className="h-11 min-w-0 flex-1 rounded-xl border border-(--line) bg-(--surface) px-4"
 								/>
-								<button className="rounded-xl bg-[var(--brand)] px-5 font-bold">
+								<button className="rounded-xl bg-(--brand) px-5 font-bold">
 									Enviar
 								</button>
 							</form>
 						</>
 					) : (
-						<div className="grid flex-1 place-items-center text-center text-[var(--muted-text)]">
+						<div className="grid flex-1 place-items-center text-center text-(--muted-text)">
 							<div>
 								<MessageCircle className="mx-auto size-10" />
 								<p className="mt-3 font-bold">

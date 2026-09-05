@@ -28,7 +28,15 @@ async function login(page: Page, account: { email: string; password: string }) {
 		.fill(account.password);
 	await page.getByRole("button", { name: "entrar" }).click();
 	await expect(page.getByText("huddle").first()).toBeVisible();
-	await page.getByRole("button", { name: "Criar servidor" }).first().click();
+	await page.getByRole("button", { name: "Abrir navegação" }).click();
+	await page.getByRole("button", { name: "Adicionar servidor" }).first().click();
+	const addServerDialog = page.getByRole("dialog", {
+		name: "Adicionar servidor",
+	});
+	await expect(
+		addServerDialog.getByRole("button", { name: "Entrar com código" }),
+	).toBeVisible();
+	await addServerDialog.getByRole("button", { name: "Criar servidor" }).click();
 	const dialog = page.getByRole("dialog", { name: "Criar servidor" });
 	await dialog.getByLabel("Nome").fill("Servidor E2E");
 	await dialog.getByRole("button", { name: "Criar", exact: true }).click();

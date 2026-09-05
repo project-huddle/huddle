@@ -8,31 +8,28 @@ datasource db {
 }
 
 model User {
-  id           String         @id @default(uuid()) @db.Uuid
-  email        String         @unique @db.VarChar(254)
-  displayName  String         @map("display_name") @db.VarChar(32)
-  avatarUrl    String?        @map("avatar_url") @db.VarChar(500)
-  passwordHash String         @map("password_hash")
-  emailVerifiedAt DateTime?   @map("email_verified_at") @db.Timestamptz(3)
-  countryCode  String?        @map("country_code") @db.Char(2)
-  ageGroup      String?       @map("age_group") @db.VarChar(16)
-  ageVerifiedAt DateTime?     @map("age_verified_at") @db.Timestamptz(3)
-  ageVerificationProvider String? @map("age_verification_provider") @db.VarChar(32)
-  twoFactorEnabled Boolean    @default(false) @map("two_factor_enabled")
-  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  sessions     Session[]
-  ownedServers Server[]       @relation("ServerOwner")
-  memberships  ServerMember[]
-  invites      Invite[]       @relation("InviteCreator")
-  messages     Message[]      @relation("MessageAuthor")
-  reactions    MessageReaction[]
-  emailTokens  EmailToken[]
-  friendshipsRequested Friendship[] @relation("FriendRequester")
-  friendshipsReceived  Friendship[] @relation("FriendAddressee")
-  directMessagesSent DirectMessage[] @relation("DirectSender")
-  directMessagesReceived DirectMessage[] @relation("DirectRecipient")
-  reportsCreated Report[] @relation("ReportCreator")
-  reportsTargeting Report[] @relation("ReportTarget")
+  id                     String            @id @default(uuid()) @db.Uuid
+  email                  String            @unique @db.VarChar(254)
+  displayName            String            @map("display_name") @db.VarChar(32)
+  avatarUrl              String?           @map("avatar_url") @db.VarChar(500)
+  passwordHash           String            @map("password_hash")
+  emailVerifiedAt        DateTime?         @map("email_verified_at") @db.Timestamptz(3)
+  countryCode            String?           @map("country_code") @db.Char(2)
+  twoFactorEnabled       Boolean           @default(false) @map("two_factor_enabled")
+  createdAt              DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  sessions               Session[]
+  ownedServers           Server[]          @relation("ServerOwner")
+  memberships            ServerMember[]
+  invites                Invite[]          @relation("InviteCreator")
+  messages               Message[]         @relation("MessageAuthor")
+  reactions              MessageReaction[]
+  emailTokens            EmailToken[]
+  friendshipsRequested   Friendship[]      @relation("FriendRequester")
+  friendshipsReceived    Friendship[]      @relation("FriendAddressee")
+  directMessagesSent     DirectMessage[]   @relation("DirectSender")
+  directMessagesReceived DirectMessage[]   @relation("DirectRecipient")
+  reportsCreated         Report[]          @relation("ReportCreator")
+  reportsTargeting       Report[]          @relation("ReportTarget")
 
   @@map("users")
 }
@@ -62,13 +59,13 @@ model Server {
 }
 
 model ServerMember {
-  serverId String   @map("server_id") @db.Uuid
-  userId   String   @map("user_id") @db.Uuid
-  role     String   @default("member") @db.VarChar(16)
+  serverId    String   @map("server_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  role        String   @default("member") @db.VarChar(16)
   permissions String[] @default([])
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  server   Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  server      Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([serverId, userId])
   @@index([userId], map: "server_members_user_idx")
@@ -103,14 +100,14 @@ model Friendship {
 }
 
 model DirectMessage {
-  id          String   @id @default(uuid()) @db.Uuid
-  senderId    String   @map("sender_id") @db.Uuid
-  recipientId String   @map("recipient_id") @db.Uuid
+  id          String    @id @default(uuid()) @db.Uuid
+  senderId    String    @map("sender_id") @db.Uuid
+  recipientId String    @map("recipient_id") @db.Uuid
   content     String
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   readAt      DateTime? @map("read_at") @db.Timestamptz(3)
-  sender      User     @relation("DirectSender", fields: [senderId], references: [id], onDelete: Cascade)
-  recipient   User     @relation("DirectRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  sender      User      @relation("DirectSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient   User      @relation("DirectRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
 
   @@index([senderId, recipientId, createdAt(sort: Desc)], map: "direct_messages_sender_idx")
   @@index([recipientId, senderId, createdAt(sort: Desc)], map: "direct_messages_recipient_idx")
@@ -159,22 +156,22 @@ model Channel {
 }
 
 model Message {
-  id        String    @id @default(uuid()) @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
-  channelId String    @map("channel_id") @db.Uuid
-  content   String
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  editedAt  DateTime? @map("edited_at") @db.Timestamptz(3)
-  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
-  replyToId String?   @map("reply_to_id") @db.Uuid
-  legacyReactions Json @default("{}") @map("reactions")
-  mediaUrl  String?   @map("media_url")
-  mediaType String?   @map("media_type") @db.VarChar(16)
-  mediaAlt  String?   @map("media_alt") @db.VarChar(160)
-  author    User      @relation("MessageAuthor", fields: [userId], references: [id], onDelete: Cascade)
-  channel   Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  replyTo   Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
-  replies   Message[] @relation("MessageReplies")
+  id              String            @id @default(uuid()) @db.Uuid
+  userId          String            @map("user_id") @db.Uuid
+  channelId       String            @map("channel_id") @db.Uuid
+  content         String
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  editedAt        DateTime?         @map("edited_at") @db.Timestamptz(3)
+  deletedAt       DateTime?         @map("deleted_at") @db.Timestamptz(3)
+  replyToId       String?           @map("reply_to_id") @db.Uuid
+  legacyReactions Json              @default("{}") @map("reactions")
+  mediaUrl        String?           @map("media_url")
+  mediaType       String?           @map("media_type") @db.VarChar(16)
+  mediaAlt        String?           @map("media_alt") @db.VarChar(160)
+  author          User              @relation("MessageAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  channel         Channel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  replyTo         Message?          @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies         Message[]         @relation("MessageReplies")
   reactionEntries MessageReaction[]
 
   @@index([channelId, createdAt(sort: Desc), id(sort: Desc)], map: "messages_created_idx")

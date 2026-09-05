@@ -1,7 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { isValidCpf, normalizeCpf } from "../core/identity/cpf";
 import { db } from "../infra/database/client";
-import { verifyAgeWithSerpro } from "../infra/identity/serpro-age-verifier";
 
 const publicUserSelect = {
   id: true,
@@ -11,9 +9,6 @@ const publicUserSelect = {
   createdAt: true,
   emailVerifiedAt: true,
   countryCode: true,
-  ageGroup: true,
-  ageVerifiedAt: true,
-  ageVerificationProvider: true,
   twoFactorEnabled: true,
 } satisfies Prisma.UserSelect;
 
@@ -25,18 +20,12 @@ export type UpdateProfileInput = {
   displayName?: string;
   avatarUrl?: string | null;
   countryCode?: string;
-  birthDate?: string;
-  cpf?: string;
 };
 export type UpdateProfileResult =
   | { type: "success"; profile: ProfileView }
   | { type: "invalid-name" }
   | { type: "invalid-avatar" }
   | { type: "invalid-country" }
-  | { type: "invalid-birth-date" }
-  | { type: "invalid-cpf" }
-  | { type: "birth-date-required" }
-  | { type: "verification-unavailable" }
   | { type: "conflict" };
 
 function profileView(row: PublicProfileRow) {
@@ -44,7 +33,6 @@ function profileView(row: PublicProfileRow) {
     ...row,
     createdAt: row.createdAt.toISOString(),
     emailVerifiedAt: row.emailVerifiedAt?.toISOString() ?? null,
-    ageVerifiedAt: row.ageVerifiedAt?.toISOString() ?? null,
   };
 }
 
@@ -78,39 +66,6 @@ export async function updateProfile(
   if (countryCode !== undefined && !/^[A-Z]{2}$/.test(countryCode))
     return { type: "invalid-country" };
 
-  const birthDate = input.birthDate
-    ? new Date(`${input.birthDate}T00:00:00.000Z`)
-    : undefined;
-  if (
-    birthDate &&
-    (Number.isNaN(birthDate.valueOf()) || birthDate > new Date())
-  )
-    return { type: "invalid-birth-date" };
-
-  const current = await db.user.findUniqueOrThrow({
-    where: { id: userId },
-    select: { ageVerifiedAt: true },
-  });
-  let verification: Awaited<ReturnType<typeof verifyAgeWithSerpro>> | undefined;
-  const requiresVerification =
-    countryCode === "BR" && (!current.ageVerifiedAt || input.cpf !== undefined);
-  if (requiresVerification) {
-    if (!input.cpf || !isValidCpf(input.cpf)) return { type: "invalid-cpf" };
-    if (!birthDate) return { type: "birth-date-required" };
-    try {
-      verification = await verifyAgeWithSerpro(
-        normalizeCpf(input.cpf),
-        birthDate,
-      );
-    } catch (cause) {
-      console.error(
-        "Serpro age verification failed",
-        cause instanceof Error ? cause.message : cause,
-      );
-      return { type: "verification-unavailable" };
-    }
-  }
-
   const profile = await db.user
     .update({
       where: { id: userId },
@@ -118,20 +73,6 @@ export async function updateProfile(
         displayName,
         avatarUrl,
         countryCode,
-        ...(countryCode && countryCode !== "BR"
-          ? {
-              ageGroup: null,
-              ageVerifiedAt: null,
-              ageVerificationProvider: null,
-            }
-          : {}),
-        ...(verification
-          ? {
-              ageGroup: verification.ageGroup,
-              ageVerifiedAt: new Date(),
-              ageVerificationProvider: verification.provider,
-            }
-          : {}),
       },
       select: publicUserSelect,
     })

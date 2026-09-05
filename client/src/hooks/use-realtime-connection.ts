@@ -1,3 +1,4 @@
+import { useChatStore } from "@/stores/chat-store";
 import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { api, websocketUrl, type ChatMessage, type HuddleChannel, type User } from "@/lib/api";
 import type {
@@ -248,7 +249,13 @@ export function useRealtimeConnection(options: Options) {
 						setError("Você entrou em outra chamada.");
 					}
 					if (event.type === "access_revoked") {
+						useChatStore.setState((state) => {
+							if (state.channelId !== event.channelId) return state;
+							return { channelId: "", replyTo: null };
+						});
+						setMessages([]);
 						closeCall(false);
+						void useChatStore.getState().loadChannels();
 						setError(
 							"Seu acesso a este canal foi removido. Atualize ou selecione outro servidor.",
 						);

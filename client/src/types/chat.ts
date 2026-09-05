@@ -1,18 +1,22 @@
 import type { SetStateAction } from "react";
 import type { HuddleChannel, HuddleMember, HuddleServer } from "@/lib/api";
 
-export type ChatDialog = "create-server" | "create-channel" | "join-server";
+export type ChatDialog =
+	| "add-server"
+	| "create-server"
+	| "create-channel"
+	| "join-server";
 
 export type ChatStoreState = {
 	servers: HuddleServer[];
 	channels: HuddleChannel[];
 	members: HuddleMember[];
+	membersServerId: string;
 	serverId: string;
 	channelId: string;
 	replyTo: string | null;
 	creating: boolean;
 	mobileNavOpen: boolean;
-	callRoomOpen: boolean;
 	socialOpen: boolean;
 	settingsOpen: boolean;
 	dialog: ChatDialog | null;
@@ -31,7 +35,6 @@ export type ChatStoreState = {
 	closeDialog: () => void;
 	setDialogValue: (value: string) => void;
 	setMobileNavOpen: (value: boolean) => void;
-	setCallRoomOpen: (value: boolean) => void;
 	setSocialOpen: (value: boolean) => void;
 	setSettingsOpen: (value: boolean) => void;
 	reset: () => void;

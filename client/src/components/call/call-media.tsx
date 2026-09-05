@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 
-export function StreamVideo({ stream, muted = false, className }: { stream: MediaStream | null; muted?: boolean; className?: string }) {
+export function StreamVideo({ stream, muted = false, className, style }: { stream: MediaStream | null; muted?: boolean; className?: string; style?: CSSProperties }) {
 	const ref = useRef<HTMLVideoElement>(null);
 
 	useEffect(() => {
@@ -9,7 +9,7 @@ export function StreamVideo({ stream, muted = false, className }: { stream: Medi
 		return () => { if (video) video.srcObject = null; };
 	}, [stream]);
 
-	return <video ref={ref} autoPlay playsInline muted={muted} className={className} />;
+	return <video ref={ref} autoPlay playsInline muted={muted} className={className} style={style} />;
 }
 
 export function PeerAudio({ stream }: { stream: MediaStream | null }) {

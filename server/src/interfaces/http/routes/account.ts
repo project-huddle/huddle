@@ -11,8 +11,6 @@ const profileBody = t.Object({
   displayName: t.Optional(t.String()),
   avatarUrl: t.Optional(t.Union([t.String(), t.Null()])),
   countryCode: t.Optional(t.String()),
-  birthDate: t.Optional(t.String()),
-  cpf: t.Optional(t.String()),
 });
 
 function profileError(
@@ -37,30 +35,6 @@ function profileError(
         "INVALID_COUNTRY",
         "Use um código de país ISO com duas letras.",
       );
-    case "invalid-birth-date":
-      return error(
-        400,
-        "INVALID_BIRTH_DATE",
-        "Informe uma data de nascimento válida.",
-      );
-    case "invalid-cpf":
-      return error(
-        400,
-        "INVALID_CPF",
-        "Informe um CPF válido para verificar a idade.",
-      );
-    case "birth-date-required":
-      return error(
-        400,
-        "BIRTH_DATE_REQUIRED",
-        "A data de nascimento é necessária para verificar a idade.",
-      );
-    case "verification-unavailable":
-      return error(
-        502,
-        "AGE_VERIFICATION_FAILED",
-        "Não foi possível verificar a idade com a Serpro. Tente novamente.",
-      );
     case "conflict":
       return error(
         409,
@@ -80,10 +54,7 @@ export const accountRoutes = new Elysia({ name: "account-routes" })
     async ({ currentUser, body }) => {
       const result = await updateProfile(currentUser.id, body);
       if (result.type !== "success") return profileError(result);
-      return json({
-        user: result.profile,
-        ageGroup: result.profile.ageGroup ?? "unknown",
-      });
+      return json({ user: result.profile });
     },
     { body: profileBody },
   );

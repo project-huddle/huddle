@@ -18,7 +18,7 @@ const initialState: CallState = {
 	joining: false,
 	inCall: false,
 	muted: false,
-	cameraOff: false,
+	cameraOff: true,
 	sharing: false,
 	localMediaStream: null,
 	localDisplayStream: null,

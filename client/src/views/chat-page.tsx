@@ -1,93 +1,102 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Mic, MicOff, PhoneOff, Volume2 } from "lucide-react";
 
 import { useRealtime } from "@/hooks/use-realtime";
-import { CallRoom } from "@/components/call-room";
 import { SocialHub } from "@/components/social-hub";
 import { ProfileSettings } from "@/components/profile-settings";
-import { ChannelSidebar, MobileNavigation, ServerRail } from "@/components/chat/chat-navigation";
 import { RoomSidebar } from "@/components/chat/room-sidebar";
 import { ChatDialogs } from "@/components/chat/chat-dialogs";
 import { ChatConversation } from "@/components/chat/chat-conversation";
 import { useChatStore } from "@/stores/chat-store";
 import { useAuthStore } from "@/stores/auth-store";
+import MobileNavigation from "@/components/chat/mobile-navigation";
+import { ServerRail } from "@/components/chat/server-rail";
+import { ResizableChatPanels } from "@/components/chat/resizable-chat-panels";
 
 export default function ChatPage() {
 	const user = useAuthStore((state) => state.user)!;
 	const token = useAuthStore((state) => state.token)!;
 	const updateUser = useAuthStore((state) => state.updateUser);
+	const logout = useAuthStore((state) => state.logout);
 	const serverId = useChatStore((state) => state.serverId);
 	const channelId = useChatStore((state) => state.channelId);
-	const activeChannel = useChatStore((state) => state.channels.find(({ id }) => id === state.channelId));
-	const callRoomOpen = useChatStore((state) => state.callRoomOpen);
+	const channels = useChatStore((state) => state.channels);
+	const activeChannel = channels.find(({ id }) => id === channelId);
+	const setChannelId = useChatStore((state) => state.setChannelId);
 	const socialOpen = useChatStore((state) => state.socialOpen);
 	const settingsOpen = useChatStore((state) => state.settingsOpen);
-	const setCallRoomOpen = useChatStore((state) => state.setCallRoomOpen);
 	const setSocialOpen = useChatStore((state) => state.setSocialOpen);
 	const setSettingsOpen = useChatStore((state) => state.setSettingsOpen);
 	const loadServers = useChatStore((state) => state.loadServers);
 	const loadChannels = useChatStore((state) => state.loadChannels);
 	const loadMembers = useChatStore((state) => state.loadMembers);
-	const realtime = useRealtime(token, channelId, activeChannel?.type ?? "text");
-	const { joinCall, leaveCall } = realtime;
-	const autoJoinedChannelId = useRef("");
+	const [callChannelId, setCallChannelId] = useState("");
+	const previousChannelId = useRef("");
+	const messageChannelId = activeChannel?.type === "text" ? channelId : "";
+	const messageRealtime = useRealtime(token, messageChannelId, "text");
+	const callRealtime = useRealtime(token, callChannelId, "voice");
+	const {
+		connected: callConnected,
+		inCall,
+		joinCall,
+		joining,
+	} = callRealtime;
+	const conversationRealtime = activeChannel?.type === "voice"
+		? callRealtime
+		: messageRealtime;
+	const leaveActiveCall = () => {
+		callRealtime.leaveCall();
+		setCallChannelId("");
+		const textChannel = channels.find((channel) => channel.type === "text");
+		setChannelId(textChannel?.id ?? "");
+	};
 
 	useEffect(() => {
-		if (activeChannel?.type !== "voice") {
-			autoJoinedChannelId.current = "";
-			return;
-		}
-		if (
-			autoJoinedChannelId.current === channelId ||
-			!realtime.connected ||
-			realtime.inCall ||
-			realtime.joining
-		)
-			return;
-		autoJoinedChannelId.current = channelId;
+		if (previousChannelId.current === channelId) return;
+		previousChannelId.current = channelId;
+		if (activeChannel?.type === "voice") setCallChannelId(channelId);
+	}, [activeChannel?.type, channelId]);
+
+	useEffect(() => {
+		if (!callChannelId || !callConnected || inCall || joining) return;
+		if (activeChannel?.id !== callChannelId) return;
 		void joinCall();
-	}, [activeChannel?.type, channelId, joinCall, realtime.connected, realtime.inCall, realtime.joining]);
+	}, [activeChannel?.id, callChannelId, callConnected, inCall, joinCall, joining]);
 
 	useEffect(() => { void loadServers(); }, [loadServers]);
 	useEffect(() => { void loadChannels(); }, [serverId, loadChannels]);
 	useEffect(() => { void loadMembers(); }, [serverId, loadMembers]);
 
-	useEffect(() => {
-		if (realtime.inCall) setCallRoomOpen(true);
-		else setCallRoomOpen(false);
-	}, [realtime.inCall, setCallRoomOpen]);
-
-	const closeCallRoom = useCallback(() => {
-		leaveCall();
-		setCallRoomOpen(false);
-	}, [leaveCall, setCallRoomOpen]);
-
 	return (
 		<main className="chat-page relative h-svh overflow-hidden bg-(--canvas) text-(--ink)">
-			<div className="grid h-full w-full grid-cols-1 lg:grid-cols-[82px_240px_minmax(0,1fr)_300px]">
+			<div className="grid h-full w-full grid-cols-1 lg:grid-cols-[82px_minmax(0,1fr)_300px]">
 				<ServerRail />
-				<ChannelSidebar />
-				<ChatConversation realtime={realtime} />
+				<ResizableChatPanels>
+					<ChatConversation
+						realtime={conversationRealtime}
+						onLeaveCall={leaveActiveCall}
+					/>
+				</ResizableChatPanels>
 
-				<RoomSidebar realtime={realtime} />
+				<RoomSidebar />
 			</div>
 
 			<MobileNavigation />
-			<CallRoom
-				open={callRoomOpen}
-				onClose={closeCallRoom}
-				inCall={realtime.inCall}
-				user={user}
-				peers={realtime.peers}
-				muted={realtime.muted}
-				cameraOff={realtime.cameraOff}
-				sharing={realtime.sharing}
-				localMediaStream={realtime.localMediaStream}
-				localDisplayStream={realtime.localDisplayStream}
-				onToggleMute={realtime.toggleMute}
-				onToggleCamera={realtime.toggleCamera}
-				onToggleShare={realtime.toggleShare}
-				onLeave={realtime.leaveCall}
-			/>
+			{callRealtime.inCall && activeChannel?.id !== callChannelId && (
+				<div className="fixed bottom-4 right-4 z-40 flex items-center gap-3 rounded-2xl border border-(--line) bg-(--solid) p-3 text-(--on-solid) shadow-2xl">
+					<button type="button" onClick={() => setChannelId(callChannelId)} className="flex min-w-0 items-center gap-3 text-left">
+						<span className="grid size-10 place-items-center rounded-xl bg-(--brand) text-(--ink)"><Volume2 className="size-5" /></span>
+						<span className="min-w-0">
+							<strong className="block text-sm">Chamada ativa</strong>
+							<span className="block text-xs text-(--on-solid)/55">{callRealtime.peers.length + 1} conectados</span>
+						</span>
+					</button>
+					<button type="button" onClick={callRealtime.toggleMute} className={`grid size-9 place-items-center rounded-xl ${callRealtime.muted ? "bg-[#d75a4a]" : "bg-white/10"}`} aria-label={callRealtime.muted ? "Ativar microfone" : "Silenciar"}>
+						{callRealtime.muted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+					</button>
+					<button type="button" onClick={() => { callRealtime.leaveCall(); setCallChannelId(""); }} className="grid size-9 place-items-center rounded-xl bg-[#d75a4a]" aria-label="Sair da chamada"><PhoneOff className="size-4" /></button>
+				</div>
+			)}
 			<SocialHub
 				currentUser={user}
 				token={token}
@@ -98,6 +107,7 @@ export default function ChatPage() {
 				token={token}
 				open={settingsOpen}
 				onClose={() => setSettingsOpen(false)}
+				onLogout={logout}
 				onUpdated={updateUser}
 			/>
 			<ChatDialogs />

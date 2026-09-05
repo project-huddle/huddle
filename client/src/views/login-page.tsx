@@ -59,21 +59,21 @@ export default function LoginPage() {
 	}
 
 	return (
-		<main className="login-page min-h-svh bg-[var(--canvas)] p-3 text-[var(--ink)] sm:p-5">
+		<main className="login-page min-h-svh bg-(--canvas) p-3 text-(--ink) sm:p-5">
 			<ThemeToggle className="fixed right-5 top-5 z-30" />
-			<div className="mx-auto grid min-h-[calc(100svh-24px)] max-w-6xl overflow-hidden rounded-[32px] border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-lg)] sm:min-h-[calc(100svh-40px)] lg:grid-cols-[1.05fr_.95fr]">
+			<div className="mx-auto grid min-h-[calc(100svh-24px)] max-w-6xl overflow-hidden rounded-[32px] border border-(--line) bg-(--surface) shadow-(--shadow-lg) sm:min-h-[calc(100svh-40px)] lg:grid-cols-[1.05fr_.95fr]">
 				<LoginHero />
 
 				<section className="flex items-center justify-center px-5 py-10 sm:px-12">
 					<div className="w-full max-w-sm">
 						<BrandLogo className="mb-10 w-40 lg:hidden" />
-						<p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--muted-text)]">
+						<p className="text-xs font-bold uppercase tracking-[0.18em] text-(--muted-text)">
 							{isRegistering ? "Primeira visita?" : "Bom te ver"}
 						</p>
 						<h2 className="mt-3 text-4xl font-black tracking-[-0.055em]">
 							{isRegistering ? "Chega mais." : "Entre na sala."}
 						</h2>
-						<p className="mt-2 text-sm text-[var(--muted-text)]">
+						<p className="mt-2 text-sm text-(--muted-text)">
 							{isRegistering
 								? "Crie sua conta em menos de um minuto."
 								: "Use seus dados para continuar a conversa."}
@@ -156,7 +156,7 @@ export default function LoginPage() {
 										onClick={() =>
 											setShowPassword((value) => !value)
 										}
-										className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--muted-text)]"
+										className="absolute right-4 top-1/2 -translate-y-1/2 text-(--muted-text)"
 										aria-label={
 											showPassword
 												? "Ocultar senha"
@@ -177,7 +177,7 @@ export default function LoginPage() {
 								)}
 							</label>
 							{!isRegistering && (
-								<label className="flex cursor-pointer items-center gap-2.5 text-sm text-[var(--muted-text)]">
+								<label className="flex cursor-pointer items-center gap-2.5 text-sm text-(--muted-text)">
 									<input
 										type="checkbox"
 										className="size-4 accent-[#20251f]"
@@ -201,7 +201,7 @@ export default function LoginPage() {
 									(isRegistering &&
 										displayName.trim().length < 2)
 								}
-								className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--solid)] font-bold text-[var(--on-solid)] transition hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50"
+								className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-(--solid) font-bold text-(--on-solid) transition hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50"
 							>
 								{isLoading ? (
 									<LoaderCircle className="size-4 animate-spin" />
@@ -215,7 +215,7 @@ export default function LoginPage() {
 								)}
 							</button>
 						</form>
-						<p className="mt-7 text-center text-sm text-[var(--muted-text)]">
+						<p className="mt-7 text-center text-sm text-(--muted-text)">
 							{isRegistering
 								? "Já faz parte?"
 								: "Ainda não entrou?"}{" "}
@@ -225,7 +225,7 @@ export default function LoginPage() {
 									setIsRegistering((value) => !value);
 									clearError();
 								}}
-								className="font-bold text-[var(--ink)] underline decoration-[var(--brand)] decoration-4 underline-offset-2"
+								className="font-bold text-(--ink) underline decoration-(--brand) decoration-4 underline-offset-2"
 							>
 								{isRegistering ? "Fazer login" : "Criar conta"}
 							</button>

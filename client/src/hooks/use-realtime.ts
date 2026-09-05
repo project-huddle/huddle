@@ -180,7 +180,7 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 			setInCall(false);
 			setSharing(false);
 			setMuted(false);
-			setCameraOff(false);
+			setCameraOff(true);
 			remoteSharing.current.clear();
 		},
 		[send, setCameraOff, setInCall, setJoining, setLocalDisplayStream, setLocalMediaStream, setMuted, setPeers, setSharing],
@@ -212,30 +212,10 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 				noiseSuppression: true,
 				autoGainControl: true,
 			};
-			let stream: MediaStream;
-			try {
-				stream = await navigator.mediaDevices.getUserMedia({
-					audio,
-					video: {
-						width: { ideal: 640 },
-						height: { ideal: 360 },
-						facingMode: "user",
-					},
-				});
-			} catch (cause) {
-				const name = cause instanceof DOMException ? cause.name : "";
-				if (
-					!new Set(["NotFoundError", "OverconstrainedError"]).has(
-						name,
-					)
-				)
-					throw cause;
-				stream = await navigator.mediaDevices.getUserMedia({
-					audio,
-					video: false,
-				});
-				setCameraOff(true);
-			}
+			const stream = await navigator.mediaDevices.getUserMedia({
+				audio,
+				video: false,
+			});
 			if (callAttempt.current !== attempt || callLifecycle.current !== "joining") {
 				stream.getTracks().forEach((track) => track.stop());
 				return;
@@ -254,7 +234,7 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 			setJoining(false);
 			setError(mediaErrorMessage(cause, "microphone"));
 		}
-	}, [channelId, inCall, joining, send, setCameraOff, setError, setJoining, setLocalMediaStream]);
+	}, [channelId, inCall, joining, send, setError, setJoining, setLocalMediaStream]);
 
 	const leaveCall = useCallback(() => closeCall(true), [closeCall]);
 
@@ -266,12 +246,49 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 		setMuted(next);
 	};
 
-	const toggleCamera = () => {
-		const next = !cameraOff;
-		localStream.current?.getVideoTracks().forEach((track) => {
-			track.enabled = !next;
-		});
-		setCameraOff(next);
+	const toggleCamera = async () => {
+		const stream = localStream.current;
+		if (!stream) return;
+
+		if (!cameraOff) {
+			const videoTracks = stream.getVideoTracks();
+			for (const [userId, pc] of connections.current) {
+				for (const sender of pc.getSenders()) {
+					if (sender.track && videoTracks.includes(sender.track)) pc.removeTrack(sender);
+				}
+				await makeOffer(userId, pc);
+			}
+			videoTracks.forEach((track) => {
+				stream.removeTrack(track);
+				track.stop();
+			});
+			setLocalMediaStream(new MediaStream(stream.getTracks()));
+			setCameraOff(true);
+			return;
+		}
+
+		setError(null);
+		try {
+			const cameraStream = await navigator.mediaDevices.getUserMedia({
+				video: {
+					width: { ideal: 1280 },
+					height: { ideal: 720 },
+					facingMode: "user",
+				},
+				audio: false,
+			});
+			const track = cameraStream.getVideoTracks()[0];
+			if (!track) throw new DOMException("No camera track", "NotFoundError");
+			stream.addTrack(track);
+			for (const [userId, pc] of connections.current) {
+				pc.addTrack(track, stream);
+				await makeOffer(userId, pc);
+			}
+			setLocalMediaStream(new MediaStream(stream.getTracks()));
+			setCameraOff(false);
+		} catch (cause) {
+			setError(mediaErrorMessage(cause, "camera"));
+		}
 	};
 
 	const stopSharing = useCallback(async () => {

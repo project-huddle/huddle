@@ -8,10 +8,8 @@ import { createHash } from "node:crypto";
 const temporaryDirectory = mkdtempSync(join(tmpdir(), "huddle-test-"));
 process.env.HOST = "127.0.0.1";
 process.env.UPLOADS_PATH = join(temporaryDirectory, "uploads");
-process.env.SERPRO_AGE_VERIFICATION_TOKEN = "integration-test-serpro-token";
 
 let server: typeof import("../../index").server;
-let serproServer: ReturnType<typeof Bun.serve>;
 let baseUrl: string;
 
 function availablePort(): Promise<number> {
@@ -48,34 +46,12 @@ beforeAll(async () => {
     db.user.deleteMany(),
   ]);
   process.env.PORT = String(await availablePort());
-  const serproPort = await availablePort();
-  serproServer = Bun.serve({
-    hostname: "127.0.0.1",
-    port: serproPort,
-    async fetch(request) {
-      const input = (await request.json()) as {
-        cpf?: string;
-        birthDate?: string;
-        purpose?: string;
-      };
-      return Response.json({
-        matched:
-          request.headers.get("authorization") ===
-            "Bearer integration-test-serpro-token" &&
-          input.cpf === "52998224725" &&
-          input.birthDate === "1990-05-10" &&
-          input.purpose === "age_verification",
-      });
-    },
-  });
-  process.env.SERPRO_AGE_VERIFICATION_URL = `http://127.0.0.1:${serproPort}/verify-age`;
   ({ server } = await import("../../index"));
   baseUrl = `http://127.0.0.1:${server.port}`;
 });
 
 afterAll(async () => {
   server?.stop(true);
-  serproServer?.stop(true);
   const { db } = await import("../../infra/database/client");
   await db.$disconnect();
   rmSync(temporaryDirectory, { recursive: true, force: true });
@@ -444,6 +420,103 @@ describe("huddle API", () => {
     bobSocket.close();
   });
 
+  test("only server owners and moderators may rename and delete channels", async () => {
+    const owner = await register("channel-owner@example.com", "Owner");
+    const mod = await register("channel-mod@example.com", "Moderator");
+    const member = await register("channel-member@example.com", "Member");
+    const outsider = await register("channel-outsider@example.com", "Outsider");
+    const { db } = await import("../../infra/database/client");
+    const community = await db.server.create({
+      data: {
+        name: "Channel management",
+        ownerId: owner.user.id,
+        members: {
+          create: [
+            { userId: owner.user.id, role: "owner" },
+            { userId: mod.user.id, role: "moderator" },
+            { userId: member.user.id, role: "member" },
+          ],
+        },
+      },
+    });
+    const channel = await db.channel.create({
+      data: { serverId: community.id, name: "original" },
+    });
+    const path = `/servers/${community.id}/channels/${channel.id}`;
+    const request = (
+      token: string,
+      method: string,
+      url = path,
+      name = "renamed",
+    ) =>
+      fetch(`${baseUrl}${url}`, {
+        method,
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: method === "PATCH" ? JSON.stringify({ name }) : undefined,
+      });
+    for (const actor of [member, outsider]) {
+      expect((await request(actor.session.token, "PATCH")).status).toBe(403);
+      expect((await request(actor.session.token, "DELETE")).status).toBe(403);
+    }
+    expect(
+      (await fetch(`${baseUrl}${path}`, { method: "DELETE" })).status,
+    ).toBe(401);
+    const wrongPath = `/servers/${crypto.randomUUID()}/channels/${channel.id}`;
+    expect(
+      (await request(owner.session.token, "PATCH", wrongPath)).status,
+    ).toBe(403);
+    expect(
+      (await request(owner.session.token, "DELETE", wrongPath)).status,
+    ).toBe(403);
+    expect(
+      (await request(owner.session.token, "PATCH", path, "invalid name!"))
+        .status,
+    ).toBe(400);
+    for (const actor of [owner, mod]) {
+      expect((await request(actor.session.token, "PATCH")).status).toBe(200);
+    }
+    expect(
+      (await db.channel.findUniqueOrThrow({ where: { id: channel.id } })).name,
+    ).toBe("renamed");
+    await db.message.create({
+      data: {
+        channelId: channel.id,
+        userId: owner.user.id,
+        content: "history",
+      },
+    });
+    const socket = await connect(owner.session.token);
+    await sendAndWait(socket, "channel_subscribed", {
+      type: "subscribe_channel",
+      channelId: channel.id,
+    });
+    const revoked = nextEvent(socket, "access_revoked");
+    expect((await request(mod.session.token, "DELETE")).status).toBe(204);
+    expect((await revoked).channelId).toBe(channel.id);
+    socket.close();
+    expect(await db.message.count({ where: { channelId: channel.id } })).toBe(
+      0,
+    );
+    expect(
+      await db.channel.findUnique({ where: { id: channel.id } }),
+    ).toBeNull();
+    const voice = await db.channel.create({
+      data: { serverId: community.id, name: "voice", type: "voice" },
+    });
+    expect(
+      (
+        await request(
+          owner.session.token,
+          "DELETE",
+          `/servers/${community.id}/channels/${voice.id}`,
+        )
+      ).status,
+    ).toBe(204);
+  });
+
   test("manages servers, members, roles, channels and message features", async () => {
     const owner = await register("owner@example.com", "Owner");
     const guest = await register("guest@example.com", "Guest");
@@ -501,37 +574,6 @@ describe("huddle API", () => {
     );
     expect(channel.status).toBe(201);
     const channelBody = (await channel.json()) as { channel: { id: string } };
-    const voiceChannelResponse = await fetch(
-      `${baseUrl}/servers/${createdBody.server.id}/channels`,
-      {
-        method: "POST",
-        headers: { ...ownerHeaders, "content-type": "application/json" },
-        body: JSON.stringify({ name: "team-talk", type: "voice" }),
-      },
-    );
-    expect(voiceChannelResponse.status).toBe(201);
-    const voiceChannel = (await voiceChannelResponse.json()) as {
-      channel: { id: string; type: string };
-    };
-    expect(voiceChannel.channel.type).toBe("voice");
-    const secondVoiceChannelResponse = await fetch(
-      `${baseUrl}/servers/${createdBody.server.id}/channels`,
-      {
-        method: "POST",
-        headers: { ...ownerHeaders, "content-type": "application/json" },
-        body: JSON.stringify({ name: "focus-room", type: "voice" }),
-      },
-    );
-    expect(secondVoiceChannelResponse.status).toBe(201);
-    const secondVoiceChannel = (await secondVoiceChannelResponse.json()) as {
-      channel: { id: string; type: string };
-    };
-    expect(secondVoiceChannel.channel.type).toBe("voice");
-    const voiceHistory = await fetch(
-      `${baseUrl}/messages?channelId=${voiceChannel.channel.id}`,
-      { headers: ownerHeaders },
-    );
-    expect(voiceHistory.status).toBe(400);
 
     const ownerSocket = await connect(owner.session.token);
     const guestSocket = await connect(guest.session.token);
@@ -543,6 +585,7 @@ describe("huddle API", () => {
       type: "subscribe_channel",
       channelId: channelBody.channel.id,
     });
+
     const received = nextEvent(guestSocket, "chat_message");
     ownerSocket.send(
       JSON.stringify({
@@ -612,44 +655,13 @@ describe("huddle API", () => {
       }),
     );
     expect((await forbiddenEdit).code).toBe("FORBIDDEN");
-
-    await sendAndWait(ownerSocket, "channel_subscribed", {
-      type: "subscribe_channel",
-      channelId: voiceChannel.channel.id,
-    });
-    await sendAndWait(guestSocket, "channel_subscribed", {
-      type: "subscribe_channel",
-      channelId: voiceChannel.channel.id,
-    });
-    await sendAndWait(ownerSocket, "call_joined", {
-      type: "join_call",
-      callId: "voice-one",
-    });
-    const voicePeerJoined = nextEvent(ownerSocket, "peer_joined");
-    await sendAndWait(guestSocket, "call_joined", {
-      type: "join_call",
-      callId: "voice-one",
-    });
-    expect((await voicePeerJoined).user.id).toBe(guest.user.id);
-
-    const voicePeerLeft = nextEvent(guestSocket, "peer_left");
-    await sendAndWait(ownerSocket, "channel_subscribed", {
-      type: "subscribe_channel",
-      channelId: secondVoiceChannel.channel.id,
-    });
-    expect((await voicePeerLeft).userId).toBe(owner.user.id);
-    await sendAndWait(ownerSocket, "call_joined", {
-      type: "join_call",
-      callId: "voice-two",
-    });
-
     const revoked = nextEvent(guestSocket, "access_revoked");
     const removed = await fetch(
       `${baseUrl}/servers/${createdBody.server.id}/members/${guest.user.id}`,
       { method: "DELETE", headers: ownerHeaders },
     );
     expect(removed.status).toBe(204);
-    expect(await revoked).toMatchObject({ channelId: voiceChannel.channel.id });
+    expect(await revoked).toMatchObject({ channelId: channelBody.channel.id });
     const cannotSendAfterRemoval = nextEvent(guestSocket, "error");
     guestSocket.send(
       JSON.stringify({
@@ -674,24 +686,19 @@ describe("huddle API", () => {
       body: JSON.stringify({
         displayName: "Alice BR",
         countryCode: "BR",
-        birthDate: "1990-05-10",
-        cpf: "529.982.247-25",
       }),
     });
     expect(profile.status).toBe(200);
     expect(await profile.json()).toMatchObject({
       user: {
         displayName: "Alice BR",
-        ageGroup: "adult",
-        ageVerificationProvider: "serpro",
+        countryCode: "BR",
       },
-      ageGroup: "adult",
     });
     const stored = await (
       await import("../../infra/database/client")
     ).db.user.findUniqueOrThrow({ where: { id: alice.user.id } });
-    expect(stored.ageGroup).toBe("adult");
-    expect(stored.ageVerifiedAt).toBeTruthy();
+    expect(stored.countryCode).toBe("BR");
 
     const requested = await fetch(`${baseUrl}/friends`, {
       method: "POST",
