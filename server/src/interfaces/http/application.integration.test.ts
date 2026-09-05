@@ -649,7 +649,7 @@ describe("huddle API", () => {
       { method: "DELETE", headers: ownerHeaders },
     );
     expect(removed.status).toBe(204);
-    expect(await revoked).toMatchObject({ channelId: channelBody.channel.id });
+    expect(await revoked).toMatchObject({ channelId: voiceChannel.channel.id });
     const cannotSendAfterRemoval = nextEvent(guestSocket, "error");
     guestSocket.send(
       JSON.stringify({
