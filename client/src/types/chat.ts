@@ -16,7 +16,6 @@ export type ChatStoreState = {
 	replyTo: string | null;
 	creating: boolean;
 	mobileNavOpen: boolean;
-	callRoomOpen: boolean;
 	socialOpen: boolean;
 	settingsOpen: boolean;
 	dialog: ChatDialog | null;
@@ -35,7 +34,6 @@ export type ChatStoreState = {
 	closeDialog: () => void;
 	setDialogValue: (value: string) => void;
 	setMobileNavOpen: (value: boolean) => void;
-	setCallRoomOpen: (value: boolean) => void;
 	setSocialOpen: (value: boolean) => void;
 	setSettingsOpen: (value: boolean) => void;
 	reset: () => void;

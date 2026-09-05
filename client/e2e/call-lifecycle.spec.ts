@@ -37,11 +37,19 @@ async function loginAndCreateServer(page: Page, account: Account) {
 	await page.getByRole("button", { name: "entrar" }).click();
 	await expect(page.getByText("huddle").first()).toBeVisible();
 
-	await page.getByRole("button", { name: "Criar servidor" }).first().click();
+	await page.getByRole("button", { name: "Adicionar servidor" }).click();
+	await page.getByRole("button", { name: "Criar servidor" }).click();
 	const dialog = page.getByRole("dialog", { name: "Criar servidor" });
 	await dialog.getByLabel("Nome").fill("Servidor de chamadas");
 	await dialog.getByRole("button", { name: "Criar", exact: true }).click();
 	await expect(page.getByText(/Servidor de chamadas · #/)).toBeVisible();
+
+	await page.getByRole("button", { name: "Criar canal" }).click();
+	const channelDialog = page.getByRole("dialog", { name: "Criar canal" });
+	await channelDialog.getByLabel("Nome").fill("conversa");
+	await channelDialog.getByLabel(/Voz/).check();
+	await channelDialog.getByRole("button", { name: "Criar", exact: true }).click();
+	await expect(page.getByRole("heading", { name: "Chamada do canal" })).toBeVisible();
 }
 
 async function login(request: APIRequestContext, account: Account): Promise<string> {
@@ -60,10 +68,10 @@ async function openExistingServer(page: Page, account: Account) {
 	await page.getByRole("button", { name: "entrar" }).click();
 	await expect(page.getByText("huddle").first()).toBeVisible();
 	await expect(page.getByText(/Servidor de chamadas · #/)).toBeVisible();
+	await page.getByRole("button", { name: "conversa" }).click();
 }
 
 async function enterCall(page: Page) {
-	await page.getByRole("button", { name: "entrar na chamada" }).click();
 	await expect(
 		page.getByRole("button", { name: "Sair da chamada" }).first(),
 	).toBeVisible();
@@ -87,20 +95,18 @@ test.describe("call lifecycle", () => {
 		await loginAndCreateServer(page, account);
 
 		await enterCall(page);
-		await expect(page.getByRole("dialog", { name: "Chamada da sala" })).toBeVisible();
+		await expect(page.getByRole("heading", { name: "Chamada do canal" })).toBeVisible();
 		await expect(page.locator("video").first()).toBeVisible();
 
 		await page.getByRole("button", { name: "Sair da chamada" }).first().click();
-		await expect(page.getByRole("dialog", { name: "Chamada da sala" })).toBeHidden();
-		await expect(page.getByRole("button", { name: "entrar na chamada" })).toBeVisible();
+		await expect(page.getByRole("button", { name: "Entrar na chamada" })).toBeVisible();
+		await page.getByRole("button", { name: "Entrar na chamada" }).click();
+		await enterCall(page);
 
 		await page.reload();
 		await expect(page.getByText(/Servidor de chamadas · #/)).toBeVisible();
-		await expect(page.getByRole("button", { name: "entrar na chamada" })).toBeEnabled();
-
+		await page.getByRole("button", { name: "conversa" }).click();
 		await enterCall(page);
-		await expect(page.getByRole("dialog", { name: "Chamada da sala" })).toBeVisible();
-		await expect(page.locator("video").first()).toBeVisible();
 	});
 
 	test("exibe erro e permanece fora da chamada quando o microfone é negado", async ({
@@ -120,12 +126,10 @@ test.describe("call lifecycle", () => {
 
 		const account = await register(request, "call-negative");
 		await loginAndCreateServer(page, account);
-		await page.getByRole("button", { name: "entrar na chamada" }).click();
-
 		await expect(
 			page.getByText("O acesso ao microfone foi negado. Libere a permissão do site no navegador."),
 		).toBeVisible();
-		await expect(page.getByRole("button", { name: "entrar na chamada" })).toBeVisible();
+		await expect(page.getByRole("button", { name: "Entrar na chamada" })).toBeVisible();
 		await expect(page.getByRole("button", { name: "Sair da chamada" })).toHaveCount(0);
 	});
 
@@ -148,6 +152,14 @@ test.describe("call lifecycle", () => {
 			server: { id: string };
 			channel: { id: string };
 		};
+		const voiceChannelResponse = await request.post(
+			`${apiOrigin}/servers/${serverBody.server.id}/channels`,
+			{
+				data: { name: "conversa", type: "voice" },
+				headers: { Authorization: `Bearer ${ownerToken}` },
+			},
+		);
+		expect(voiceChannelResponse.status()).toBe(201);
 
 		const inviteResponse = await request.post(
 			`${apiOrigin}/servers/${serverBody.server.id}/invites`,

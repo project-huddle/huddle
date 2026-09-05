@@ -17,7 +17,6 @@ const initialState = {
 	replyTo: null,
 	creating: false,
 	mobileNavOpen: false,
-	callRoomOpen: false,
 	socialOpen: false,
 	settingsOpen: false,
 	dialog: null,
@@ -29,7 +28,7 @@ const initialState = {
 type ChatActions = Pick<ChatState,
 	| "setServers" | "setChannels" | "setMembers" | "setServerId" | "setChannelId"
 	| "setReplyTo" | "setCreating" | "setInviteCode" | "openDialog"
-	| "closeDialog" | "setDialogValue" | "setMobileNavOpen" | "setCallRoomOpen"
+	| "closeDialog" | "setDialogValue" | "setMobileNavOpen"
 	| "setSocialOpen" | "setSettingsOpen" | "reset"
 	| "loadServers" | "loadChannels" | "loadMembers" | "createServer" | "createChannel"
 	| "joinServer" | "createInvite" | "leaveServer" | "changeMemberRole" | "removeMember" | "clearError"
@@ -49,7 +48,6 @@ export const useChatStore = create<ChatState>((set) => ({
 	closeDialog: () => set({ dialog: null }),
 	setDialogValue: (dialogValue) => set({ dialogValue }),
 	setMobileNavOpen: (mobileNavOpen) => set({ mobileNavOpen }),
-	setCallRoomOpen: (callRoomOpen) => set({ callRoomOpen }),
 	setSocialOpen: (socialOpen) => set({ socialOpen }),
 	setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
 	reset: () => set(initialState),

@@ -1,218 +1,160 @@
 import {
-	Maximize2,
 	Mic,
 	MicOff,
+	Minus,
 	MonitorUp,
 	PhoneOff,
+	Plus,
+	RotateCcw,
 	Users,
 	Video,
 	VideoOff,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { Modal } from "@/components/ui/modal";
+import { CallControl } from "@/components/call/call-controls";
+import { PeerAudio, StreamVideo } from "@/components/call/call-media";
+import { Participant } from "@/components/call/call-participants";
 import type { User } from "@/lib/api";
 import type { RealtimePeer } from "@/types/realtime";
-import { StreamVideo, PeerAudio } from "@/components/call/call-media";
-import { Participant } from "@/components/call/call-participants";
-import { CallControl } from "@/components/call/call-controls";
 
 export type CallPeer = RealtimePeer;
 
 type CallRoomProps = {
 	cameraOff: boolean;
+	connected: boolean;
 	inCall: boolean;
+	joining: boolean;
 	localDisplayStream: MediaStream | null;
 	localMediaStream: MediaStream | null;
 	muted: boolean;
+	onJoin: () => void;
 	onLeave: () => void;
 	onToggleCamera: () => void;
 	onToggleMute: () => void;
 	onToggleShare: () => void;
-	open: boolean;
 	peers: CallPeer[];
 	sharing: boolean;
 	user: User;
-	onClose: () => void;
 };
 
+const MIN_ZOOM = 75;
+const MAX_ZOOM = 200;
+const ZOOM_STEP = 25;
+
 export function CallRoom(props: CallRoomProps) {
-	const [focusedScreen, setFocusedScreen] = useState<{
-		name: string;
-		stream: MediaStream;
-	} | null>(null);
+	const [selectedScreenName, setSelectedScreenName] = useState<string | null>(null);
+	const [zoom, setZoom] = useState(100);
 	const sharedScreens = useMemo(
 		() => [
 			...(props.localDisplayStream
-				? [
-						{
-							name: props.user.displayName,
-							stream: props.localDisplayStream,
-						},
-					]
+				? [{ name: props.user.displayName, stream: props.localDisplayStream }]
 				: []),
 			...props.peers.flatMap((peer) =>
 				peer.screenStream
-					? [
-							{
-								name: peer.user.displayName,
-								stream: peer.screenStream,
-							},
-						]
+					? [{ name: peer.user.displayName, stream: peer.screenStream }]
 					: [],
 			),
 		],
 		[props.localDisplayStream, props.peers, props.user.displayName],
 	);
+	const selectedScreen =
+		sharedScreens.find(({ name }) => name === selectedScreenName) ??
+		sharedScreens[0] ??
+		null;
 
 	useEffect(() => {
-		if (
-			focusedScreen &&
-			!sharedScreens.some(({ stream }) => stream === focusedScreen.stream)
-		)
-			setFocusedScreen(null);
-	}, [focusedScreen, sharedScreens]);
+		if (!selectedScreen) {
+			setSelectedScreenName(null);
+			setZoom(100);
+		}
+	}, [selectedScreen]);
+
+	const changeZoom = (amount: number) => {
+		setZoom((current) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, current + amount)));
+	};
 
 	return (
-		<>
-			<Modal
-				open={props.open && props.inCall}
-				onClose={props.onClose}
-				title="Chamada da sala"
-				description={`${props.peers.length + 1} ${props.peers.length ? "pessoas conectadas" : "pessoa conectada"}`}
-				wide
-			>
-				<div className="grid min-h-0 gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
-					<section className="min-h-80 overflow-hidden rounded-3xl bg-[#10151b] p-3 text-white sm:p-4">
-						{sharedScreens.length ? (
-							<div className="grid h-full gap-3">
-								{sharedScreens.map(({ name, stream }) => (
-									<div
-										key={name}
-										className="group relative grid min-h-72 place-items-center overflow-hidden rounded-2xl bg-black"
-									>
-										<StreamVideo
-											stream={stream}
-											muted
-											className="max-h-[65svh] w-full object-contain"
-										/>
-										<div className="absolute inset-x-0 bottom-0 flex items-center bg-linear-to-t from-black/80 to-transparent px-4 pb-3 pt-10 text-sm font-semibold">
-											Tela de {name}
-											<button
-												onClick={() =>
-													setFocusedScreen({
-														name,
-														stream,
-													})
-												}
-												className="ml-auto grid size-9 place-items-center rounded-xl bg-white/15 hover:bg-white/25"
-												aria-label={`Expandir tela de ${name}`}
-											>
-												<Maximize2 className="size-4" />
-											</button>
-										</div>
-									</div>
-								))}
+		<div className="flex min-h-full flex-col gap-4">
+			<header className="flex flex-wrap items-center gap-3">
+				<div>
+					<h1 className="text-xl font-black">Chamada do canal</h1>
+					<p className="text-sm text-(--muted-text)">
+						{props.inCall
+							? `${props.peers.length + 1} ${props.peers.length ? "pessoas conectadas" : "pessoa conectada"}`
+							: "Conectando ao canal de voz..."}
+					</p>
+				</div>
+
+				{props.inCall ? (
+					<div className="ml-auto flex items-center gap-2 rounded-2xl border border-(--line) bg-(--surface) p-2">
+						<CallControl active={props.muted} label={props.muted ? "Ativar microfone" : "Silenciar"} onClick={props.onToggleMute} icon={props.muted ? <MicOff /> : <Mic />} />
+						<CallControl active={props.cameraOff} label={props.cameraOff ? "Ativar câmera" : "Desativar câmera"} onClick={props.onToggleCamera} icon={props.cameraOff ? <VideoOff /> : <Video />} />
+						<CallControl active={props.sharing} label={props.sharing ? "Parar compartilhamento" : "Compartilhar tela"} onClick={props.onToggleShare} icon={<MonitorUp />} positive={props.sharing} />
+						<CallControl label="Sair da chamada" onClick={props.onLeave} icon={<PhoneOff />} danger />
+					</div>
+				) : (
+					<button
+						type="button"
+						onClick={props.onJoin}
+						disabled={!props.connected || props.joining}
+						className="ml-auto rounded-2xl bg-(--brand) px-5 py-3 text-sm font-black text-(--ink) disabled:opacity-50"
+					>
+						{props.joining ? "Entrando..." : "Entrar na chamada"}
+					</button>
+				)}
+			</header>
+
+			<div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_220px]">
+				<section className="flex min-h-[420px] min-w-0 flex-col overflow-hidden rounded-3xl bg-[#10151b] text-white">
+					{selectedScreen ? (
+						<>
+							<div className="flex flex-wrap items-center gap-2 border-b border-white/10 px-4 py-3">
+								<strong className="mr-auto text-sm">Tela de {selectedScreen.name}</strong>
+								<button type="button" onClick={() => changeZoom(-ZOOM_STEP)} disabled={zoom === MIN_ZOOM} className="grid size-8 place-items-center rounded-lg bg-white/10 disabled:opacity-35" aria-label="Diminuir zoom"><Minus className="size-4" /></button>
+								<span className="w-12 text-center text-xs font-bold">{zoom}%</span>
+								<button type="button" onClick={() => changeZoom(ZOOM_STEP)} disabled={zoom === MAX_ZOOM} className="grid size-8 place-items-center rounded-lg bg-white/10 disabled:opacity-35" aria-label="Aumentar zoom"><Plus className="size-4" /></button>
+								<button type="button" onClick={() => setZoom(100)} className="grid size-8 place-items-center rounded-lg bg-white/10" aria-label="Restaurar zoom"><RotateCcw className="size-4" /></button>
 							</div>
-						) : (
-							<div className="grid h-full min-h-80 place-items-center text-center">
-								<div>
-									<MonitorUp className="mx-auto size-9 text-white/45" />
-									<p className="mt-4 font-bold">
-										Nenhuma tela compartilhada
-									</p>
-									<p className="mt-1 text-sm text-white/55">
-										Compartilhe uma janela ou tela para
-										apresentá-la em destaque.
-									</p>
+							<div className="grid min-h-0 flex-1 place-items-center overflow-auto bg-black p-3">
+								<StreamVideo
+									stream={selectedScreen.stream}
+									muted
+									className="max-w-none object-contain transition-[width] duration-200"
+									style={{ width: `${zoom}%` }}
+								/>
+							</div>
+							{sharedScreens.length > 1 && (
+								<div className="flex gap-2 overflow-x-auto border-t border-white/10 p-3">
+									{sharedScreens.map((screen) => (
+										<button key={screen.name} type="button" onClick={() => { setSelectedScreenName(screen.name); setZoom(100); }} className={`shrink-0 rounded-xl px-3 py-2 text-xs font-bold ${screen.name === selectedScreen.name ? "bg-(--brand) text-(--ink)" : "bg-white/10"}`}>Tela de {screen.name}</button>
+									))}
 								</div>
+							)}
+						</>
+					) : (
+						<div className="grid flex-1 place-items-center p-8 text-center">
+							<div>
+								<MonitorUp className="mx-auto size-10 text-white/35" />
+								<p className="mt-4 font-bold">Nenhuma tela compartilhada</p>
+								<p className="mt-1 text-sm text-white/50">Compartilhe uma janela ou tela para apresentá-la em destaque.</p>
 							</div>
-						)}
-					</section>
+						</div>
+					)}
+				</section>
 
-					<aside className="space-y-3">
-						<p className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-(--muted-text)">
-							<Users className="size-4" /> Participantes
-						</p>
-						<Participant
-							user={props.user}
-							stream={props.localMediaStream}
-							cameraOff={props.cameraOff}
-							muted={props.muted}
-							self
-						/>
-						{props.peers.map((peer) => (
-							<Participant
-								key={peer.user.id}
-								user={peer.user}
-								stream={peer.cameraStream}
-							/>
-						))}
-					</aside>
-				</div>
+				<aside className="min-h-0 overflow-y-auto">
+					<p className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-wider text-(--muted-text)">
+						<Users className="size-4" /> Participantes
+					</p>
+					<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+						<Participant user={props.user} stream={props.localMediaStream} cameraOff={props.cameraOff} muted={props.muted} self />
+						{props.peers.map((peer) => <Participant key={peer.user.id} user={peer.user} stream={peer.cameraStream} />)}
+					</div>
+				</aside>
+			</div>
 
-				<div className="sticky bottom-0 mt-5 flex justify-center gap-2 rounded-2xl border border-(--line) bg-(--canvas)/95 p-2 shadow-lg backdrop-blur">
-					<CallControl
-						active={props.muted}
-						label={props.muted ? "Ativar microfone" : "Silenciar"}
-						onClick={props.onToggleMute}
-						icon={props.muted ? <MicOff /> : <Mic />}
-					/>
-					<CallControl
-						active={props.cameraOff}
-						label={
-							props.cameraOff
-								? "Ativar câmera"
-								: "Desativar câmera"
-						}
-						onClick={props.onToggleCamera}
-						icon={props.cameraOff ? <VideoOff /> : <Video />}
-					/>
-					<CallControl
-						active={props.sharing}
-						label={
-							props.sharing
-								? "Parar compartilhamento"
-								: "Compartilhar tela"
-						}
-						onClick={props.onToggleShare}
-						icon={<MonitorUp />}
-						positive={props.sharing}
-					/>
-					<CallControl
-						label="Sair da chamada"
-						onClick={props.onLeave}
-						icon={<PhoneOff />}
-						danger
-					/>
-				</div>
-			</Modal>
-
-			<Modal
-				open={Boolean(focusedScreen)}
-				onClose={() => setFocusedScreen(null)}
-				title={
-					focusedScreen
-						? `Tela de ${focusedScreen.name}`
-						: "Tela compartilhada"
-				}
-				wide
-			>
-				<div className="grid min-h-[60svh] place-items-center overflow-hidden rounded-2xl bg-black">
-					<StreamVideo
-						stream={focusedScreen?.stream ?? null}
-						muted
-						className="max-h-[75svh] w-full object-contain"
-					/>
-				</div>
-			</Modal>
-
-			{props.peers.map((peer) => (
-				<PeerAudio
-					key={`audio-${peer.user.id}`}
-					stream={peer.audioStream}
-				/>
-			))}
-		</>
+			{props.peers.map((peer) => <PeerAudio key={`audio-${peer.user.id}`} stream={peer.audioStream} />)}
+		</div>
 	);
 }

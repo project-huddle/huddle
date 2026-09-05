@@ -2,6 +2,7 @@ import { Menu, MessageCircle } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { BrandMark } from "@/components/brand-logo";
+import { CallRoom } from "@/components/call-room";
 import { MessageComposer } from "@/components/chat/message-composer";
 import { MessageList } from "@/components/message-list";
 import { ThemeToggle } from "@/components/theme";
@@ -65,7 +66,7 @@ export function ChatConversation({ realtime }: { realtime: ReturnType<typeof use
 			</header>
 
 			<div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-7">
-				<div className="mx-auto max-w-4xl">
+				<div className={isVoiceChannel ? "h-full w-full" : "mx-auto max-w-4xl"}>
 					{!activeServer ? (
 						<div className="grid min-h-[60svh] place-items-center text-center">
 							<div className="max-w-md">
@@ -111,15 +112,23 @@ export function ChatConversation({ realtime }: { realtime: ReturnType<typeof use
 							</div>
 						</div>
 					) : isVoiceChannel ? (
-						<div className="grid min-h-[60svh] place-items-center text-center">
-							<div className="max-w-sm">
-								<p className="text-4xl">🔊</p>
-								<h1 className="mt-4 text-2xl font-black">{activeChannel.name}</h1>
-								<p className="mt-2 text-(--muted-text)">
-									Você entrou neste canal de voz. A sala de chamada abre automaticamente.
-								</p>
-							</div>
-						</div>
+						<CallRoom
+							connected={realtime.connected}
+							inCall={realtime.inCall}
+							joining={realtime.joining}
+							user={user}
+							peers={realtime.peers}
+							muted={realtime.muted}
+							cameraOff={realtime.cameraOff}
+							sharing={realtime.sharing}
+							localMediaStream={realtime.localMediaStream}
+							localDisplayStream={realtime.localDisplayStream}
+							onToggleMute={realtime.toggleMute}
+							onToggleCamera={realtime.toggleCamera}
+							onToggleShare={realtime.toggleShare}
+							onJoin={realtime.joinCall}
+							onLeave={realtime.leaveCall}
+						/>
 					) : (
 						<MessageList
 							currentUserId={user.id}

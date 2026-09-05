@@ -1,7 +1,6 @@
-import { ArrowUp, Camera, ImagePlus, Laugh, Mic, MonitorUp, PhoneCall, PhoneOff, Reply, Search, X } from "lucide-react";
+import { ArrowUp, ImagePlus, Laugh, Reply, Search, X } from "lucide-react";
 import { useRealtime } from "@/hooks/use-realtime";
 import { resolveMediaUrl } from "@/lib/api";
-import { cn } from "@/lib/utils";
 import { useChatStore } from "@/stores/chat-store";
 import { useShallow } from "zustand/react/shallow";
 import { useMessageComposer } from "@/hooks/use-message-composer";
@@ -9,89 +8,15 @@ import { useMessageComposer } from "@/hooks/use-message-composer";
 const EMOJIS = ["😀", "😂", "🥹", "😍", "🤔", "😅", "🥳", "😎", "🤝", "👏", "❤️", "🔥", "✨", "🎉", "👍", "👀", "☕", "🌿", "🐸", "🚀"];
 
 export function MessageComposer({ realtime }: { realtime: ReturnType<typeof useRealtime> }) {
-	const { replyTo, setReplyTo, setCallRoomOpen, storeError, clearError } = useChatStore(useShallow((state) => ({ replyTo: state.replyTo, setReplyTo: state.setReplyTo, setCallRoomOpen: state.setCallRoomOpen, storeError: state.error, clearError: state.clearError })));
+	const { replyTo, setReplyTo, storeError, clearError } = useChatStore(useShallow((state) => ({ replyTo: state.replyTo, setReplyTo: state.setReplyTo, storeError: state.error, clearError: state.clearError })));
 	const error = realtime.error ?? storeError;
 	const onCancelReply = () => setReplyTo(null);
-	const onOpenCall = () => setCallRoomOpen(true);
 	const { draft, setDraft, media, setMedia, picker, setPicker, gifQuery, setGifQuery,
 		gifs, gifLoading, uploading, fileRef, submit, uploadImage, searchGifs } = useMessageComposer(realtime);
 
 	return (
 <div className="shrink-0 px-4 pb-4 sm:px-7 sm:pb-6">
 						<div className="relative mx-auto max-w-3xl">
-							<div className="mb-2 flex items-center gap-2 lg:hidden">
-								{!realtime.inCall ? (
-									<button
-										disabled={
-											!realtime.connected ||
-											realtime.joining
-										}
-										onClick={realtime.joinCall}
-										className="rounded-full bg-[var(--solid)] px-4 py-2 text-xs font-bold text-[var(--on-solid)] disabled:opacity-50"
-									>
-										<PhoneCall className="mr-1.5 inline size-3.5" />
-										{realtime.joining
-											? "entrando..."
-											: "entrar na chamada"}
-									</button>
-								) : (
-									<>
-										<button
-											type="button"
-											onClick={() =>
-												onOpenCall()
-											}
-											className="mr-auto rounded-full bg-[var(--solid)] px-3 py-2 text-xs font-bold text-[var(--on-solid)]"
-										>
-											Abrir sala ·{" "}
-											{realtime.peers.length + 1}
-										</button>
-										<button
-											type="button"
-											onClick={realtime.toggleMute}
-											className={cn(
-												"grid size-9 place-items-center rounded-full",
-												realtime.muted
-													? "bg-[#d76b5b] text-[var(--on-solid)]"
-													: "bg-[var(--surface)]",
-											)}
-										>
-											<Mic className="size-4" />
-										</button>
-										<button
-											type="button"
-											onClick={realtime.toggleCamera}
-											className={cn(
-												"grid size-9 place-items-center rounded-full",
-												realtime.cameraOff
-													? "bg-[#d76b5b] text-[var(--on-solid)]"
-													: "bg-[var(--surface)]",
-											)}
-										>
-											<Camera className="size-4" />
-										</button>
-										<button
-											type="button"
-											onClick={realtime.toggleShare}
-											className={cn(
-												"grid size-9 place-items-center rounded-full",
-												realtime.sharing
-													? "bg-[#8fb996]"
-													: "bg-[var(--surface)]",
-											)}
-										>
-											<MonitorUp className="size-4" />
-										</button>
-										<button
-											type="button"
-											onClick={realtime.leaveCall}
-											className="grid size-9 place-items-center rounded-full bg-[#d76b5b] text-[var(--on-solid)]"
-										>
-											<PhoneOff className="size-4" />
-										</button>
-									</>
-								)}
-							</div>
 							{error && (
 								<div className="mb-2 flex items-center rounded-2xl border border-[#d76b5b]/25 bg-[#fff0ea] px-4 py-2.5 text-sm text-[#9c3f33]">
 									<span className="flex-1">
