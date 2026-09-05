@@ -4,6 +4,7 @@ import {
 	type ChatMessage,
 	type MessageMedia,
 	type User,
+	type HuddleChannel,
 } from "@/lib/api";
 import { useCallState } from "@/hooks/use-call-state";
 import type {
@@ -14,7 +15,7 @@ import { useRealtimeConnection } from "@/hooks/use-realtime-connection";
 import { mediaErrorMessage, rtcConfig } from "@/lib/realtime";
 
 
-export function useRealtime(token: string, channelId: string) {
+export function useRealtime(token: string, channelId: string, channelType: HuddleChannel["type"] = "text") {
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [connected, setConnected] = useState(false);
 	const { joining, inCall, muted, cameraOff, sharing, localMediaStream,
@@ -186,14 +187,14 @@ export function useRealtime(token: string, channelId: string) {
 	);
 
 	useRealtimeConnection({
-		token, channelId, socketRef, peerUsers, displayStream, remoteSharing,
+		token, channelId, channelType, socketRef, peerUsers, displayStream, remoteSharing,
 		connections, pendingCandidates,
 		callLifecycle,
 		closeCall, createPeer, flushCandidates, makeOffer, send, updatePeer,
 		setMessages, setConnected, setError, setPeers, setJoining, setInCall,
 	});
 
-	const joinCall = async () => {
+	const joinCall = useCallback(async () => {
 		if (joining || inCall) return;
 		setError(null);
 		const attempt = callAttempt.current + 1;
@@ -253,7 +254,7 @@ export function useRealtime(token: string, channelId: string) {
 			setJoining(false);
 			setError(mediaErrorMessage(cause, "microphone"));
 		}
-	};
+	}, [channelId, inCall, joining, send, setCameraOff, setError, setJoining, setLocalMediaStream]);
 
 	const leaveCall = useCallback(() => closeCall(true), [closeCall]);
 

@@ -23,6 +23,32 @@ export function ChatConversation({ realtime }: { realtime: ReturnType<typeof use
 	const onOpenNavigation = () => setMobileNavOpen(true);
 	const onOpenSocial = () => setSocialOpen(true);
 	const onOpenSettings = () => setSettingsOpen(true);
+	const currentToken = token ?? "";
+	const conversationContent = activeChannel?.type === "voice" ? (
+		<div className="grid min-h-[60svh] place-items-center text-center">
+			<div>
+				<p className="text-3xl">🔊</p>
+				<h1 className="mt-4 text-2xl font-black">Canal de voz</h1>
+				<p className="mt-2 text-[var(--muted-text)]">Entre na chamada para conversar com as pessoas deste canal.</p>
+			</div>
+		</div>
+	) : (
+		<MessageList
+			currentUserId={user?.id ?? ""}
+			messages={realtime.messages}
+			onReply={onReply}
+			onEdit={realtime.editMessage}
+			onDelete={(messageId) => {
+				if (window.confirm("Apagar esta mensagem?")) realtime.deleteMessage(messageId);
+			}}
+			onReact={realtime.reactMessage}
+			onReport={(messageId, targetUserId, reason) => {
+				void api("/reports", { method: "POST", body: JSON.stringify({ serverId, messageId, targetUserId, reason }) }, currentToken)
+					.then(() => realtime.setError("Denúncia enviada para a moderação."))
+					.catch((cause) => realtime.setError(cause instanceof Error ? cause.message : "Não foi possível enviar a denúncia."));
+			}}
+		/>
+	);
 	useEffect(() => {
 		endRef.current?.scrollIntoView({ behavior: "smooth" });
 	}, [realtime.messages]);
@@ -43,7 +69,7 @@ export function ChatConversation({ realtime }: { realtime: ReturnType<typeof use
 								huddle
 							</p>
 							<p className="text-xs text-[var(--muted-text)]">
-								{activeServer?.name ?? "sua comunidade"} · #
+								{activeServer?.name ?? "sua comunidade"} · {activeChannel?.type === "voice" ? "🔊" : "#"}
 								{activeChannel?.name ?? "..."}
 							</p>
 						</div>
@@ -130,32 +156,13 @@ export function ChatConversation({ realtime }: { realtime: ReturnType<typeof use
 									</div>
 								</div>
 							) : (
-								<MessageList
-									currentUserId={user.id}
-									messages={realtime.messages}
-									onReply={onReply}
-									onEdit={realtime.editMessage}
-									onDelete={(messageId) => {
-										if (
-											window.confirm(
-												"Apagar esta mensagem?",
-											)
-										)
-											realtime.deleteMessage(messageId);
-									}}
-								onReact={realtime.reactMessage}
-								onReport={(messageId, targetUserId, reason) => {
-									void api("/reports", { method: "POST", body: JSON.stringify({ serverId, messageId, targetUserId, reason }) }, token)
-										.then(() => realtime.setError("Denúncia enviada para a moderação."))
-										.catch((cause) => realtime.setError(cause instanceof Error ? cause.message : "Não foi possível enviar a denúncia."));
-								}}
-							/>
+																							conversationContent
 							)}
 							<div ref={endRef} />
 						</div>
 					</div>
 
-					<MessageComposer realtime={realtime} />
+					{activeChannel?.type === "text" && <MessageComposer realtime={realtime} />}
 				</section>
 	);
 }

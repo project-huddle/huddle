@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { useRealtime } from "@/hooks/use-realtime";
 import { CallRoom } from "@/components/call-room";
@@ -17,6 +17,7 @@ export default function ChatPage() {
 	const updateUser = useAuthStore((state) => state.updateUser);
 	const serverId = useChatStore((state) => state.serverId);
 	const channelId = useChatStore((state) => state.channelId);
+	const activeChannel = useChatStore((state) => state.channels.find(({ id }) => id === state.channelId));
 	const callRoomOpen = useChatStore((state) => state.callRoomOpen);
 	const socialOpen = useChatStore((state) => state.socialOpen);
 	const settingsOpen = useChatStore((state) => state.settingsOpen);
@@ -26,7 +27,25 @@ export default function ChatPage() {
 	const loadServers = useChatStore((state) => state.loadServers);
 	const loadChannels = useChatStore((state) => state.loadChannels);
 	const loadMembers = useChatStore((state) => state.loadMembers);
-	const realtime = useRealtime(token, channelId);
+	const realtime = useRealtime(token, channelId, activeChannel?.type ?? "text");
+	const { joinCall, leaveCall } = realtime;
+	const autoJoinedChannelId = useRef("");
+
+	useEffect(() => {
+		if (activeChannel?.type !== "voice") {
+			autoJoinedChannelId.current = "";
+			return;
+		}
+		if (
+			autoJoinedChannelId.current === channelId ||
+			!realtime.connected ||
+			realtime.inCall ||
+			realtime.joining
+		)
+			return;
+		autoJoinedChannelId.current = channelId;
+		void joinCall();
+	}, [activeChannel?.type, channelId, joinCall, realtime.connected, realtime.inCall, realtime.joining]);
 
 	useEffect(() => { void loadServers(); }, [loadServers]);
 	useEffect(() => { void loadChannels(); }, [serverId, loadChannels]);
@@ -38,9 +57,9 @@ export default function ChatPage() {
 	}, [realtime.inCall, setCallRoomOpen]);
 
 	const closeCallRoom = useCallback(() => {
-		realtime.leaveCall();
+		leaveCall();
 		setCallRoomOpen(false);
-	}, [realtime.leaveCall, setCallRoomOpen]);
+	}, [leaveCall, setCallRoomOpen]);
 
 	return (
 		<main className="chat-page relative h-svh overflow-hidden bg-(--canvas) text-(--ink)">
