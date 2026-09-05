@@ -186,16 +186,8 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 		[send, setCameraOff, setInCall, setJoining, setLocalDisplayStream, setLocalMediaStream, setMuted, setPeers, setSharing],
 	);
 
-	useRealtimeConnection({
-		token, channelId, channelType, socketRef, peerUsers, displayStream, remoteSharing,
-		connections, pendingCandidates,
-		callLifecycle,
-		closeCall, createPeer, flushCandidates, makeOffer, send, updatePeer,
-		setMessages, setConnected, setError, setPeers, setJoining, setInCall,
-	});
-
 	const joinCall = useCallback(async () => {
-		if (joining || inCall) return;
+		if (joining || inCall || callLifecycle.current !== "idle") return;
 		setError(null);
 		setCameraOff(true);
 		setMuted(false);
@@ -237,6 +229,15 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 			setError(mediaErrorMessage(cause, "microphone"));
 		}
 	}, [channelId, inCall, joining, send, setCameraOff, setError, setJoining, setLocalMediaStream, setMuted]);
+
+	useRealtimeConnection({
+		token, channelId, channelType, socketRef, peerUsers, displayStream, remoteSharing,
+		connections, pendingCandidates,
+		callLifecycle,
+		closeCall, createPeer, flushCandidates, makeOffer, send, updatePeer,
+		setMessages, setConnected, onChannelSubscribed: channelType === "voice" ? joinCall : undefined,
+		setError, setPeers, setJoining, setInCall,
+	});
 
 	const leaveCall = useCallback(() => closeCall(true), [closeCall]);
 

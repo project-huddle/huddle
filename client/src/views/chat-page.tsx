@@ -35,12 +35,6 @@ export default function ChatPage() {
 	const messageChannelId = activeChannel?.type === "text" ? channelId : "";
 	const messageRealtime = useRealtime(token, messageChannelId, "text");
 	const callRealtime = useRealtime(token, callChannelId, "voice");
-	const {
-		connected: callConnected,
-		inCall,
-		joinCall,
-		joining,
-	} = callRealtime;
 	const conversationRealtime = activeChannel?.type === "voice"
 		? callRealtime
 		: messageRealtime;
@@ -57,12 +51,6 @@ export default function ChatPage() {
 		if (activeChannel?.type === "voice") setCallChannelId(channelId);
 		else setCallChannelId("");
 	}, [activeChannel?.type, channelId]);
-
-	useEffect(() => {
-		if (!callChannelId || !callConnected || inCall || joining) return;
-		if (activeChannel?.id !== callChannelId) return;
-		void joinCall();
-	}, [activeChannel?.id, callChannelId, callConnected, inCall, joinCall, joining]);
 
 	useEffect(() => { void loadServers(); }, [loadServers]);
 	useEffect(() => { void loadChannels(); }, [serverId, loadChannels]);

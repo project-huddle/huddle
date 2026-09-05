@@ -1,5 +1,5 @@
 import { useChatStore } from "@/stores/chat-store";
-import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { api, websocketUrl, type ChatMessage, type HuddleChannel, type User } from "@/lib/api";
 import type {
 	CallLifecycle,
@@ -24,6 +24,7 @@ type Options = {
 	updatePeer: (userId: string, changes: Partial<RealtimePeer>) => void;
 	setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
 	setConnected: Dispatch<SetStateAction<boolean>>;
+	onChannelSubscribed?: () => void;
 	setError: Dispatch<SetStateAction<string | null>>;
 	setPeers: Dispatch<SetStateAction<RealtimePeer[]>>;
 	setJoining: Dispatch<SetStateAction<boolean>>;
@@ -31,6 +32,8 @@ type Options = {
 };
 
 export function useRealtimeConnection(options: Options) {
+	const subscribedHandlerRef = useRef(options.onChannelSubscribed);
+	subscribedHandlerRef.current = options.onChannelSubscribed;
 	const { token, channelId, channelType, socketRef, peerUsers, displayStream, remoteSharing, connections, pendingCandidates,
 		callLifecycle,
 		closeCall, createPeer, flushCandidates, makeOffer, send, updatePeer,
@@ -109,7 +112,10 @@ export function useRealtimeConnection(options: Options) {
 						);
 					}
 					if (event.type === "channel_subscribed") {
-						if (event.channelId === channelId) setConnected(true);
+						if (event.channelId === channelId) {
+							setConnected(true);
+							subscribedHandlerRef.current?.();
+						}
 					}
 					if (
 						[

@@ -8,6 +8,7 @@ import {
 	PhoneOff,
 	Plus,
 	RotateCcw,
+	LoaderCircle,
 	Users,
 	Video,
 	VideoOff,
@@ -24,8 +25,10 @@ export type CallPeer = RealtimePeer;
 
 type CallRoomProps = {
 	cameraOff: boolean;
+	connected: boolean;
 	error: string | null;
 	inCall: boolean;
+	joining: boolean;
 	localDisplayStream: MediaStream | null;
 	localMediaStream: MediaStream | null;
 	muted: boolean;
@@ -118,9 +121,17 @@ export function CallRoom(props: CallRoomProps) {
 					<p className="text-sm text-(--muted-text)">
 						{props.inCall
 							? `${peers.length + 1} ${peers.length ? "pessoas conectadas" : "pessoa conectada"}`
-							: "Conectando ao canal de voz..."}
+							: props.joining
+								? "Entrando na chamada..."
+								: "Conectando ao canal de voz..."}
 					</p>
 				</div>
+				{!props.inCall && !props.error && (
+					<div className="ml-auto flex items-center gap-2 rounded-full bg-(--surface) px-3 py-2 text-xs font-semibold text-(--muted-text)">
+						<LoaderCircle className="size-4 animate-spin text-(--brand)" />
+						{props.connected ? "Aguardando conexão..." : "Conectando..."}
+					</div>
+				)}
 
 				{props.inCall && (
 					<div className="ml-auto flex items-center gap-2 rounded-2xl border border-(--line) bg-(--surface) p-2">
