@@ -36,6 +36,7 @@ export function useRealtimeConnection(options: Options) {
 		closeCall, createPeer, flushCandidates, makeOffer, send, updatePeer,
 		setMessages, setConnected, setError, setPeers, setJoining, setInCall } = options;
 	useEffect(() => {
+		setConnected(false);
 		if (!channelId) return;
 		let alive = true;
 		const messagesRequest = channelType === "voice"
@@ -285,6 +286,7 @@ export function useRealtimeConnection(options: Options) {
 		});
 		return () => {
 			alive = false;
+			setConnected(false);
 			socket?.close();
 			if (socketRef.current === socket) socketRef.current = null;
 			closeCall(false);

@@ -95,16 +95,28 @@ test.describe("call lifecycle", () => {
 		await loginAndCreateServer(page, account);
 
 		await enterCall(page);
-		await expect(page.getByRole("heading", { name: "Chamada do canal" })).toBeVisible();
-		await expect(page.getByRole("button", { name: "Ativar câmera" })).toBeVisible();
-		await page.getByRole("button", { name: "Ativar câmera" }).click();
-		await expect(page.locator("video").first()).toBeVisible();
+			await expect(page.getByRole("heading", { name: "Chamada do canal" })).toBeVisible();
+			await expect(page.getByRole("button", { name: "Ativar câmera" })).toBeVisible();
+			await expect(page.getByRole("button", { name: "Silenciar" })).toBeVisible();
+			await page.getByRole("button", { name: "Ativar câmera" }).click();
+			await expect(page.locator("video").first()).toBeVisible();
 
-		await page.getByRole("button", { name: "geral" }).click();
-		await expect(page.getByText("Chamada ativa")).toBeVisible();
-		await expect(page.locator("textarea")).toBeEnabled();
-		await page.getByText("Chamada ativa").click();
-		await expect(page.getByRole("heading", { name: "Chamada do canal" })).toBeVisible();
+			await page.getByRole("button", { name: "geral" }).click();
+			await expect(page.locator("textarea")).toBeEnabled();
+
+			await page.getByRole("button", { name: "Criar canal" }).click();
+			const secondVoiceDialog = page.getByRole("dialog", { name: "Criar canal" });
+			await secondVoiceDialog.getByLabel("Nome").fill("outra");
+			await secondVoiceDialog.getByLabel(/Voz/).check();
+			await secondVoiceDialog.getByRole("button", { name: "Criar", exact: true }).click();
+			await enterCall(page);
+
+			await page.getByRole("button", { name: "conversa" }).click();
+			await enterCall(page);
+			await page.getByRole("button", { name: "geral" }).click();
+			await expect(page.getByText("Chamada ativa")).toHaveCount(0);
+			await page.getByRole("button", { name: "conversa" }).click();
+			await enterCall(page);
 
 		await page.getByRole("button", { name: "Sair da chamada" }).first().click();
 		await expect(page.getByRole("button", { name: "Entrar na chamada" })).toBeVisible();
