@@ -13,6 +13,8 @@ import MobileNavigation from "@/components/chat/mobile-navigation";
 import { ServerRail } from "@/components/chat/server-rail";
 import { ResizableChatPanels } from "@/components/chat/resizable-chat-panels";
 
+const CALL_SWITCH_DELAY_MS = 1_000;
+
 export default function ChatPage() {
 	const user = useAuthStore((state) => state.user)!;
 	const token = useAuthStore((state) => state.token)!;
@@ -56,7 +58,10 @@ export default function ChatPage() {
 		if (callChannelId === nextCallChannelId) return;
 		const requestId = ++callSwitchRequest.current;
 		void (async () => {
-			if (callChannelId) await leaveCall();
+			if (callChannelId) {
+				await leaveCall();
+				await new Promise((resolve) => setTimeout(resolve, CALL_SWITCH_DELAY_MS));
+			}
 			if (requestId !== callSwitchRequest.current) return;
 			setCallChannelId(nextCallChannelId);
 		})();
