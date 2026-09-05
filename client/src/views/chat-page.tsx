@@ -11,7 +11,7 @@ import { useChatStore } from "@/stores/chat-store";
 import { useAuthStore } from "@/stores/auth-store";
 import MobileNavigation from "@/components/chat/mobile-navigation";
 import { ServerRail } from "@/components/chat/server-rail";
-import { ChannelSidebar } from "@/components/chat/chanel-sidebar";
+import { ResizableChatPanels } from "@/components/chat/resizable-chat-panels";
 
 export default function ChatPage() {
 	const user = useAuthStore((state) => state.user)!;
@@ -20,7 +20,8 @@ export default function ChatPage() {
 	const logout = useAuthStore((state) => state.logout);
 	const serverId = useChatStore((state) => state.serverId);
 	const channelId = useChatStore((state) => state.channelId);
-	const activeChannel = useChatStore((state) => state.channels.find(({ id }) => id === state.channelId));
+	const channels = useChatStore((state) => state.channels);
+	const activeChannel = channels.find(({ id }) => id === channelId);
 	const setChannelId = useChatStore((state) => state.setChannelId);
 	const socialOpen = useChatStore((state) => state.socialOpen);
 	const settingsOpen = useChatStore((state) => state.settingsOpen);
@@ -43,6 +44,12 @@ export default function ChatPage() {
 	const conversationRealtime = activeChannel?.type === "voice"
 		? callRealtime
 		: messageRealtime;
+	const leaveActiveCall = () => {
+		callRealtime.leaveCall();
+		setCallChannelId("");
+		const textChannel = channels.find((channel) => channel.type === "text");
+		setChannelId(textChannel?.id ?? "");
+	};
 
 	useEffect(() => {
 		if (previousChannelId.current === channelId) return;
@@ -52,8 +59,9 @@ export default function ChatPage() {
 
 	useEffect(() => {
 		if (!callChannelId || !callConnected || inCall || joining) return;
+		if (activeChannel?.id !== callChannelId) return;
 		void joinCall();
-	}, [callChannelId, callConnected, inCall, joinCall, joining]);
+	}, [activeChannel?.id, callChannelId, callConnected, inCall, joinCall, joining]);
 
 	useEffect(() => { void loadServers(); }, [loadServers]);
 	useEffect(() => { void loadChannels(); }, [serverId, loadChannels]);
@@ -61,10 +69,14 @@ export default function ChatPage() {
 
 	return (
 		<main className="chat-page relative h-svh overflow-hidden bg-(--canvas) text-(--ink)">
-			<div className="grid h-full w-full grid-cols-1 lg:grid-cols-[82px_240px_minmax(0,1fr)_300px]">
+			<div className="grid h-full w-full grid-cols-1 lg:grid-cols-[82px_minmax(0,1fr)_300px]">
 				<ServerRail />
-				<ChannelSidebar />
-				<ChatConversation realtime={conversationRealtime} />
+				<ResizableChatPanels>
+					<ChatConversation
+						realtime={conversationRealtime}
+						onLeaveCall={leaveActiveCall}
+					/>
+				</ResizableChatPanels>
 
 				<RoomSidebar />
 			</div>

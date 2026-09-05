@@ -1,11 +1,20 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { api, type User } from "@/lib/api";
+import { api, setUnauthorizedHandler, type User } from "@/lib/api";
+
+const signedOutState = {
+	user: null,
+	token: null,
+	isAuthenticated: false,
+	error: null,
+	twoFactorChallenge: null,
+};
 
 type AuthState = {
 	user: User | null;
 	token: string | null;
 	isAuthenticated: boolean;
+	isSessionValidated: boolean;
 	isLoading: boolean;
 	error: string | null;
 	twoFactorChallenge: string | null;
@@ -21,6 +30,8 @@ type AuthState = {
 	) => Promise<void>;
 	verifyTwoFactor: (code: string) => Promise<void>;
 	logout: () => void;
+	validateSession: () => Promise<void>;
+	invalidateSession: () => void;
 	clearError: () => void;
 	updateUser: (user: User) => void;
 };
@@ -31,6 +42,7 @@ export const useAuthStore = create<AuthState>()(
 			user: null,
 			token: null,
 			isAuthenticated: false,
+			isSessionValidated: false,
 			isLoading: false,
 			error: null,
 			twoFactorChallenge: null,
@@ -61,6 +73,7 @@ export const useAuthStore = create<AuthState>()(
 						user: result.user,
 						token: result.session.token,
 						isAuthenticated: true,
+						isSessionValidated: true,
 						isLoading: false,
 					});
 					if (!remember) useAuthStore.persist.clearStorage();
@@ -91,6 +104,7 @@ export const useAuthStore = create<AuthState>()(
 						user: result.user,
 						token: result.session.token,
 						isAuthenticated: true,
+						isSessionValidated: true,
 						isLoading: false,
 						twoFactorChallenge: null,
 					});
@@ -119,6 +133,7 @@ export const useAuthStore = create<AuthState>()(
 						user: result.user,
 						token: result.session.token,
 						isAuthenticated: true,
+						isSessionValidated: true,
 						isLoading: false,
 					});
 				} catch (error) {
@@ -138,12 +153,24 @@ export const useAuthStore = create<AuthState>()(
 					void api("/auth/logout", { method: "POST" }, token).catch(
 						() => undefined,
 					);
-				set({
-					user: null,
-					token: null,
-					isAuthenticated: false,
-					error: null,
-				});
+				set({ ...signedOutState, isSessionValidated: true });
+			},
+			validateSession: async () => {
+				const token = useAuthStore.getState().token;
+				if (!token) {
+					set({ ...signedOutState, isSessionValidated: true });
+					return;
+				}
+
+				try {
+					const { user } = await api<{ user: User }>("/auth/me", {}, token);
+					set({ user, isAuthenticated: true, isSessionValidated: true });
+				} catch {
+					set({ ...signedOutState, isSessionValidated: true });
+				}
+			},
+			invalidateSession: () => {
+				set({ ...signedOutState, isSessionValidated: true });
 			},
 			clearError: () => set({ error: null }),
 			updateUser: (user) => set({ user }),
@@ -167,3 +194,10 @@ export const useAuthStore = create<AuthState>()(
 		},
 	),
 );
+
+setUnauthorizedHandler((rejectedToken) => {
+	const activeToken = useAuthStore.getState().token;
+	if (rejectedToken === activeToken) {
+		useAuthStore.getState().invalidateSession();
+	}
+});

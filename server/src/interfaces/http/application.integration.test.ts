@@ -420,6 +420,103 @@ describe("huddle API", () => {
     bobSocket.close();
   });
 
+  test("only server owners and moderators may rename and delete channels", async () => {
+    const owner = await register("channel-owner@example.com", "Owner");
+    const mod = await register("channel-mod@example.com", "Moderator");
+    const member = await register("channel-member@example.com", "Member");
+    const outsider = await register("channel-outsider@example.com", "Outsider");
+    const { db } = await import("../../infra/database/client");
+    const community = await db.server.create({
+      data: {
+        name: "Channel management",
+        ownerId: owner.user.id,
+        members: {
+          create: [
+            { userId: owner.user.id, role: "owner" },
+            { userId: mod.user.id, role: "moderator" },
+            { userId: member.user.id, role: "member" },
+          ],
+        },
+      },
+    });
+    const channel = await db.channel.create({
+      data: { serverId: community.id, name: "original" },
+    });
+    const path = `/servers/${community.id}/channels/${channel.id}`;
+    const request = (
+      token: string,
+      method: string,
+      url = path,
+      name = "renamed",
+    ) =>
+      fetch(`${baseUrl}${url}`, {
+        method,
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: method === "PATCH" ? JSON.stringify({ name }) : undefined,
+      });
+    for (const actor of [member, outsider]) {
+      expect((await request(actor.session.token, "PATCH")).status).toBe(403);
+      expect((await request(actor.session.token, "DELETE")).status).toBe(403);
+    }
+    expect(
+      (await fetch(`${baseUrl}${path}`, { method: "DELETE" })).status,
+    ).toBe(401);
+    const wrongPath = `/servers/${crypto.randomUUID()}/channels/${channel.id}`;
+    expect(
+      (await request(owner.session.token, "PATCH", wrongPath)).status,
+    ).toBe(403);
+    expect(
+      (await request(owner.session.token, "DELETE", wrongPath)).status,
+    ).toBe(403);
+    expect(
+      (await request(owner.session.token, "PATCH", path, "invalid name!"))
+        .status,
+    ).toBe(400);
+    for (const actor of [owner, mod]) {
+      expect((await request(actor.session.token, "PATCH")).status).toBe(200);
+    }
+    expect(
+      (await db.channel.findUniqueOrThrow({ where: { id: channel.id } })).name,
+    ).toBe("renamed");
+    await db.message.create({
+      data: {
+        channelId: channel.id,
+        userId: owner.user.id,
+        content: "history",
+      },
+    });
+    const socket = await connect(owner.session.token);
+    await sendAndWait(socket, "channel_subscribed", {
+      type: "subscribe_channel",
+      channelId: channel.id,
+    });
+    const revoked = nextEvent(socket, "access_revoked");
+    expect((await request(mod.session.token, "DELETE")).status).toBe(204);
+    expect((await revoked).channelId).toBe(channel.id);
+    socket.close();
+    expect(await db.message.count({ where: { channelId: channel.id } })).toBe(
+      0,
+    );
+    expect(
+      await db.channel.findUnique({ where: { id: channel.id } }),
+    ).toBeNull();
+    const voice = await db.channel.create({
+      data: { serverId: community.id, name: "voice", type: "voice" },
+    });
+    expect(
+      (
+        await request(
+          owner.session.token,
+          "DELETE",
+          `/servers/${community.id}/channels/${voice.id}`,
+        )
+      ).status,
+    ).toBe(204);
+  });
+
   test("manages servers, members, roles, channels and message features", async () => {
     const owner = await register("owner@example.com", "Owner");
     const guest = await register("guest@example.com", "Guest");

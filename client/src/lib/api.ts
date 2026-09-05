@@ -65,6 +65,12 @@ export type GifResult = MessageMedia & { id: string; previewUrl: string };
 
 type ApiError = { error?: { message?: string } };
 
+let onUnauthorized: ((token: string) => void) | undefined;
+
+export function setUnauthorizedHandler(handler: (token: string) => void) {
+	onUnauthorized = handler;
+}
+
 export async function api<T>(
 	path: string,
 	options: RequestInit = {},
@@ -83,9 +89,10 @@ export async function api<T>(
 
 	if (!response.ok) {
 		const payload = (await response.json().catch(() => ({}))) as ApiError;
+		if (response.status === 401 && token) onUnauthorized?.(token);
 		throw new Error(
 			payload.error?.message ??
-				"Não foi possível concluir a solicitação.",
+			"Não foi possível concluir a solicitação.",
 		);
 	}
 

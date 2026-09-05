@@ -1,4 +1,4 @@
-import { Hash, Plus, Users, Volume2 } from "lucide-react";
+import { Check, Hash, Plus, Users, Volume2 } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/modal";
 import type { HuddleChannel } from "@/lib/api";
 import { useChatStore } from "@/stores/chat-store";
 import type { ChatDialog } from "@/types/chat";
+
 
 const dialogContent = {
 	"create-server": {
@@ -71,6 +72,19 @@ export function ChatDialogs() {
 
 	const textDialog = dialog && dialog !== "add-server" ? dialogContent[dialog] : null;
 	const isCreatingChannel = dialog === "create-channel";
+
+	const [copied, setCopied] = useState(false);
+
+	const handleCopy = async () => {
+		if (!inviteCode) return;
+		try {
+			await navigator.clipboard.writeText(inviteCode);
+			setCopied(true);
+			setTimeout(() => setCopied(false), 2000);
+		} catch (error) {
+			console.error("Failed to copy invite code:", error);
+		}
+	};
 
 	useEffect(() => {
 		if (dialog === "create-channel") setChannelType("text");
@@ -181,10 +195,10 @@ export function ChatDialogs() {
 				</div>
 				<button
 					type="button"
-					onClick={() => void navigator.clipboard?.writeText(inviteCode ?? "")}
-					className="mt-4 w-full rounded-xl bg-(--solid) px-4 py-3 text-sm font-bold text-(--on-solid)"
+					onClick={() => void handleCopy()}
+					className="mt-4 flex w-full cursor-pointer items-center justify-center rounded-xl bg-(--solid) px-4 py-3 text-sm font-bold text-(--on-solid) transition-colors hover:bg-(--brand)"
 				>
-					Copiar código
+					{copied ? <Check className="size-5" /> : "Copiar código"}
 				</button>
 			</Modal>
 		</>
@@ -231,11 +245,10 @@ function ChannelTypeOption({
 }: ChannelTypeOptionProps) {
 	return (
 		<label
-			className={`relative cursor-pointer rounded-2xl border p-4 transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-(--brand) ${
-				selected
-					? "border-(--brand) bg-(--brand)/15 shadow-sm"
-					: "border-(--line) bg-(--surface) hover:border-(--muted-text)"
-			}`}
+			className={`relative cursor-pointer rounded-2xl border p-4 transition has-focus-visible:ring-2 has-focus-visible:ring-(--brand) ${selected
+				? "border-(--brand) bg-(--brand)/15 shadow-sm"
+				: "border-(--line) bg-(--surface) hover:border-(--muted-text)"
+				}`}
 		>
 			<input
 				type="radio"
@@ -246,11 +259,10 @@ function ChannelTypeOption({
 				className="peer sr-only"
 			/>
 			<span
-				className={`mb-3 grid size-9 place-items-center rounded-xl [&>svg]:size-4 ${
-					selected
-						? "bg-(--brand) text-(--ink)"
-						: "bg-(--canvas) text-(--muted-text)"
-				}`}
+				className={`mb-3 grid size-9 place-items-center rounded-xl [&>svg]:size-4 ${selected
+					? "bg-(--brand) text-(--ink)"
+					: "bg-(--canvas) text-(--muted-text)"
+					}`}
 			>
 				{icon}
 			</span>
@@ -260,11 +272,10 @@ function ChannelTypeOption({
 			</span>
 			<span
 				aria-hidden="true"
-				className={`absolute right-3 top-3 size-2.5 rounded-full border ${
-					selected
-						? "border-(--brand) bg-(--brand)"
-						: "border-(--muted-text)/50"
-				}`}
+				className={`absolute right-3 top-3 size-2.5 rounded-full border ${selected
+					? "border-(--brand) bg-(--brand)"
+					: "border-(--muted-text)/50"
+					}`}
 			/>
 		</label>
 	);

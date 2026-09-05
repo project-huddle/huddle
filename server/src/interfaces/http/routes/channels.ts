@@ -1,4 +1,4 @@
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
 import { error, json } from "@/interfaces/http/responses";
 import {
   createChannel,
@@ -6,7 +6,17 @@ import {
   listChannels,
 } from "@/infra/database/server-repository";
 import { authenticatedRoutes } from "../plugins/auth";
-import { createChannelBody, serverIdParams } from "../schemas";
+import { createChannelBody, serverIdParams, resourceId } from "../schemas";
+import {
+  renameChannel,
+  deleteChannel,
+} from "@/infra/database/channel-management-repository";
+import { revokeChannelSocketAccess } from "@/interfaces/realtime/realtime-gateway";
+
+const channelParams = t.Object({ serverId: resourceId, channelId: resourceId });
+const renameChannelBody = t.Object({
+  name: t.String({ minLength: 2, maxLength: 32, pattern: "^[a-z0-9_-]+$" }),
+});
 
 function normalizeChannelName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, "-");
@@ -51,4 +61,42 @@ export const channelRoutes = new Elysia({ name: "channel-routes" })
       return json({ channel }, 201);
     },
     { params: serverIdParams, body: createChannelBody },
+  )
+  .patch(
+    "/servers/:serverId/channels/:channelId",
+    async ({ currentUser, params, body }) => {
+      const channel = await renameChannel(
+        currentUser.id,
+        params.serverId,
+        params.channelId,
+        body.name,
+      );
+      if (!channel)
+        return error(
+          403,
+          "FORBIDDEN",
+          "Canal indisponível ou sem permissão para editar.",
+        );
+      return json({ channel });
+    },
+    { params: channelParams, body: renameChannelBody },
+  )
+  .delete(
+    "/servers/:serverId/channels/:channelId",
+    async ({ currentUser, params }) => {
+      const deleted = await deleteChannel(
+        currentUser.id,
+        params.serverId,
+        params.channelId,
+      );
+      if (!deleted)
+        return error(
+          403,
+          "FORBIDDEN",
+          "Canal indisponível ou sem permissão para excluir.",
+        );
+      revokeChannelSocketAccess(params.channelId);
+      return new Response(null, { status: 204 });
+    },
+    { params: channelParams },
   );

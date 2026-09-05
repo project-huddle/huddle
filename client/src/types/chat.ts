@@ -11,6 +11,7 @@ export type ChatStoreState = {
 	servers: HuddleServer[];
 	channels: HuddleChannel[];
 	members: HuddleMember[];
+	membersServerId: string;
 	serverId: string;
 	channelId: string;
 	replyTo: string | null;

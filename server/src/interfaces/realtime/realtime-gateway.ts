@@ -59,22 +59,22 @@ function callKey(
 }
 
 function leaveCall(ws: RealtimeSocket, removeUserSockets = false): void {
-	const callId = session(ws).callId;
-	if (!callId) return;
-	const key = callKey(ws, callId);
-	const peers = key ? calls.get(key) : undefined;
-	const socketsToRemove = removeUserSockets
-		? [...(peers ?? [])].filter(
-			(peer) => session(peer).user.id === session(ws).user.id,
-		  )
-		: [ws];
-	for (const socket of socketsToRemove) {
-		peers?.delete(socket);
-		session(socket).callId = null;
-	}
-	for (const peer of peers ?? [])
-		send(peer, { type: "peer_left", callId, userId: session(ws).user.id });
-	if (!peers?.size && key) calls.delete(key);
+  const callId = session(ws).callId;
+  if (!callId) return;
+  const key = callKey(ws, callId);
+  const peers = key ? calls.get(key) : undefined;
+  const socketsToRemove = removeUserSockets
+    ? [...(peers ?? [])].filter(
+        (peer) => session(peer).user.id === session(ws).user.id,
+      )
+    : [ws];
+  for (const socket of socketsToRemove) {
+    peers?.delete(socket);
+    session(socket).callId = null;
+  }
+  for (const peer of peers ?? [])
+    send(peer, { type: "peer_left", callId, userId: session(ws).user.id });
+  if (!peers?.size && key) calls.delete(key);
 }
 
 function leaveOtherCalls(userId: string, current: RealtimeSocket): void {
@@ -121,6 +121,17 @@ export async function revokeUnauthorizedSocketAccess(
     leaveCall(socket);
     session(socket).channelId = null;
     send(socket, { type: "access_revoked", channelId });
+  }
+}
+
+export function revokeChannelSocketAccess(channelId: string): void {
+  for (const sockets of socketsByUser.values()) {
+    for (const socket of sockets) {
+      if (session(socket).channelId !== channelId) continue;
+      leaveCall(socket);
+      session(socket).channelId = null;
+      send(socket, { type: "access_revoked", channelId });
+    }
   }
 }
 
@@ -292,9 +303,7 @@ export const realtimeWebSocket = {
           type: "call_joined",
           callId,
           peers: [...(calls.get(key) ?? [])]
-            .filter(
-              (peer) => session(peer).user.id !== session(ws).user.id,
-            )
+            .filter((peer) => session(peer).user.id !== session(ws).user.id)
             .map((peer) => session(peer).user),
         });
       leaveCall(ws);
@@ -307,9 +316,7 @@ export const realtimeWebSocket = {
         type: "call_joined",
         callId,
         peers: [...peers]
-          .filter(
-            (peer) => session(peer).user.id !== session(ws).user.id,
-          )
+          .filter((peer) => session(peer).user.id !== session(ws).user.id)
           .map((peer) => session(peer).user),
       });
       for (const peer of peers)

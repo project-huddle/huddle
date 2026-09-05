@@ -1,6 +1,8 @@
 import {
 	Mic,
 	MicOff,
+	Maximize,
+	Minimize,
 	Minus,
 	MonitorUp,
 	PhoneOff,
@@ -10,7 +12,7 @@ import {
 	Video,
 	VideoOff,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CallControl } from "@/components/call/call-controls";
 import { PeerAudio, StreamVideo } from "@/components/call/call-media";
@@ -42,7 +44,9 @@ const ZOOM_STEP = 25;
 
 export function CallRoom(props: CallRoomProps) {
 	const [selectedScreenName, setSelectedScreenName] = useState<string | null>(null);
+	const [isFullscreen, setIsFullscreen] = useState(false);
 	const [zoom, setZoom] = useState(100);
+	const screenPanelRef = useRef<HTMLElement>(null);
 	const peers = useMemo(
 		() => [
 			...new Map(
@@ -78,8 +82,32 @@ export function CallRoom(props: CallRoomProps) {
 		}
 	}, [selectedScreen]);
 
+	useEffect(() => {
+		const updateFullscreenState = () => {
+			setIsFullscreen(document.fullscreenElement === screenPanelRef.current);
+		};
+
+		document.addEventListener("fullscreenchange", updateFullscreenState);
+		return () => {
+			document.removeEventListener("fullscreenchange", updateFullscreenState);
+		};
+	}, []);
+
 	const changeZoom = (amount: number) => {
 		setZoom((current) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, current + amount)));
+	};
+
+	const toggleFullscreen = async () => {
+		try {
+			if (document.fullscreenElement) {
+				await document.exitFullscreen();
+				return;
+			}
+
+			await screenPanelRef.current?.requestFullscreen();
+		} catch {
+			// Fullscreen can be denied by browser or operating-system policy.
+		}
 	};
 
 	return (
@@ -110,7 +138,7 @@ export function CallRoom(props: CallRoomProps) {
 			)}
 
 			<div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_220px]">
-				<section className="flex min-h-[420px] min-w-0 flex-col overflow-hidden rounded-3xl bg-[#10151b] text-white">
+				<section ref={screenPanelRef} className="flex min-h-105 min-w-0 flex-col overflow-hidden rounded-3xl bg-[#10151b] text-white">
 					{selectedScreen ? (
 						<>
 							<div className="flex flex-wrap items-center gap-2 border-b border-white/10 px-4 py-3">
@@ -119,6 +147,9 @@ export function CallRoom(props: CallRoomProps) {
 								<span className="w-12 text-center text-xs font-bold">{zoom}%</span>
 								<button type="button" onClick={() => changeZoom(ZOOM_STEP)} disabled={zoom === MAX_ZOOM} className="grid size-8 place-items-center rounded-lg bg-white/10 disabled:opacity-35" aria-label="Aumentar zoom"><Plus className="size-4" /></button>
 								<button type="button" onClick={() => setZoom(100)} className="grid size-8 place-items-center rounded-lg bg-white/10" aria-label="Restaurar zoom"><RotateCcw className="size-4" /></button>
+								<button type="button" onClick={() => void toggleFullscreen()} className="grid size-8 place-items-center rounded-lg bg-white/10" aria-label={isFullscreen ? "Sair da tela cheia" : "Abrir em tela cheia"}>
+									{isFullscreen ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
+								</button>
 							</div>
 							<div className="grid min-h-0 flex-1 place-items-center overflow-auto bg-black p-3">
 								<StreamVideo

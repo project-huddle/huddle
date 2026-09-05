@@ -12,6 +12,7 @@ const initialState = {
 	servers: [],
 	channels: [],
 	members: [],
+	membersServerId: "",
 	serverId: "",
 	channelId: "",
 	replyTo: null,
@@ -38,8 +39,12 @@ export const useChatStore = create<ChatState>((set) => ({
 	...initialState,
 	setServers: (value) => set((state) => ({ servers: typeof value === "function" ? value(state.servers) : value })),
 	setChannels: (value) => set((state) => ({ channels: typeof value === "function" ? value(state.channels) : value })),
-	setMembers: (value) => set((state) => ({ members: typeof value === "function" ? value(state.members) : value })),
-	setServerId: (value) => set((state) => ({ serverId: typeof value === "function" ? value(state.serverId) : value })),
+	setMembers: (value) => set((state) => ({ members: typeof value === "function" ? value(state.members) : value, membersServerId: state.serverId })),
+	setServerId: (value) => set((state) => {
+		const serverId = typeof value === "function" ? value(state.serverId) : value;
+		if (serverId === state.serverId) return state;
+		return { serverId, channels: [], members: [], channelId: "", replyTo: null };
+	}),
 	setChannelId: (value) => set((state) => ({ channelId: typeof value === "function" ? value(state.channelId) : value })),
 	setReplyTo: (replyTo) => set({ replyTo }),
 	setCreating: (creating) => set({ creating }),
@@ -72,7 +77,12 @@ export const useChatStore = create<ChatState>((set) => ({
 			const { channels } = await api<{
 				channels: HuddleChannel[];
 			}>(`/servers/${serverId}/channels`, {}, token);
-			set((state) => ({ channels, channelId: channels.some(({ id }) => id === state.channelId) ? state.channelId : channels[0]?.id ?? "" }));
+			set((state) => {
+				if (state.serverId !== serverId) return state;
+				const selectedExists = channels.some(({ id }) => id === state.channelId);
+				const channelId = selectedExists ? state.channelId : channels[0]?.id ?? "";
+				return { channels, channelId };
+			});
 		}
 		catch (cause) {
 			set({ error: message(cause, "Não foi possível carregar os canais.") });
@@ -86,10 +96,10 @@ export const useChatStore = create<ChatState>((set) => ({
 			const { members } = await api<{
 				members: HuddleMember[];
 			}>(`/servers/${serverId}/members`, {}, token);
-			set({ members });
+			set((state) => state.serverId === serverId ? { members, membersServerId: serverId } : state);
 		}
 		catch {
-			set({ members: [] });
+			set((state) => state.serverId === serverId ? { members: [], membersServerId: "" } : state);
 		}
 	},
 	createServer: async (raw) => {

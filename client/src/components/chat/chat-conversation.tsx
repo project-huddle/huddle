@@ -1,4 +1,4 @@
-import { Menu, MessageCircle } from "lucide-react";
+import { Headset, Menu, MessageCircle } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { BrandMark } from "@/components/brand-logo";
@@ -13,7 +13,12 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useChatStore } from "@/stores/chat-store";
 import { useShallow } from "zustand/react/shallow";
 
-export function ChatConversation({ realtime }: { realtime: ReturnType<typeof useRealtime> }) {
+type ChatConversationProps = {
+	onLeaveCall: () => void;
+	realtime: ReturnType<typeof useRealtime>;
+};
+
+export function ChatConversation({ onLeaveCall, realtime }: ChatConversationProps) {
 	const user = useAuthStore((state) => state.user);
 	const token = useAuthStore((state) => state.token);
 	const { servers, channels, serverId, channelId, setReplyTo: onReply, openDialog: openTextDialog, setMobileNavOpen, setSocialOpen } = useChatStore(useShallow((state) => ({ servers: state.servers, channels: state.channels, serverId: state.serverId, channelId: state.channelId, setReplyTo: state.setReplyTo, openDialog: state.openDialog, setMobileNavOpen: state.setMobileNavOpen, setSocialOpen: state.setSocialOpen })));
@@ -38,9 +43,11 @@ export function ChatConversation({ realtime }: { realtime: ReturnType<typeof use
 					<Menu className="size-5" />
 				</button>
 				<div>
-					<p className="text-2xl  font-mono">
-						<span className="text-brand">&middot;{" "}</span>
-						{activeChannel?.name ?? "..."}
+					<p className="text-xl text font-bold font-mono capitalize tracking-wider">
+						<span className="flex gap-2 items-center">
+							{activeChannel?.type == "voice" ? <Headset className="size-4 text-muted-foreground" /> : <MessageCircle className="size-4 text-muted-foreground" />}
+							{activeChannel?.name ?? "..."}
+						</span>
 					</p>
 				</div>
 				<div className="ml-auto flex items-center gap-2">
@@ -125,7 +132,7 @@ export function ChatConversation({ realtime }: { realtime: ReturnType<typeof use
 							onToggleMute={realtime.toggleMute}
 							onToggleCamera={realtime.toggleCamera}
 							onToggleShare={realtime.toggleShare}
-							onLeave={realtime.leaveCall}
+							onLeave={onLeaveCall}
 						/>
 					) : (
 						<MessageList
