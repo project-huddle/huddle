@@ -1,8 +1,9 @@
 import { Plus, Users } from "lucide-react";
-import type { FormEvent, ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { Modal } from "@/components/ui/modal";
+import type { HuddleChannel } from "@/lib/api";
 import { useChatStore } from "@/stores/chat-store";
 import type { ChatDialog } from "@/types/chat";
 
@@ -49,6 +50,7 @@ const dialogContent = {
 }>;
 
 export function ChatDialogs() {
+	const [channelType, setChannelType] = useState<HuddleChannel["type"]>("text");
 	const {
 		dialog,
 		value,
@@ -76,13 +78,19 @@ export function ChatDialogs() {
 	})));
 
 	const textDialog = dialog && dialog !== "add-server" ? dialogContent[dialog] : null;
+	const isCreatingChannel =
+		dialog === "create-channel" || dialog === "create-voice-channel";
+
+	useEffect(() => {
+		if (dialog === "create-channel") setChannelType("text");
+		if (dialog === "create-voice-channel") setChannelType("voice");
+	}, [dialog]);
 
 	const onSubmit = (event: FormEvent) => {
 		event.preventDefault();
 
 		if (dialog === "create-server") void createServer(value);
-		if (dialog === "create-channel") void createChannel(value);
-		if (dialog === "create-voice-channel") void createChannel(value, "voice");
+		if (isCreatingChannel) void createChannel(value, channelType);
 		if (dialog === "join-server") void joinServer(value);
 	};
 
@@ -130,6 +138,20 @@ export function ChatDialogs() {
 							placeholder={textDialog.placeholder}
 							className="mt-2 h-12 w-full rounded-2xl border border-(--line) bg-(--surface) px-4 outline-none focus:ring-2 focus:ring-(--brand)"
 						/>
+						{isCreatingChannel && (
+							<label htmlFor="channel-type" className="mt-4 block text-sm font-bold">
+								Tipo do canal
+								<select
+									id="channel-type"
+									value={channelType}
+									onChange={(event) => setChannelType(event.target.value as HuddleChannel["type"])}
+									className="mt-2 h-12 w-full rounded-2xl border border-(--line) bg-(--surface) px-4 font-normal outline-none focus:ring-2 focus:ring-(--brand)"
+								>
+									<option value="text">Texto</option>
+									<option value="voice">Voz</option>
+								</select>
+							</label>
+						)}
 						<div className="mt-5 flex justify-end gap-2">
 							<button
 								type="button"
