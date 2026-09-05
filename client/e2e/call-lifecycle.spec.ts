@@ -96,7 +96,15 @@ test.describe("call lifecycle", () => {
 
 		await enterCall(page);
 		await expect(page.getByRole("heading", { name: "Chamada do canal" })).toBeVisible();
+		await expect(page.getByRole("button", { name: "Ativar câmera" })).toBeVisible();
+		await page.getByRole("button", { name: "Ativar câmera" }).click();
 		await expect(page.locator("video").first()).toBeVisible();
+
+		await page.getByRole("button", { name: "geral" }).click();
+		await expect(page.getByText("Chamada ativa")).toBeVisible();
+		await expect(page.locator("textarea")).toBeEnabled();
+		await page.getByText("Chamada ativa").click();
+		await expect(page.getByRole("heading", { name: "Chamada do canal" })).toBeVisible();
 
 		await page.getByRole("button", { name: "Sair da chamada" }).first().click();
 		await expect(page.getByRole("button", { name: "Entrar na chamada" })).toBeVisible();

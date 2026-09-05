@@ -113,9 +113,8 @@ export function ChatConversation({ realtime }: { realtime: ReturnType<typeof use
 						</div>
 					) : isVoiceChannel ? (
 						<CallRoom
-							connected={realtime.connected}
 							inCall={realtime.inCall}
-							joining={realtime.joining}
+							error={realtime.error}
 							user={user}
 							peers={realtime.peers}
 							muted={realtime.muted}
@@ -126,7 +125,6 @@ export function ChatConversation({ realtime }: { realtime: ReturnType<typeof use
 							onToggleMute={realtime.toggleMute}
 							onToggleCamera={realtime.toggleCamera}
 							onToggleShare={realtime.toggleShare}
-							onJoin={realtime.joinCall}
 							onLeave={realtime.leaveCall}
 						/>
 					) : (

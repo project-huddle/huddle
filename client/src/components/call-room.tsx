@@ -22,13 +22,11 @@ export type CallPeer = RealtimePeer;
 
 type CallRoomProps = {
 	cameraOff: boolean;
-	connected: boolean;
+	error: string | null;
 	inCall: boolean;
-	joining: boolean;
 	localDisplayStream: MediaStream | null;
 	localMediaStream: MediaStream | null;
 	muted: boolean;
-	onJoin: () => void;
 	onLeave: () => void;
 	onToggleCamera: () => void;
 	onToggleMute: () => void;
@@ -86,24 +84,20 @@ export function CallRoom(props: CallRoomProps) {
 					</p>
 				</div>
 
-				{props.inCall ? (
+				{props.inCall && (
 					<div className="ml-auto flex items-center gap-2 rounded-2xl border border-(--line) bg-(--surface) p-2">
 						<CallControl active={props.muted} label={props.muted ? "Ativar microfone" : "Silenciar"} onClick={props.onToggleMute} icon={props.muted ? <MicOff /> : <Mic />} />
 						<CallControl active={props.cameraOff} label={props.cameraOff ? "Ativar câmera" : "Desativar câmera"} onClick={props.onToggleCamera} icon={props.cameraOff ? <VideoOff /> : <Video />} />
 						<CallControl active={props.sharing} label={props.sharing ? "Parar compartilhamento" : "Compartilhar tela"} onClick={props.onToggleShare} icon={<MonitorUp />} positive={props.sharing} />
 						<CallControl label="Sair da chamada" onClick={props.onLeave} icon={<PhoneOff />} danger />
 					</div>
-				) : (
-					<button
-						type="button"
-						onClick={props.onJoin}
-						disabled={!props.connected || props.joining}
-						className="ml-auto rounded-2xl bg-(--brand) px-5 py-3 text-sm font-black text-(--ink) disabled:opacity-50"
-					>
-						{props.joining ? "Entrando..." : "Entrar na chamada"}
-					</button>
 				)}
 			</header>
+			{props.error && (
+				<p role="alert" className="rounded-2xl border border-[#d75a4a]/25 bg-[#fff0ea] px-4 py-3 text-sm text-[#9c3f33]">
+					{props.error}
+				</p>
+			)}
 
 			<div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_220px]">
 				<section className="flex min-h-[420px] min-w-0 flex-col overflow-hidden rounded-3xl bg-[#10151b] text-white">
