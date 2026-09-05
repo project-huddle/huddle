@@ -12,7 +12,7 @@ export function security() {
       set.headers["X-Frame-Options"] = "DENY";
       set.headers["Referrer-Policy"] = "no-referrer";
       set.headers["Permissions-Policy"] =
-        "camera=(), microphone=(), geolocation=()";
+        "camera=(self), microphone=(self), geolocation=()";
       set.headers["Cache-Control"] = "no-store";
       for (const [key, value] of corsHeaders(request)) set.headers[key] = value;
 
