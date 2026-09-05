@@ -54,6 +54,10 @@ export default function MobileNavigation() {
     );
 
     const activeServer = servers.find((server) => server.id === serverId);
+    const createInviteAction = () => {
+        if (activeServer?.ownerId === user?.id) openDialog("create-invite");
+        else void createInvite();
+    };
     const textChannels = channels.filter((channel) => channel.type === "text");
     const voiceChannels = channels.filter((channel) => channel.type === "voice");
 
@@ -155,7 +159,7 @@ export default function MobileNavigation() {
 
                             <NavButton
                                 label="Criar convite"
-                                onClick={createInvite}
+                                onClick={createInviteAction}
                             >
                                 <UserPlus />
                             </NavButton>

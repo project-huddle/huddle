@@ -54,6 +54,12 @@ export type HuddleMember = User & {
 	role: HuddleRole;
 	isOwner: boolean;
 };
+export type InvitePreview = {
+	code: string;
+	serverId: string;
+	serverName: string;
+	expiresAt: string;
+};
 
 export type MessageMedia = {
 	url: string;

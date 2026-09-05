@@ -17,7 +17,7 @@ const rolePermissions: Record<Role, readonly Permission[]> = {
     "messages.moderate",
     "reports.review",
   ],
-  member: [],
+  member: ["invites.create"],
 };
 
 export function permissionsFor(

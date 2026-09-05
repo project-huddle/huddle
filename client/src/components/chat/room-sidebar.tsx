@@ -23,6 +23,7 @@ export function RoomSidebar() {
 		members,
 		servers,
 		serverId,
+		openDialog,
 		createInvite,
 		changeMemberRole,
 		removeMember,
@@ -30,6 +31,7 @@ export function RoomSidebar() {
 		members: state.members,
 		servers: state.servers,
 		serverId: state.serverId,
+		openDialog: state.openDialog,
 		createInvite: state.createInvite,
 		changeMemberRole: state.changeMemberRole,
 		removeMember: state.removeMember,
@@ -39,6 +41,10 @@ export function RoomSidebar() {
 
 	const activeServer = servers.find((server) => server.id === serverId);
 	const canManageMembers = activeServer?.ownerId === user.id;
+	const createInviteAction = () => {
+		if (activeServer?.ownerId === user.id) openDialog("create-invite");
+		else void createInvite();
+	};
 
 	const handleRemoveMember = (member: HuddleMember) => {
 		const confirmed = window.confirm(
@@ -54,7 +60,7 @@ export function RoomSidebar() {
 				<strong className="text-sm">Membros · {members.length}</strong>
 				<button
 					type="button"
-					onClick={() => void createInvite()}
+					onClick={createInviteAction}
 					className="ml-auto text-(--muted-text) hover:text-(--ink)"
 					aria-label="Criar convite"
 				>

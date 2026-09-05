@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useAuthStore } from "@/stores/auth-store";
 import ChatPage from "@/views/chat-page";
 import LoginPage from "@/views/login-page";
+import InvitePage from "@/views/invite-page";
 
 export default function App() {
 	const user = useAuthStore((state) => state.user);
@@ -17,6 +18,7 @@ export default function App() {
 	}, [validateSession]);
 
 	if (!isSessionValidated) return null;
+	if (window.location.pathname.startsWith("/invite/")) return <InvitePage />;
 
 	if (!isAuthenticated || !user || !token) {
 		return <LoginPage />;

@@ -22,13 +22,13 @@ const initialState = {
 	settingsOpen: false,
 	dialog: null,
 	dialogValue: "",
-	inviteCode: null,
+	inviteUrl: null,
 	error: null,
 } satisfies Omit<ChatState, keyof ChatActions>;
 
 type ChatActions = Pick<ChatState,
 	| "setServers" | "setChannels" | "setMembers" | "setServerId" | "setChannelId"
-	| "setReplyTo" | "setCreating" | "setInviteCode" | "openDialog"
+	| "setReplyTo" | "setCreating" | "setInviteUrl" | "openDialog"
 	| "closeDialog" | "setDialogValue" | "setMobileNavOpen"
 	| "setSocialOpen" | "setSettingsOpen" | "reset"
 	| "loadServers" | "loadChannels" | "loadMembers" | "createServer" | "createChannel"
@@ -48,8 +48,8 @@ export const useChatStore = create<ChatState>((set) => ({
 	setChannelId: (value) => set((state) => ({ channelId: typeof value === "function" ? value(state.channelId) : value })),
 	setReplyTo: (replyTo) => set({ replyTo }),
 	setCreating: (creating) => set({ creating }),
-	setInviteCode: (inviteCode) => set({ inviteCode }),
-	openDialog: (dialog) => set({ dialog, dialogValue: "" }),
+	setInviteUrl: (inviteUrl) => set({ inviteUrl }),
+	openDialog: (dialog) => set({ dialog, dialogValue: dialog === "create-invite" ? "2" : "" }),
 	closeDialog: () => set({ dialog: null }),
 	setDialogValue: (dialogValue) => set({ dialogValue }),
 	setMobileNavOpen: (mobileNavOpen) => set({ mobileNavOpen }),
@@ -174,18 +174,21 @@ export const useChatStore = create<ChatState>((set) => ({
 			set({ error: message(cause, "Não foi possível entrar no servidor.") });
 		}
 	},
-	createInvite: async () => {
+	createInvite: async (durationHours = 2) => {
 		const { serverId } = useChatStore.getState();
 		if (!serverId) return;
 		try {
 			const { token } = credentials();
-			const { invite } = await api<{
-				invite: {
-					code: string;
-				};
-			}>(`/servers/${serverId}/invites`, { method: "POST" }, token);
-			await navigator.clipboard?.writeText(invite.code);
-			set({ inviteCode: invite.code });
+			const result = await api<{
+				invite: { code: string };
+				url: string;
+			}>(`/servers/${serverId}/invites`, {
+				method: "POST",
+				body: JSON.stringify({ durationHours }),
+			}, token);
+			const url = new URL(result.url, window.location.origin).toString();
+			await navigator.clipboard?.writeText(url);
+			set({ inviteUrl: url });
 		}
 		catch (cause) {
 			set({ error: message(cause, "Não foi possível criar o convite.") });

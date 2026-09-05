@@ -99,16 +99,6 @@ export function ChatConversation({ onLeaveCall, realtime }: ChatConversationProp
 									</button>
 									<button
 										onClick={() =>
-											openTextDialog(
-												"join-server",
-											)
-										}
-										className="rounded-xl border border-(--line) px-5 py-3 font-bold"
-									>
-										Usar convite
-									</button>
-									<button
-										onClick={() =>
 											onOpenSocial()
 										}
 										className="rounded-xl border border-(--line) px-5 py-3 font-bold"

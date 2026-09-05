@@ -187,15 +187,22 @@ export async function removeMember(
 export async function createInvite(
   userId: string,
   serverId: string,
+  durationHours = 2,
 ): Promise<ServerInvite | null> {
-  if (!(await hasServerPermission(userId, serverId, "invites.create")))
+  const member = await db.serverMember.findUnique({
+    where: { serverId_userId: { serverId, userId } },
+    select: { role: true },
+  });
+  if (!member || !can(member.role as ServerRole, "invites.create"))
     return null;
+  if (!Number.isSafeInteger(durationHours) || durationHours < 1) return null;
+  if (member.role !== "owner" && durationHours !== 2) return null;
   const invite = await db.invite.create({
     data: {
       code: crypto.randomUUID().replaceAll("-", "").slice(0, 10),
       serverId,
       createdBy: userId,
-      expiresAt: new Date(Date.now() + 7 * 86_400_000),
+      expiresAt: new Date(Date.now() + durationHours * 3_600_000),
     },
   });
   return {
