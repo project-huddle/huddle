@@ -44,6 +44,7 @@ export const channelRoutes = new Elysia({ name: "channel-routes" })
         currentUser.id,
         params.serverId,
         name,
+        body.type ?? "text",
       );
       if (!channel)
         return error(403, "FORBIDDEN", "You are not a member of this server.");

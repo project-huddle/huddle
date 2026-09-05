@@ -1,5 +1,5 @@
 import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import { api, websocketUrl, type ChatMessage, type User } from "@/lib/api";
+import { api, websocketUrl, type ChatMessage, type HuddleChannel, type User } from "@/lib/api";
 import type {
 	CallLifecycle,
 	RealtimePeer,
@@ -7,7 +7,7 @@ import type {
 } from "@/types/realtime";
 
 type Options = {
-	token: string; channelId: string;
+	token: string; channelId: string; channelType: HuddleChannel["type"];
 	socketRef: MutableRefObject<WebSocket | null>;
 	peerUsers: MutableRefObject<Map<string, User>>;
 	displayStream: MutableRefObject<MediaStream | null>;
@@ -30,18 +30,21 @@ type Options = {
 };
 
 export function useRealtimeConnection(options: Options) {
-	const { token, channelId, socketRef, peerUsers, displayStream, remoteSharing, connections, pendingCandidates,
+	const { token, channelId, channelType, socketRef, peerUsers, displayStream, remoteSharing, connections, pendingCandidates,
 		callLifecycle,
 		closeCall, createPeer, flushCandidates, makeOffer, send, updatePeer,
 		setMessages, setConnected, setError, setPeers, setJoining, setInCall } = options;
 	useEffect(() => {
 		if (!channelId) return;
 		let alive = true;
-		api<{ messages: ChatMessage[] }>(
-			`/messages?channelId=${encodeURIComponent(channelId)}&limit=100`,
-			{},
-			token,
-		)
+		const messagesRequest = channelType === "voice"
+			? Promise.resolve({ messages: [] as ChatMessage[] })
+			: api<{ messages: ChatMessage[] }>(
+				`/messages?channelId=${encodeURIComponent(channelId)}&limit=100`,
+				{},
+				token,
+			);
+		messagesRequest
 			.then(({ messages }) => alive && setMessages(messages))
 			.catch(
 				(cause: unknown) =>
@@ -240,6 +243,10 @@ export function useRealtimeConnection(options: Options) {
 							String(event.message ?? "Erro de comunicação."),
 						);
 					}
+					if (event.type === "call_replaced") {
+						closeCall(false);
+						setError("Você entrou em outra chamada.");
+					}
 					if (event.type === "access_revoked") {
 						closeCall(false);
 						setError(
@@ -274,6 +281,7 @@ export function useRealtimeConnection(options: Options) {
 		};
 	}, [
 		channelId,
+		channelType,
 		closeCall,
 		createPeer,
 		flushCandidates,

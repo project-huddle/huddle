@@ -501,6 +501,37 @@ describe("huddle API", () => {
     );
     expect(channel.status).toBe(201);
     const channelBody = (await channel.json()) as { channel: { id: string } };
+    const voiceChannelResponse = await fetch(
+      `${baseUrl}/servers/${createdBody.server.id}/channels`,
+      {
+        method: "POST",
+        headers: { ...ownerHeaders, "content-type": "application/json" },
+        body: JSON.stringify({ name: "team-talk", type: "voice" }),
+      },
+    );
+    expect(voiceChannelResponse.status).toBe(201);
+    const voiceChannel = (await voiceChannelResponse.json()) as {
+      channel: { id: string; type: string };
+    };
+    expect(voiceChannel.channel.type).toBe("voice");
+    const secondVoiceChannelResponse = await fetch(
+      `${baseUrl}/servers/${createdBody.server.id}/channels`,
+      {
+        method: "POST",
+        headers: { ...ownerHeaders, "content-type": "application/json" },
+        body: JSON.stringify({ name: "focus-room", type: "voice" }),
+      },
+    );
+    expect(secondVoiceChannelResponse.status).toBe(201);
+    const secondVoiceChannel = (await secondVoiceChannelResponse.json()) as {
+      channel: { id: string; type: string };
+    };
+    expect(secondVoiceChannel.channel.type).toBe("voice");
+    const voiceHistory = await fetch(
+      `${baseUrl}/messages?channelId=${voiceChannel.channel.id}`,
+      { headers: ownerHeaders },
+    );
+    expect(voiceHistory.status).toBe(400);
 
     const ownerSocket = await connect(owner.session.token);
     const guestSocket = await connect(guest.session.token);
@@ -512,7 +543,6 @@ describe("huddle API", () => {
       type: "subscribe_channel",
       channelId: channelBody.channel.id,
     });
-
     const received = nextEvent(guestSocket, "chat_message");
     ownerSocket.send(
       JSON.stringify({
@@ -582,13 +612,44 @@ describe("huddle API", () => {
       }),
     );
     expect((await forbiddenEdit).code).toBe("FORBIDDEN");
+
+    await sendAndWait(ownerSocket, "channel_subscribed", {
+      type: "subscribe_channel",
+      channelId: voiceChannel.channel.id,
+    });
+    await sendAndWait(guestSocket, "channel_subscribed", {
+      type: "subscribe_channel",
+      channelId: voiceChannel.channel.id,
+    });
+    await sendAndWait(ownerSocket, "call_joined", {
+      type: "join_call",
+      callId: "voice-one",
+    });
+    const voicePeerJoined = nextEvent(ownerSocket, "peer_joined");
+    await sendAndWait(guestSocket, "call_joined", {
+      type: "join_call",
+      callId: "voice-one",
+    });
+    expect((await voicePeerJoined).user.id).toBe(guest.user.id);
+
+    const voicePeerLeft = nextEvent(guestSocket, "peer_left");
+    await sendAndWait(ownerSocket, "channel_subscribed", {
+      type: "subscribe_channel",
+      channelId: secondVoiceChannel.channel.id,
+    });
+    expect((await voicePeerLeft).userId).toBe(owner.user.id);
+    await sendAndWait(ownerSocket, "call_joined", {
+      type: "join_call",
+      callId: "voice-two",
+    });
+
     const revoked = nextEvent(guestSocket, "access_revoked");
     const removed = await fetch(
       `${baseUrl}/servers/${createdBody.server.id}/members/${guest.user.id}`,
       { method: "DELETE", headers: ownerHeaders },
     );
     expect(removed.status).toBe(204);
-    expect(await revoked).toMatchObject({ channelId: channelBody.channel.id });
+    expect(await revoked).toMatchObject({ channelId: voiceChannel.channel.id });
     const cannotSendAfterRemoval = nextEvent(guestSocket, "error");
     guestSocket.send(
       JSON.stringify({

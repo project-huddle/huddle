@@ -1,4 +1,4 @@
-import { Hash, LogOut, MessageCircle, Plus, UserPlus, Users, X } from "lucide-react";
+import { Hash, LogOut, MessageCircle, Plus, UserPlus, Users, Volume2, X } from "lucide-react";
 
 import { BrandMark } from "@/components/brand-logo";
 import { UserAvatar } from "@/components/user-avatar";
@@ -27,13 +27,17 @@ export function ChannelSidebar() {
 		onCreateInvite: state.createInvite, leaveServer: state.leaveServer,
 	})));
 	const activeServer = servers.find(({ id }) => id === serverId);
+	const textChannels = channels.filter(({ type }) => type === "text");
+	const voiceChannels = channels.filter(({ type }) => type === "voice");
 	const onLeaveServer = () => { if (window.confirm(`Sair de ${activeServer?.name ?? "este servidor"}?`)) void leaveServer(); };
 	return <aside className="hidden min-h-0 flex-col border-r border-[var(--ink)]/10 bg-[var(--panel)] lg:flex">
 		<div className="flex h-19 items-center border-b border-[var(--ink)]/10 px-4"><strong className="truncate text-sm">{activeServer?.name ?? "Servidores"}</strong><div className="ml-auto flex gap-1">
 			<NavButton label="Criar convite" onClick={onCreateInvite}><UserPlus /></NavButton><NavButton label="Entrar com convite" onClick={() => onOpenDialog("join-server")}><Users /></NavButton><NavButton label="Sair do servidor" onClick={onLeaveServer}><LogOut /></NavButton><NavButton label="Criar servidor" onClick={() => onOpenDialog("create-server")}><Plus /></NavButton>
 		</div></div>
 		<div className="p-3"><div className="flex items-center px-2 pb-2"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--muted-text)]">Canais de texto</p><button onClick={() => onOpenDialog("create-channel")} className="ml-auto text-[var(--muted-text)] hover:text-[var(--ink)]" aria-label="Criar canal"><Plus className="size-3.5" /></button></div>
-			{channels.map((channel) => <button key={channel.id} onClick={() => onSelectChannel(channel.id)} className={cn("flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm", channel.id === channelId ? "bg-[var(--surface)] font-bold shadow-sm" : "text-[var(--muted-text)] hover:bg-[var(--surface)]/60")}><Hash className="size-4" />{channel.name}</button>)}
+			{ textChannels.map((channel) => <button key={channel.id} onClick={() => onSelectChannel(channel.id)} className={cn("flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm", channel.id === channelId ? "bg-[var(--surface)] font-bold shadow-sm" : "text-[var(--muted-text)] hover:bg-[var(--surface)]/60")}><Hash className="size-4" />{channel.name}</button>)}
+			{voiceChannels.length > 0 && <p className="px-2 pb-2 pt-5 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--muted-text)]">Canais de voz</p>}
+			{voiceChannels.map((channel) => <button key={channel.id} onClick={() => onSelectChannel(channel.id)} className={cn("flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm", channel.id === channelId ? "bg-[var(--surface)] font-bold" : "text-[var(--muted-text)] hover:bg-[var(--surface)]/60")}><Volume2 className="size-4" />{channel.name}</button>)}
 		</div>
 	</aside>;
 }
@@ -52,6 +56,8 @@ export function MobileNavigation() {
 	const open = props.mobileNavOpen;
 	const onClose = () => props.setMobileNavOpen(false);
 	const activeServer = props.servers.find(({ id }) => id === props.serverId);
+	const textChannels = props.channels.filter(({ type }) => type === "text");
+	const voiceChannels = props.channels.filter(({ type }) => type === "voice");
 	if (!open) return null;
 	const selectServer = (id: string) => { props.setServerId(id); onClose(); };
 	const selectChannel = (id: string) => { props.setChannelId(id); onClose(); };
@@ -61,7 +67,7 @@ export function MobileNavigation() {
 			<div className="flex h-19 shrink-0 items-center gap-3 border-b border-[var(--ink)]/10 px-4"><BrandMark className="size-10" /><div className="min-w-0 flex-1"><p className="truncate font-black">{activeServer?.name ?? "huddle"}</p><p className="text-xs text-[var(--muted-text)]">navegação</p></div><button onClick={onClose} className="grid size-9 place-items-center rounded-xl bg-[var(--surface)]" aria-label="Fechar"><X className="size-4" /></button></div>
 			<div className="flex min-h-0 flex-1"><div className="flex w-18 shrink-0 flex-col items-center gap-3 bg-[var(--solid)] py-4"><BrandMark className="size-10" />{props.servers.map((server) => <button key={server.id} onClick={() => selectServer(server.id)} title={server.name} className={cn("grid size-10 place-items-center rounded-[13px] text-xs font-black", server.id === props.serverId ? "bg-[var(--brand)] text-[var(--ink)]" : "bg-[var(--surface)]/10 text-[var(--on-solid)]")}>{getInitials(server.name)}</button>)}<button onClick={() => props.openDialog("create-server")} className="grid size-10 place-items-center rounded-[13px] bg-[var(--surface)]/10 text-[var(--brand)]" aria-label="Criar servidor"><Plus /></button></div>
 				<div className="min-w-0 flex-1 overflow-y-auto p-4"><div className="mb-5 flex items-center gap-2"><strong className="min-w-0 flex-1 truncate">{activeServer?.name ?? "Servidor"}</strong><NavButton label="Criar convite" onClick={props.createInvite}><UserPlus /></NavButton><NavButton label="Entrar com convite" onClick={() => props.openDialog("join-server")}><Users /></NavButton></div>
-					<div className="mb-6"><div className="mb-2 flex items-center justify-between"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--muted-text)]">Canais</p><button onClick={() => props.openDialog("create-channel")} aria-label="Criar canal"><Plus className="size-4" /></button></div>{props.channels.map((channel) => <button key={channel.id} onClick={() => selectChannel(channel.id)} className={cn("mb-1 flex w-full items-center gap-2 rounded-xl px-3 py-3 text-left text-sm", channel.id === props.channelId ? "bg-[var(--surface)] font-bold shadow-sm" : "text-[var(--muted-text)] hover:bg-[var(--surface)]/60")}><Hash />{channel.name}</button>)}</div>
+					<div className="mb-6"><div className="mb-2 flex items-center justify-between"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--muted-text)]">Canais de texto</p><button onClick={() => props.openDialog("create-channel")} aria-label="Criar canal"><Plus className="size-4" /></button></div>{textChannels.map((channel) => <button key={channel.id} onClick={() => selectChannel(channel.id)} className={cn("mb-1 flex w-full items-center gap-2 rounded-xl px-3 py-3 text-left text-sm", channel.id === props.channelId ? "bg-[var(--surface)] font-bold shadow-sm" : "text-[var(--muted-text)] hover:bg-[var(--surface)]/60")}><Hash />{channel.name}</button>)}{voiceChannels.length > 0 && <p className="mb-2 pt-4 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--muted-text)]">Canais de voz</p>}{voiceChannels.map((channel) => <button key={channel.id} onClick={() => selectChannel(channel.id)} className={cn("mb-1 flex w-full items-center gap-2 rounded-xl px-3 py-3 text-left text-sm", channel.id === props.channelId ? "bg-[var(--surface)] font-bold shadow-sm" : "text-[var(--muted-text)] hover:bg-[var(--surface)]/60")}><Volume2 />{channel.name}</button>)}</div>
 					<div><p className="mb-3 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--muted-text)]">Membros · {props.members?.length ?? 0}</p>{props.members?.map((member) => <div key={member.id} className="mb-3 flex items-center gap-2"><UserAvatar user={member} className="size-8 rounded-[10px]" /><div className="min-w-0"><p className="truncate text-sm font-semibold">{member.displayName}</p><p className="text-[10px] text-[var(--muted-text)]">{member.role === "owner" ? "proprietário" : member.role === "moderator" ? "moderador" : "membro"}</p></div></div>)}</div>
 				</div></div>
 		</aside>

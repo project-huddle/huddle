@@ -35,7 +35,7 @@ export type Channel = {
   id: string;
   serverId: string;
   name: string;
-  type: "text";
+  type: "text" | "voice";
 };
 export type ServerRole = "owner" | "moderator" | "member";
 export type ServerMember = User & {
@@ -83,7 +83,7 @@ export const channelView = (channel: {
   id: channel.id,
   serverId: channel.serverId,
   name: channel.name,
-  type: "text",
+  type: channel.type === "voice" ? "voice" : "text",
 });
 
 export function messageView(
