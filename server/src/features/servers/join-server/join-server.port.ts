@@ -8,4 +8,5 @@ export type JoinServerRepository = {
     serverId: string,
     userId: string,
   ): Promise<"joined" | "already-member">;
+  isBanned?(serverId: string, userId: string): Promise<boolean>;
 };

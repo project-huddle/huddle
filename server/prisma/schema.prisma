@@ -8,28 +8,31 @@ datasource db {
 }
 
 model User {
-  id                     String            @id @default(uuid()) @db.Uuid
-  email                  String            @unique @db.VarChar(254)
-  displayName            String            @map("display_name") @db.VarChar(32)
-  avatarUrl              String?           @map("avatar_url") @db.VarChar(500)
-  passwordHash           String            @map("password_hash")
-  emailVerifiedAt        DateTime?         @map("email_verified_at") @db.Timestamptz(3)
-  countryCode            String?           @map("country_code") @db.Char(2)
-  twoFactorEnabled       Boolean           @default(false) @map("two_factor_enabled")
-  createdAt              DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  id                     String             @id @default(uuid()) @db.Uuid
+  email                  String             @unique @db.VarChar(254)
+  displayName            String             @map("display_name") @db.VarChar(32)
+  avatarUrl              String?            @map("avatar_url") @db.VarChar(500)
+  passwordHash           String             @map("password_hash")
+  emailVerifiedAt        DateTime?          @map("email_verified_at") @db.Timestamptz(3)
+  countryCode            String?            @map("country_code") @db.Char(2)
+  twoFactorEnabled       Boolean            @default(false) @map("two_factor_enabled")
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
   sessions               Session[]
-  ownedServers           Server[]          @relation("ServerOwner")
+  ownedServers           Server[]           @relation("ServerOwner")
   memberships            ServerMember[]
-  invites                Invite[]          @relation("InviteCreator")
-  messages               Message[]         @relation("MessageAuthor")
+  roleAssignments        ServerMemberRole[]
+  bans                   ServerBan[]        @relation("BannedUser")
+  bansCreated            ServerBan[]        @relation("BanCreator")
+  invites                Invite[]           @relation("InviteCreator")
+  messages               Message[]          @relation("MessageAuthor")
   reactions              MessageReaction[]
   emailTokens            EmailToken[]
-  friendshipsRequested   Friendship[]      @relation("FriendRequester")
-  friendshipsReceived    Friendship[]      @relation("FriendAddressee")
-  directMessagesSent     DirectMessage[]   @relation("DirectSender")
-  directMessagesReceived DirectMessage[]   @relation("DirectRecipient")
-  reportsCreated         Report[]          @relation("ReportCreator")
-  reportsTargeting       Report[]          @relation("ReportTarget")
+  friendshipsRequested   Friendship[]       @relation("FriendRequester")
+  friendshipsReceived    Friendship[]       @relation("FriendAddressee")
+  directMessagesSent     DirectMessage[]    @relation("DirectSender")
+  directMessagesReceived DirectMessage[]    @relation("DirectRecipient")
+  reportsCreated         Report[]           @relation("ReportCreator")
+  reportsTargeting       Report[]           @relation("ReportTarget")
 
   @@map("users")
 }
@@ -48,24 +51,28 @@ model Session {
 model Server {
   id        String         @id @default(uuid()) @db.Uuid
   name      String         @db.VarChar(40)
+  iconUrl   String?        @map("icon_url") @db.VarChar(500)
   ownerId   String         @map("owner_id") @db.Uuid
   createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   owner     User           @relation("ServerOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members   ServerMember[]
+  roles     ServerRole[]
   invites   Invite[]
   channels  Channel[]
+  bans      ServerBan[]
 
   @@map("servers")
 }
 
 model ServerMember {
-  serverId    String   @map("server_id") @db.Uuid
-  userId      String   @map("user_id") @db.Uuid
-  role        String   @default("member") @db.VarChar(16)
-  permissions String[] @default([])
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  server      Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serverId    String             @map("server_id") @db.Uuid
+  userId      String             @map("user_id") @db.Uuid
+  role        String             @default("member") @db.VarChar(16)
+  permissions String[]           @default([])
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  server      Server             @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleLinks   ServerMemberRole[]
 
   @@id([serverId, userId])
   @@index([userId], map: "server_members_user_idx")
@@ -143,16 +150,96 @@ model Invite {
 }
 
 model Channel {
-  id        String    @id @default(uuid()) @db.Uuid
-  serverId  String    @map("server_id") @db.Uuid
-  name      String    @db.VarChar(32)
-  type      String    @default("text") @db.VarChar(16)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  server    Server    @relation(fields: [serverId], references: [id], onDelete: Cascade)
-  messages  Message[]
+  id         String              @id @default(uuid()) @db.Uuid
+  serverId   String              @map("server_id") @db.Uuid
+  name       String              @db.VarChar(32)
+  type       String              @default("text") @db.VarChar(16)
+  createdAt  DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  server     Server              @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  messages   Message[]
+  roleAccess ChannelRoleAccess[]
 
   @@index([serverId, createdAt], map: "channels_server_idx")
   @@map("channels")
+}
+
+model PermissionDefinition {
+  key         String                 @id @db.VarChar(80)
+  label       String                 @db.VarChar(80)
+  description String                 @db.VarChar(240)
+  category    String                 @db.VarChar(32)
+  createdAt   DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  roles       ServerRolePermission[]
+
+  @@map("permission_definitions")
+}
+
+model ServerRole {
+  id          String                 @id @default(uuid()) @db.Uuid
+  serverId    String                 @map("server_id") @db.Uuid
+  name        String                 @db.VarChar(40)
+  color       String                 @default("#64748b") @db.VarChar(7)
+  position    Int                    @default(0)
+  isDefault   Boolean                @default(false) @map("is_default")
+  createdAt   DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  server      Server                 @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  permissions ServerRolePermission[]
+  members     ServerMemberRole[]
+  channels    ChannelRoleAccess[]
+
+  @@unique([serverId, name])
+  @@index([serverId, position], map: "server_roles_position_idx")
+  @@map("server_roles")
+}
+
+model ServerRolePermission {
+  roleId        String               @map("role_id") @db.Uuid
+  permissionKey String               @map("permission_key") @db.VarChar(80)
+  role          ServerRole           @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission    PermissionDefinition @relation(fields: [permissionKey], references: [key], onDelete: Cascade)
+
+  @@id([roleId, permissionKey])
+  @@map("server_role_permissions")
+}
+
+model ServerMemberRole {
+  serverId String       @map("server_id") @db.Uuid
+  userId   String       @map("user_id") @db.Uuid
+  roleId   String       @map("role_id") @db.Uuid
+  member   ServerMember @relation(fields: [serverId, userId], references: [serverId, userId], onDelete: Cascade)
+  role     ServerRole   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user     User         @relation(fields: [userId], references: [id])
+
+  @@id([serverId, userId, roleId])
+  @@index([roleId], map: "server_member_roles_role_idx")
+  @@map("server_member_roles")
+}
+
+model ChannelRoleAccess {
+  channelId String     @map("channel_id") @db.Uuid
+  roleId    String     @map("role_id") @db.Uuid
+  channel   Channel    @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  role      ServerRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([channelId, roleId])
+  @@index([roleId], map: "channel_role_access_role_idx")
+  @@map("channel_role_access")
+}
+
+model ServerBan {
+  serverId  String   @map("server_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdBy String   @map("created_by") @db.Uuid
+  reason    String?  @db.VarChar(500)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  server    Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  user      User     @relation("BannedUser", fields: [userId], references: [id], onDelete: Cascade)
+  creator   User     @relation("BanCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@id([serverId, userId])
+  @@index([userId], map: "server_bans_user_idx")
+  @@map("server_bans")
 }
 
 model Message {

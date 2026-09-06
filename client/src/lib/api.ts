@@ -39,6 +39,7 @@ export type ChatMessage = {
 export type HuddleServer = {
 	id: string;
 	name: string;
+	iconUrl: string | null;
 	ownerId: string;
 	createdAt: string;
 };
@@ -47,12 +48,29 @@ export type HuddleChannel = {
 	serverId: string;
 	name: string;
 	type: "text" | "voice";
+	roleIds: string[];
 };
 export type HuddleRole = "owner" | "moderator" | "member";
+export type HuddleServerRole = {
+	id: string;
+	serverId: string;
+	name: string;
+	color: string;
+	position: number;
+	isDefault: boolean;
+	permissions: string[];
+};
+export type HuddlePermission = {
+	key: string;
+	label: string;
+	description: string;
+	category: string;
+};
 export type HuddleMember = User & {
 	joinedAt: string;
-	role: HuddleRole;
+	role: "owner" | "moderator" | "member";
 	isOwner: boolean;
+	roles?: Pick<HuddleServerRole, "id" | "name" | "color" | "position">[];
 };
 export type InvitePreview = {
 	code: string;

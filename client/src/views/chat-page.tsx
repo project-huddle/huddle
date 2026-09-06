@@ -4,6 +4,7 @@ import { Mic, MicOff, PhoneOff, Volume2 } from "lucide-react";
 import { useRealtime } from "@/hooks/use-realtime";
 import { SocialHub } from "@/components/social-hub";
 import { ProfileSettings } from "@/components/profile-settings";
+import { ServerSettings } from "@/components/chat/server-settings";
 import { RoomSidebar } from "@/components/chat/room-sidebar";
 import { ChatDialogs } from "@/components/chat/chat-dialogs";
 import { ChatConversation } from "@/components/chat/chat-conversation";
@@ -27,11 +28,14 @@ export default function ChatPage() {
 	const setChannelId = useChatStore((state) => state.setChannelId);
 	const socialOpen = useChatStore((state) => state.socialOpen);
 	const settingsOpen = useChatStore((state) => state.settingsOpen);
+	const serverSettingsOpen = useChatStore((state) => state.serverSettingsOpen);
 	const setSocialOpen = useChatStore((state) => state.setSocialOpen);
 	const setSettingsOpen = useChatStore((state) => state.setSettingsOpen);
+	const setServerSettingsOpen = useChatStore((state) => state.setServerSettingsOpen);
 	const loadServers = useChatStore((state) => state.loadServers);
 	const loadChannels = useChatStore((state) => state.loadChannels);
 	const loadMembers = useChatStore((state) => state.loadMembers);
+	const loadRoles = useChatStore((state) => state.loadRoles);
 	const [callChannelId, setCallChannelId] = useState("");
 	const previousChannelId = useRef("");
 	const callSwitchRequest = useRef(0);
@@ -70,6 +74,7 @@ export default function ChatPage() {
 	useEffect(() => { void loadServers(); }, [loadServers]);
 	useEffect(() => { void loadChannels(); }, [serverId, loadChannels]);
 	useEffect(() => { void loadMembers(); }, [serverId, loadMembers]);
+	useEffect(() => { void loadRoles(); }, [serverId, loadRoles]);
 
 	return (
 		<main className="chat-page relative h-svh overflow-hidden bg-(--canvas) text-(--ink)">
@@ -114,6 +119,7 @@ export default function ChatPage() {
 				onLogout={logout}
 				onUpdated={updateUser}
 			/>
+			<ServerSettings open={serverSettingsOpen} onClose={() => setServerSettingsOpen(false)} />
 			<ChatDialogs />
 		</main>
 	);

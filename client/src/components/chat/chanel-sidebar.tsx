@@ -2,7 +2,7 @@ import { useChatStore } from "@/stores/chat-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useShallow } from "zustand/react/shallow";
 import NavButton from "./nav-button";
-import { LogOut, Plus, Settings, UserPlus } from "lucide-react";
+import { LogOut, Plus, Settings, UserPlus, SlidersHorizontal } from "lucide-react";
 import ChannelButton from "./channel-button";
 import { UserAvatar } from "@/components/user-avatar";
 
@@ -18,6 +18,7 @@ export function ChannelSidebar() {
         createInvite,
         leaveServer,
         setSettingsOpen,
+        setServerSettingsOpen,
     } = useChatStore(
         useShallow((state) => ({
             servers: state.servers,
@@ -29,6 +30,7 @@ export function ChannelSidebar() {
             createInvite: state.createInvite,
             leaveServer: state.leaveServer,
             setSettingsOpen: state.setSettingsOpen,
+            setServerSettingsOpen: state.setServerSettingsOpen,
         })),
     );
 
@@ -64,6 +66,8 @@ export function ChannelSidebar() {
                     <NavButton label="Criar convite" onClick={createInviteAction}>
                         <UserPlus />
                     </NavButton>
+
+                    {activeServer?.ownerId === user?.id && <NavButton label="Configurações do servidor" onClick={() => setServerSettingsOpen(true)}><SlidersHorizontal /></NavButton>}
 
                     <NavButton label="Sair do servidor" onClick={handleLeaveServer}>
                         <LogOut />
