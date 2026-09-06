@@ -4,6 +4,7 @@ import {
   createChannel,
   isServerMember,
   listChannels,
+  updateChannelAccess,
 } from "@/infra/database/server-repository";
 import { authenticatedRoutes } from "../plugins/auth";
 import { createChannelBody, serverIdParams, resourceId } from "../schemas";
@@ -17,6 +18,7 @@ const channelParams = t.Object({ serverId: resourceId, channelId: resourceId });
 const renameChannelBody = t.Object({
   name: t.String({ minLength: 2, maxLength: 32, pattern: "^[a-z0-9_-]+$" }),
 });
+const channelAccessBody = t.Object({ roleIds: t.Array(resourceId) });
 
 function normalizeChannelName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, "-");
@@ -80,6 +82,16 @@ export const channelRoutes = new Elysia({ name: "channel-routes" })
       return json({ channel });
     },
     { params: channelParams, body: renameChannelBody },
+  )
+  .patch(
+    "/servers/:serverId/channels/:channelId/access",
+    async ({ currentUser, params, body }) => {
+      if (!(await updateChannelAccess(currentUser.id, params.serverId, params.channelId, body.roleIds)))
+        return error(403, "FORBIDDEN", "Você não pode alterar o acesso deste canal.");
+      revokeChannelSocketAccess(params.channelId);
+      return new Response(null, { status: 204 });
+    },
+    { params: channelParams, body: channelAccessBody },
   )
   .delete(
     "/servers/:serverId/channels/:channelId",

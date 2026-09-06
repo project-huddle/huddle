@@ -21,6 +21,7 @@ import { reportRoutes } from "./routes/reports";
 import { serverInviteRoutes } from "./routes/server-invites";
 import { serverMemberRoutes } from "./routes/server-members";
 import { serverRoutes } from "./routes/servers";
+import { serverRoleRoutes } from "./routes/server-roles";
 import { uploadRoutes } from "./routes/uploads";
 
 export function createHttpApplication(dependencies: {
@@ -35,6 +36,7 @@ export function createHttpApplication(dependencies: {
     .use(accountRoutes)
     .use(accountSecurityRoutes)
     .use(serverRoutes)
+    .use(serverRoleRoutes)
     .use(serverMemberRoutes)
     .use(serverInviteRoutes)
     .use(joinServerRoute(dependencies.joinServer))

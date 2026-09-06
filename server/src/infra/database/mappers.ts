@@ -28,6 +28,7 @@ export type ChatMessage = {
 export type Server = {
   id: string;
   name: string;
+  iconUrl: string | null;
   ownerId: string;
   createdAt: string;
 };
@@ -36,12 +37,14 @@ export type Channel = {
   serverId: string;
   name: string;
   type: "text" | "voice";
+  roleIds: string[];
 };
 export type ServerRole = "owner" | "moderator" | "member";
 export type ServerMember = User & {
   joinedAt: string;
   role: ServerRole;
   isOwner: boolean;
+  roles: { id: string; name: string; color: string; position: number }[];
 };
 export type ServerInvite = {
   code: string;
@@ -71,6 +74,7 @@ export const userView = (user: {
 export const serverView = (server: {
   id: string;
   name: string;
+  iconUrl: string | null;
   ownerId: string;
   createdAt: Date;
 }): Server => ({ ...server, createdAt: server.createdAt.toISOString() });
@@ -79,11 +83,13 @@ export const channelView = (channel: {
   serverId: string;
   name: string;
   type: string;
+  roleAccess?: { roleId: string }[];
 }): Channel => ({
   id: channel.id,
   serverId: channel.serverId,
   name: channel.name,
   type: channel.type === "voice" ? "voice" : "text",
+  roleIds: channel.roleAccess?.map(({ roleId }) => roleId) ?? [],
 });
 
 export function messageView(

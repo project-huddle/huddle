@@ -1,20 +1,17 @@
 import type { Prisma } from "@prisma/client";
 import { db, channelView } from "./mappers";
+import { hasServerPermission } from "./server-repository";
 
-function managedChannel(
+async function managedChannel(
   actorId: string,
   serverId: string,
   channelId: string,
-): Prisma.ChannelWhereInput {
+): Promise<Prisma.ChannelWhereInput> {
+  const canManage = await hasServerPermission(actorId, serverId, "channels.manage");
   return {
     id: channelId,
     serverId,
-    server: {
-      OR: [
-        { ownerId: actorId },
-        { members: { some: { userId: actorId, role: "moderator" } } },
-      ],
-    },
+    ...(canManage ? {} : { id: "__forbidden__" }),
   };
 }
 
@@ -25,7 +22,7 @@ export async function renameChannel(
   name: string,
 ) {
   const channels = await db.channel.updateManyAndReturn({
-    where: managedChannel(actorId, serverId, channelId),
+    where: await managedChannel(actorId, serverId, channelId),
     data: { name },
   });
   const channel = channels[0];
@@ -38,7 +35,7 @@ export async function deleteChannel(
   channelId: string,
 ) {
   const result = await db.channel.deleteMany({
-    where: managedChannel(actorId, serverId, channelId),
+    where: await managedChannel(actorId, serverId, channelId),
   });
   return result.count > 0;
 }

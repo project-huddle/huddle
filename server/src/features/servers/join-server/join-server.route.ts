@@ -25,6 +25,9 @@ export function joinServerRoute(joinServer: JoinServerHandler) {
             "This invite is invalid or expired.",
           );
 
+        if (result.type === "banned")
+          return error(403, "BANNED", "Você está banido deste servidor.");
+
         return json({ server: result.server }, 201);
       },
       { body: joinInviteBody },
