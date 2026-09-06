@@ -2,6 +2,7 @@ import type { ElysiaWS } from "elysia/ws";
 import {
   channelForUser,
   firstChannelForUser,
+  hasServerPermission,
 } from "@/infra/database/server-repository";
 import {
   deleteMessage,
@@ -298,6 +299,12 @@ export const realtimeWebSocket = {
           code: "INVALID_CALL",
           message: "Select an authorized channel before joining a call.",
         });
+      const subscribedChannelId = session(ws).channelId;
+      const callChannel = subscribedChannelId
+        ? await channelForUser(session(ws).user.id, subscribedChannelId)
+        : null;
+      if (!callChannel || !(await hasServerPermission(session(ws).user.id, callChannel.serverId, "voice.connect")))
+        return send(ws, { type: "error", code: "FORBIDDEN", message: "Você não possui permissão para entrar nesta chamada." });
       if (session(ws).callId === callId)
         return send(ws, {
           type: "call_joined",
@@ -337,6 +344,14 @@ export const realtimeWebSocket = {
         "screen_share",
       ].includes(String(event.type))
     ) {
+      if (event.type === "screen_share") {
+        const subscribedChannelId = session(ws).channelId;
+        const currentChannel = subscribedChannelId
+          ? await channelForUser(session(ws).user.id, subscribedChannelId)
+          : null;
+        if (!currentChannel || !(await hasServerPermission(session(ws).user.id, currentChannel.serverId, "voice.screen_share")))
+          return send(ws, { type: "error", code: "FORBIDDEN", message: "Você não possui permissão para compartilhar a tela." });
+      }
       const targetUserId =
         typeof event.targetUserId === "string" ? event.targetUserId : "";
       const key = callKey(ws);

@@ -43,5 +43,9 @@ export function createJoinServerRepository(
         throw cause;
       }
     },
+
+    async isBanned(serverId, userId) {
+      return Boolean(await database.serverBan.findUnique({ where: { serverId_userId: { serverId, userId } }, select: { userId: true } }));
+    },
   };
 }

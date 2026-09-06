@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import type { HuddleChannel, HuddleMember, HuddleServer } from "@/lib/api";
+import type { HuddleChannel, HuddleMember, HuddlePermission, HuddleServer, HuddleServerRole } from "@/lib/api";
 import { api } from "@/lib/api";
 import type { ChatStoreState } from "@/types/chat";
 import { channelNameSchema, inviteCodeSchema, serverNameSchema } from "@/schemas/chat-schema";
@@ -20,6 +20,9 @@ const initialState = {
 	mobileNavOpen: false,
 	socialOpen: false,
 	settingsOpen: false,
+	serverSettingsOpen: false,
+	roles: [],
+	permissions: [],
 	dialog: null,
 	dialogValue: "",
 	inviteUrl: null,
@@ -31,8 +34,9 @@ type ChatActions = Pick<ChatState,
 	| "setReplyTo" | "setCreating" | "setInviteUrl" | "openDialog"
 	| "closeDialog" | "setDialogValue" | "setMobileNavOpen"
 	| "setSocialOpen" | "setSettingsOpen" | "reset"
-	| "loadServers" | "loadChannels" | "loadMembers" | "createServer" | "createChannel"
+	| "setServerSettingsOpen" | "loadServers" | "loadChannels" | "loadMembers" | "loadRoles" | "createRole" | "updateRole" | "deleteRole" | "assignRole" | "updateServer" | "setChannelAccess" | "createServer" | "createChannel"
 	| "joinServer" | "createInvite" | "leaveServer" | "changeMemberRole" | "removeMember" | "clearError"
+	| "banMember"
 >;
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -43,7 +47,7 @@ export const useChatStore = create<ChatState>((set) => ({
 	setServerId: (value) => set((state) => {
 		const serverId = typeof value === "function" ? value(state.serverId) : value;
 		if (serverId === state.serverId) return state;
-		return { serverId, channels: [], members: [], channelId: "", replyTo: null };
+		return { serverId, channels: [], members: [], roles: [], permissions: [], channelId: "", replyTo: null };
 	}),
 	setChannelId: (value) => set((state) => ({ channelId: typeof value === "function" ? value(state.channelId) : value })),
 	setReplyTo: (replyTo) => set({ replyTo }),
@@ -55,6 +59,7 @@ export const useChatStore = create<ChatState>((set) => ({
 	setMobileNavOpen: (mobileNavOpen) => set({ mobileNavOpen }),
 	setSocialOpen: (socialOpen) => set({ socialOpen }),
 	setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+	setServerSettingsOpen: (serverSettingsOpen) => set({ serverSettingsOpen }),
 	reset: () => set(initialState),
 	clearError: () => set({ error: null }),
 	loadServers: async () => {
@@ -101,6 +106,75 @@ export const useChatStore = create<ChatState>((set) => ({
 		catch {
 			set((state) => state.serverId === serverId ? { members: [], membersServerId: "" } : state);
 		}
+	},
+	loadRoles: async () => {
+		const { serverId } = useChatStore.getState();
+		if (!serverId) return;
+		try {
+			const { token } = credentials();
+			const [{ roles }, { permissions }] = await Promise.all([
+				api<{ roles: HuddleServerRole[] }>(`/servers/${serverId}/roles`, {}, token),
+				api<{ permissions: HuddlePermission[] }>("/permissions", {}, token),
+			]);
+			set((state) => state.serverId === serverId ? { roles, permissions } : state);
+		} catch (cause) {
+			set({ error: message(cause, "Não foi possível carregar os cargos.") });
+		}
+	},
+	createRole: async (input) => {
+		const { serverId } = useChatStore.getState();
+		if (!serverId) return;
+		try {
+			const { token } = credentials();
+			const { role } = await api<{ role: HuddleServerRole }>(`/servers/${serverId}/roles`, { method: "POST", body: JSON.stringify(input) }, token);
+			set((state) => ({ roles: [...state.roles, role], error: null }));
+		} catch (cause) { set({ error: message(cause, "Não foi possível criar o cargo.") }); }
+	},
+	updateRole: async (roleId, input) => {
+		const { serverId } = useChatStore.getState();
+		if (!serverId) return;
+		try {
+			const { token } = credentials();
+			const { role } = await api<{ role: HuddleServerRole }>(`/servers/${serverId}/roles/${roleId}`, { method: "PATCH", body: JSON.stringify(input) }, token);
+			set((state) => ({ roles: state.roles.map((item) => item.id === roleId ? role : item), error: null }));
+		} catch (cause) { set({ error: message(cause, "Não foi possível salvar o cargo.") }); }
+	},
+	deleteRole: async (roleId) => {
+		const { serverId } = useChatStore.getState();
+		if (!serverId) return;
+		try {
+			const { token } = credentials();
+			await api(`/servers/${serverId}/roles/${roleId}`, { method: "DELETE" }, token);
+			set((state) => ({ roles: state.roles.filter(({ id }) => id !== roleId), error: null }));
+		} catch (cause) { set({ error: message(cause, "Não foi possível excluir o cargo.") }); }
+	},
+	assignRole: async (memberId, roleId, assign) => {
+		const { serverId } = useChatStore.getState();
+		if (!serverId) return;
+		try {
+			const { token } = credentials();
+			const path = `/servers/${serverId}/members/${memberId}/roles/${roleId}`;
+			await api(path, { method: assign ? "PUT" : "DELETE" }, token);
+			await useChatStore.getState().loadMembers();
+		} catch (cause) { set({ error: message(cause, "Não foi possível atualizar os cargos do membro.") }); }
+	},
+	updateServer: async (input) => {
+		const { serverId } = useChatStore.getState();
+		if (!serverId) return;
+		try {
+			const { token } = credentials();
+			const { server } = await api<{ server: HuddleServer }>(`/servers/${serverId}`, { method: "PATCH", body: JSON.stringify(input) }, token);
+			set((state) => ({ servers: state.servers.map((item) => item.id === server.id ? server : item), error: null }));
+		} catch (cause) { set({ error: message(cause, "Não foi possível atualizar o servidor.") }); }
+	},
+	setChannelAccess: async (channelId, roleIds) => {
+		const { serverId } = useChatStore.getState();
+		if (!serverId) return;
+		try {
+			const { token } = credentials();
+			await api(`/servers/${serverId}/channels/${channelId}/access`, { method: "PATCH", body: JSON.stringify({ roleIds }) }, token);
+			await useChatStore.getState().loadChannels();
+		} catch (cause) { set({ error: message(cause, "Não foi possível atualizar o acesso do canal.") }); }
 	},
 	createServer: async (raw) => {
 		const parsed = serverNameSchema.safeParse(raw);
@@ -232,5 +306,14 @@ export const useChatStore = create<ChatState>((set) => ({
 		catch (cause) {
 			set({ error: message(cause, "Não foi possível remover o membro.") });
 		}
+	},
+	banMember: async (member) => {
+		const { serverId } = useChatStore.getState();
+		if (!serverId || member.isOwner) return;
+		try {
+			const { token } = credentials();
+			await api(`/servers/${serverId}/members/${member.id}/ban`, { method: "POST", body: JSON.stringify({}) }, token);
+			set((state) => ({ members: state.members.filter(({ id }) => id !== member.id) }));
+		} catch (cause) { set({ error: message(cause, "Não foi possível banir o membro.") }); }
 	},
 }));
