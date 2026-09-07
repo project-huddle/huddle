@@ -35,7 +35,7 @@ type ChatActions = Pick<ChatState,
 	| "closeDialog" | "setDialogValue" | "setMobileNavOpen"
 	| "setSocialOpen" | "setSettingsOpen" | "reset"
 	| "setServerSettingsOpen" | "loadServers" | "loadChannels" | "loadMembers" | "loadRoles" | "createRole" | "updateRole" | "deleteRole" | "assignRole" | "updateServer" | "setChannelAccess" | "createServer" | "createChannel"
-	| "joinServer" | "createInvite" | "leaveServer" | "changeMemberRole" | "removeMember" | "clearError"
+	| "joinServer" | "createInvite" | "leaveServer" | "removeMember" | "clearError"
 	| "banMember"
 >;
 
@@ -281,20 +281,6 @@ export const useChatStore = create<ChatState>((set) => ({
 		}
 		catch (cause) {
 			set({ error: message(cause, "Não foi possível sair do servidor.") });
-		}
-	},
-	changeMemberRole: async (member) => {
-		const { serverId, servers } = useChatStore.getState();
-		const active = servers.find(({ id }) => id === serverId);
-		const { token, user } = credentials();
-		if (!serverId || active?.ownerId !== user.id || member.isOwner) return;
-		const role = member.role === "moderator" ? "member" : "moderator";
-		try {
-			await api(`/servers/${serverId}/members/${member.id}`, { method: "PATCH", body: JSON.stringify({ role }) }, token);
-			set((state) => ({ members: state.members.map((item) => item.id === member.id ? { ...item, role } : item) }));
-		}
-		catch (cause) {
-			set({ error: message(cause, "Não foi possível alterar o cargo.") });
 		}
 	},
 	removeMember: async (member) => {

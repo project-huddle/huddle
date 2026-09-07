@@ -46,6 +46,7 @@ const rolePermissions: Record<Role, readonly Permission[]> = {
   moderator: [
     "channels.create",
     "channels.manage",
+    "channels.delete",
     "invites.create",
     "messages.moderate",
     "reports.review",
