@@ -144,6 +144,8 @@ export function useRealtimeConnection(options: Options) {
 					}
 					if (event.type === "call_joined") {
 						if (callLifecycle.current !== "joining") return;
+						setJoining(false);
+						setInCall(true);
 						const snapshots = (event.peers as Array<{ user: User; muted?: boolean; serverMuted?: boolean }>) ?? [];
 						const users = Array.from(new Map(snapshots.map(({ user }) => [user.id, user])).values());
 						users.forEach((user) => peerUsers.current.set(user.id, user));
@@ -160,8 +162,6 @@ export function useRealtimeConnection(options: Options) {
 								speaking: false,
 							})),
 						);
-						setJoining(false);
-						setInCall(true);
 						callLifecycle.current = "active";
 					}
 					if (event.type === "peer_joined") {

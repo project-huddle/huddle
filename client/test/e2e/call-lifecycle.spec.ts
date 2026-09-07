@@ -113,6 +113,7 @@ test.describe("call lifecycle", () => {
 
 			await page.getByRole("button", { name: "geral" }).click();
 			await expect(page.locator("textarea")).toBeEnabled();
+			await expect(page.getByText("Chamada ativa")).toBeVisible();
 
 			await page.getByRole("button", { name: "Criar canal" }).click();
 			const secondVoiceDialog = page.getByRole("dialog", { name: "Criar canal" });

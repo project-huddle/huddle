@@ -58,7 +58,10 @@ export default function ChatPage() {
 	useEffect(() => {
 		if (previousChannelId.current === channelId) return;
 		previousChannelId.current = channelId;
-		const nextCallChannelId = activeChannel?.type === "voice" ? channelId : "";
+		// Text channels are browsable while the active voice call remains connected.
+		// Only changing to another voice channel requires moving the call session.
+		if (activeChannel?.type !== "voice") return;
+		const nextCallChannelId = channelId;
 		if (callChannelId === nextCallChannelId) return;
 		const requestId = ++callSwitchRequest.current;
 		void (async () => {

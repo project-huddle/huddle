@@ -15,6 +15,7 @@ import { useRealtimeConnection } from "@/hooks/use-realtime-connection";
 import { mediaErrorMessage, rtcConfig } from "@/lib/realtime";
 import { useAuthStore } from "@/stores/auth-store";
 import { readMediaDevicePreferences, writeMediaDevicePreferences } from "@/lib/media-devices";
+import { unlockCallSounds } from "@/lib/call-sounds";
 
 
 export function useRealtime(token: string, channelId: string, channelType: HuddleChannel["type"] = "text") {
@@ -38,6 +39,11 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 	const pendingLeave = useRef<Promise<void> | null>(null);
 	const resolvePendingLeave = useRef<(() => void) | null>(null);
 	const leaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const joinTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const joiningRef = useRef(false);
+	const inCallRef = useRef(false);
+	joiningRef.current = joining;
+	inCallRef.current = inCall;
 
 	const send = useCallback((event: object) => {
 		if (socketRef.current?.readyState !== WebSocket.OPEN) return false;
@@ -171,6 +177,10 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 
 	const closeCall = useCallback(
 		(notifyServer: boolean) => {
+			if (joinTimeout.current) clearTimeout(joinTimeout.current);
+			joinTimeout.current = null;
+			joiningRef.current = false;
+			inCallRef.current = false;
 			callAttempt.current += 1;
 			callLifecycle.current = "idle";
 			if (notifyServer) send({ type: "leave_call" });
@@ -198,13 +208,15 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 	);
 
 	const joinCall = useCallback(async () => {
-		if (joining || inCall || callLifecycle.current !== "idle") return;
+		if (joiningRef.current || inCallRef.current || callLifecycle.current !== "idle") return;
+		unlockCallSounds();
 		setError(null);
 		setCameraOff(true);
 		setMuted(false);
 		const attempt = callAttempt.current + 1;
 		callAttempt.current = attempt;
 		callLifecycle.current = "joining";
+		joiningRef.current = true;
 		setJoining(true);
 		try {
 			if (!navigator.mediaDevices?.getUserMedia)
@@ -234,13 +246,19 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 				setLocalMediaStream(null);
 				throw new Error("WebSocket is not connected");
 			}
+			joinTimeout.current = setTimeout(() => {
+				if (callLifecycle.current !== "joining") return;
+				closeCall(false);
+				setError("A chamada demorou para responder. Tente entrar novamente.");
+			}, 10_000);
 		} catch (cause) {
 			if (callAttempt.current !== attempt) return;
 			callLifecycle.current = "idle";
+			joiningRef.current = false;
 			setJoining(false);
 			setError(mediaErrorMessage(cause, "microphone"));
 		}
-	}, [channelId, inCall, joining, send, setCameraOff, setError, setJoining, setLocalMediaStream, setMuted]);
+	}, [channelId, closeCall, send, setCameraOff, setError, setJoining, setLocalMediaStream, setMuted]);
 
 	useRealtimeConnection({
 		token, channelId, channelType, socketRef, peerUsers, displayStream, remoteSharing,

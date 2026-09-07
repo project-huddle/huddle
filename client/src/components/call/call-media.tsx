@@ -35,14 +35,15 @@ export function AudioOutput({ stream, volume = 1, muted = false, onSpeaking }: {
 	speakingRef.current = onSpeaking;
 	useEffect(() => {
 		const audio = ref.current;
-		if (!audio) return;
+		if (!audio || !stream || stream.getAudioTracks().length === 0) return;
 		const context = new AudioContext();
-		const source = context.createMediaElementSource(audio);
+		const source = context.createMediaStreamSource(stream);
 		const gain = context.createGain();
 		gainRef.current = gain;
 		source.connect(gain).connect(context.destination);
 		audio.srcObject = stream;
-		if (stream) void audio.play().catch(() => undefined);
+		audio.muted = true;
+		void context.resume().catch(() => undefined);
 		void applyAudioOutput(audio, readMediaDevicePreferences().audioOutputDeviceId);
 		const updateOutput = () => void applyAudioOutput(audio, readMediaDevicePreferences().audioOutputDeviceId);
 		window.addEventListener("huddle-audio-output-change", updateOutput);
