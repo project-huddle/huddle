@@ -124,7 +124,7 @@ export function useRealtimeConnection(options: Options) {
 						}
 					}
 					if (event.type === "voice_presence" && typeof event.channelId === "string")
-						useChatStore.getState().setVoiceUsers(event.channelId, (event.users as User[]) ?? []);
+						useChatStore.getState().setVoiceUsers(event.channelId, (event.users as User[]) ?? [], typeof event.revision === "number" ? event.revision : 0);
 					if (event.type === "call_left") {
 						callLeftHandlerRef.current?.();
 					}

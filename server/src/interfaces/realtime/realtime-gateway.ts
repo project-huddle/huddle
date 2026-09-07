@@ -29,6 +29,7 @@ type WsMessage = Record<string, unknown> & { type?: unknown };
 
 const socketsByUser = new Map<string, Set<RealtimeSocket>>();
 const calls = new Map<string, Set<RealtimeSocket>>();
+const voicePresenceRevisions = new Map<string, number>();
 const websocketTickets = new Map<string, { expiresAt: number; user: User }>();
 const sessions = new WeakMap<object, SocketSession>();
 
@@ -60,6 +61,12 @@ function broadcastChannel(channelId: string, value: unknown): void {
 function broadcastServer(serverId: string, value: unknown): void {
   for (const sockets of socketsByUser.values()) for (const socket of sockets)
     if (session(socket).serverId === serverId) send(socket, value);
+}
+
+function broadcastVoicePresence(channelId: string, serverId: string, users: RealtimeSocket[]): void {
+  const revision = (voicePresenceRevisions.get(channelId) ?? 0) + 1;
+  voicePresenceRevisions.set(channelId, revision);
+  broadcastServer(serverId, { type: "voice_presence", channelId, revision, users: users.map((peer) => session(peer).user) });
 }
 
 export function notifyUser(userId: string, value: unknown): void {
@@ -314,7 +321,7 @@ export const realtimeWebSocket = {
       session(ws).serverId = channel.serverId;
       for (const peers of calls.values()) {
         const active = [...peers].filter((peer) => session(peer).channelId === channelId);
-        if (active.length) send(ws, { type: "voice_presence", channelId, users: active.map((peer) => session(peer).user) });
+        if (active.length) send(ws, { type: "voice_presence", channelId, revision: voicePresenceRevisions.get(channelId) ?? 0, users: active.map((peer) => session(peer).user) });
       }
       return send(ws, { type: "channel_subscribed", channelId });
     }
@@ -361,14 +368,15 @@ export const realtimeWebSocket = {
       for (const peer of peers)
         if (peer !== ws)
           send(peer, { type: "peer_joined", callId, user: session(ws).user, muted: session(ws).muted || session(ws).serverMuted, serverMuted: session(ws).serverMuted });
-      broadcastServer(session(ws).serverId!, { type: "voice_presence", channelId: session(ws).channelId, users: [...peers].map((peer) => session(peer).user) });
+      broadcastVoicePresence(session(ws).channelId!, session(ws).serverId!, [...peers]);
       return;
     }
     if (event.type === "leave_call") {
       const callId = session(ws).callId;
       const serverId = session(ws).serverId;
+      const channelId = session(ws).channelId;
       leaveCall(ws, true);
-      if (serverId) broadcastServer(serverId, { type: "voice_presence", channelId: session(ws).channelId, users: [...(calls.get(`${session(ws).channelId}:${callId}`) ?? [])].map((peer) => session(peer).user) });
+      if (serverId && channelId) broadcastVoicePresence(channelId, serverId, [...(calls.get(`${channelId}:${callId}`) ?? [])]);
       return send(ws, { type: "call_left", callId });
     }
     if (event.type === "participant_mute") {

@@ -230,10 +230,18 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 				autoGainControl: true,
 			};
 			const preferences = readMediaDevicePreferences();
-			const stream = await navigator.mediaDevices.getUserMedia({
-				audio: preferences.audioInputDeviceId ? { ...audio, deviceId: { exact: preferences.audioInputDeviceId } } : audio,
-				video: false,
-			});
+			let stream: MediaStream;
+			try {
+				stream = await navigator.mediaDevices.getUserMedia({
+					audio: preferences.audioInputDeviceId ? { ...audio, deviceId: { exact: preferences.audioInputDeviceId } } : audio,
+					video: false,
+				});
+			} catch (cause) {
+				if (preferences.audioInputDeviceId && cause instanceof DOMException && cause.name === "OverconstrainedError") {
+					writeMediaDevicePreferences({ ...preferences, audioInputDeviceId: null });
+					stream = await navigator.mediaDevices.getUserMedia({ audio, video: false });
+				} else throw cause;
+			}
 			if (callAttempt.current !== attempt || callLifecycle.current !== "joining") {
 				stream.getTracks().forEach((track) => track.stop());
 				return;
@@ -349,15 +357,16 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 		setError(null);
 		try {
 			const videoDeviceId = readMediaDevicePreferences().videoInputDeviceId;
-			const cameraStream = await navigator.mediaDevices.getUserMedia({
-				video: {
-					width: { ideal: 1280 },
-					height: { ideal: 720 },
-					facingMode: "user",
-					...(videoDeviceId ? { deviceId: { exact: videoDeviceId } } : {}),
-				},
-				audio: false,
-			});
+			const cameraConstraints = { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user", ...(videoDeviceId ? { deviceId: { exact: videoDeviceId } } : {}) };
+			let cameraStream: MediaStream;
+			try {
+				cameraStream = await navigator.mediaDevices.getUserMedia({ video: cameraConstraints, audio: false });
+			} catch (cause) {
+				if (videoDeviceId && cause instanceof DOMException && cause.name === "OverconstrainedError") {
+					writeMediaDevicePreferences({ ...readMediaDevicePreferences(), videoInputDeviceId: null });
+					cameraStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }, audio: false });
+				} else throw cause;
+			}
 			const track = cameraStream.getVideoTracks()[0];
 			if (!track) throw new DOMException("No camera track", "NotFoundError");
 			stream.addTrack(track);

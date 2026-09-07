@@ -27,6 +27,7 @@ export type ChatStoreState = {
 	inviteUrl: string | null;
 	error: string | null;
 	voiceUsers: Record<string, User[]>;
+	voicePresenceRevisions: Record<string, number>;
 	setServers: (value: SetStateAction<HuddleServer[]>) => void;
 	setChannels: (value: SetStateAction<HuddleChannel[]>) => void;
 	setMembers: (value: SetStateAction<HuddleMember[]>) => void;
@@ -61,5 +62,5 @@ export type ChatStoreState = {
 	removeMember: (member: HuddleMember) => Promise<void>;
 	banMember: (member: HuddleMember) => Promise<void>;
 	clearError: () => void;
-	setVoiceUsers: (channelId: string, users: User[]) => void;
+	setVoiceUsers: (channelId: string, users: User[], revision?: number) => void;
 };

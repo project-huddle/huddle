@@ -28,6 +28,7 @@ const initialState = {
 	inviteUrl: null,
 	error: null,
 	voiceUsers: {},
+	voicePresenceRevisions: {},
 } satisfies Omit<ChatState, keyof ChatActions>;
 
 type ChatActions = Pick<ChatState,
@@ -63,7 +64,10 @@ export const useChatStore = create<ChatState>((set) => ({
 	setServerSettingsOpen: (serverSettingsOpen) => set({ serverSettingsOpen }),
 	reset: () => set(initialState),
 	clearError: () => set({ error: null }),
-	setVoiceUsers: (channelId: string, users: User[]) => set((state) => ({ voiceUsers: { ...state.voiceUsers, [channelId]: users } })),
+	setVoiceUsers: (channelId: string, users: User[], revision = 0) => set((state) => {
+		if (revision < (state.voicePresenceRevisions[channelId] ?? 0)) return state;
+		return { voiceUsers: { ...state.voiceUsers, [channelId]: users }, voicePresenceRevisions: { ...state.voicePresenceRevisions, [channelId]: revision } };
+	}),
 	loadServers: async () => {
 		try {
 			const { token } = credentials();

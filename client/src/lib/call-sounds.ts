@@ -7,9 +7,13 @@ let callSoundContext: AudioContext | null = null;
 
 function getCallSoundContext() {
 	if (callSoundContext) return callSoundContext;
-	const AudioContextConstructor = window.AudioContext;
-	if (!AudioContextConstructor) return null;
-	callSoundContext = new AudioContextConstructor();
+	try {
+		const AudioContextConstructor = window.AudioContext;
+		if (!AudioContextConstructor) return null;
+		callSoundContext = new AudioContextConstructor();
+	} catch {
+		return null;
+	}
 	return callSoundContext;
 }
 
