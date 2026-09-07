@@ -1,4 +1,4 @@
-import { Check, MessageCircle, UserPlus } from "lucide-react";
+import { Check, Copy, MessageCircle, UserPlus } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { UserAvatar } from "@/components/user-avatar";
 import type { User } from "@/lib/api";
@@ -17,7 +17,7 @@ export function SocialHub({
 	onClose: () => void;
 }) {
 	const { friendships, email, setEmail, selected, messages, draft, setDraft, status,
-		addFriend, accept, openConversation, send } = useSocialHub(token, open);
+		addFriend, accept, openConversation, send, copyFriendLink } = useSocialHub(token, open);
 	return (
 		<Modal
 			open={open}
@@ -30,11 +30,12 @@ export function SocialHub({
 				<aside className="border-r border-(--line) pr-4">
 					<form onSubmit={addFriend} className="flex gap-2">
 						<input
-							type="email"
+							type="text"
 							required
 							value={email}
 							onChange={(event) => setEmail(event.target.value)}
-							placeholder="E-mail da pessoa"
+							placeholder="E-mail ou link de amizade"
+							aria-label="E-mail ou link de amizade"
 							className="min-w-0 flex-1 rounded-xl border border-(--line) bg-(--surface) px-3"
 						/>
 						<button
@@ -44,6 +45,13 @@ export function SocialHub({
 							<UserPlus className="size-4" />
 						</button>
 					</form>
+					<button
+						type="button"
+						onClick={() => void copyFriendLink()}
+						className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-(--line) px-3 py-2 text-xs font-bold"
+					>
+						<Copy className="size-3.5" /> Copiar meu link de amizade
+					</button>
 					{status && (
 						<p className="mt-2 text-xs text-(--muted-text)">
 							{status}

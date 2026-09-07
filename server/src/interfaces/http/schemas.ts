@@ -9,6 +9,10 @@ export const serverMemberParams = t.Object({
 export const userIdParams = t.Object({ userId: resourceId });
 
 export const emailBody = t.Object({ email: t.String() });
+export const friendBody = t.Object({
+  identifier: t.Optional(t.String()),
+  email: t.Optional(t.String()),
+});
 export const createServerBody = t.Object({ name: t.String() });
 export const createChannelBody = t.Object({
   name: t.String(),
