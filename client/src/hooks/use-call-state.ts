@@ -12,6 +12,7 @@ type CallState = {
 	localMediaStream: MediaStream | null;
 	localDisplayStream: MediaStream | null;
 	peers: RealtimePeer[];
+	serverMuted: boolean;
 };
 
 const initialState: CallState = {
@@ -23,6 +24,7 @@ const initialState: CallState = {
 	localMediaStream: null,
 	localDisplayStream: null,
 	peers: [],
+	serverMuted: false,
 };
 
 type Action = { [Key in keyof CallState]: { key: Key; value: SetStateAction<CallState[Key]> } }[keyof CallState];
@@ -49,6 +51,7 @@ export function useCallState() {
 		setLocalMediaStream: setter("localMediaStream"),
 		setLocalDisplayStream: setter("localDisplayStream"),
 		setPeers: setter("peers"),
+		setServerMuted: setter("serverMuted"),
 	}), [setter]);
 
 	return { ...state, ...actions };

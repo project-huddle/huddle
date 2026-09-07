@@ -19,6 +19,7 @@ export function ChannelSidebar() {
         leaveServer,
         setSettingsOpen,
         setServerSettingsOpen,
+        voiceUsers,
     } = useChatStore(
         useShallow((state) => ({
             servers: state.servers,
@@ -31,6 +32,7 @@ export function ChannelSidebar() {
             leaveServer: state.leaveServer,
             setSettingsOpen: state.setSettingsOpen,
             setServerSettingsOpen: state.setServerSettingsOpen,
+            voiceUsers: state.voiceUsers,
         })),
     );
 
@@ -118,6 +120,7 @@ export function ChannelSidebar() {
                         active={channel.id === channelId}
                         type={channel.type}
                         onSelect={selectChannel}
+                        voiceUsers={voiceUsers[channel.id]}
                     />
                 ))}
             </div>

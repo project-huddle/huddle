@@ -117,6 +117,7 @@ export function ChatConversation({ onLeaveCall, realtime }: ChatConversationProp
 							user={user}
 							peers={realtime.peers}
 							muted={realtime.muted}
+							serverMuted={realtime.serverMuted}
 							cameraOff={realtime.cameraOff}
 							sharing={realtime.sharing}
 							localMediaStream={realtime.localMediaStream}
@@ -124,6 +125,8 @@ export function ChatConversation({ onLeaveCall, realtime }: ChatConversationProp
 							onToggleMute={realtime.toggleMute}
 							onToggleCamera={realtime.toggleCamera}
 							onToggleShare={realtime.toggleShare}
+							onMuteParticipant={realtime.muteParticipant}
+							onChangeDevice={realtime.changeDevice}
 							onLeave={onLeaveCall}
 						/>
 					) : (

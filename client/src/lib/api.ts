@@ -21,6 +21,9 @@ export type UserProfile = User & {
 	emailVerifiedAt: string | null;
 	countryCode: string | null;
 	twoFactorEnabled: boolean;
+	audioInputDeviceId: string | null;
+	audioOutputDeviceId: string | null;
+	videoInputDeviceId: string | null;
 };
 
 export type ChatMessage = {

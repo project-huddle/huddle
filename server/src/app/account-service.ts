@@ -10,6 +10,9 @@ const publicUserSelect = {
   emailVerifiedAt: true,
   countryCode: true,
   twoFactorEnabled: true,
+  audioInputDeviceId: true,
+  audioOutputDeviceId: true,
+  videoInputDeviceId: true,
 } satisfies Prisma.UserSelect;
 
 type PublicProfileRow = Prisma.UserGetPayload<{
@@ -20,6 +23,9 @@ export type UpdateProfileInput = {
   displayName?: string;
   avatarUrl?: string | null;
   countryCode?: string;
+  audioInputDeviceId?: string | null;
+  audioOutputDeviceId?: string | null;
+  videoInputDeviceId?: string | null;
 };
 export type UpdateProfileResult =
   | { type: "success"; profile: ProfileView }
@@ -66,6 +72,10 @@ export async function updateProfile(
   if (countryCode !== undefined && !/^[A-Z]{2}$/.test(countryCode))
     return { type: "invalid-country" };
 
+  const deviceIds = [input.audioInputDeviceId, input.audioOutputDeviceId, input.videoInputDeviceId];
+  if (deviceIds.some((value) => value !== undefined && value !== null && (typeof value !== "string" || value.length > 512)))
+    return { type: "conflict" };
+
   const profile = await db.user
     .update({
       where: { id: userId },
@@ -73,6 +83,9 @@ export async function updateProfile(
         displayName,
         avatarUrl,
         countryCode,
+        audioInputDeviceId: input.audioInputDeviceId,
+        audioOutputDeviceId: input.audioOutputDeviceId,
+        videoInputDeviceId: input.videoInputDeviceId,
       },
       select: publicUserSelect,
     })

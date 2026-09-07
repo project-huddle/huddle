@@ -11,6 +11,9 @@ const profileBody = t.Object({
   displayName: t.Optional(t.String()),
   avatarUrl: t.Optional(t.Union([t.String(), t.Null()])),
   countryCode: t.Optional(t.String()),
+  audioInputDeviceId: t.Optional(t.Union([t.String(), t.Null()])),
+  audioOutputDeviceId: t.Optional(t.Union([t.String(), t.Null()])),
+  videoInputDeviceId: t.Optional(t.Union([t.String(), t.Null()])),
 });
 
 function profileError(
