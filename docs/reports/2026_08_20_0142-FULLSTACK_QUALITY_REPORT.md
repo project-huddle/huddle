@@ -29,12 +29,12 @@ A migração `20260820000000_message_reactions` adiciona a tabela normalizada se
 
 - `server/src/index.ts`: tickets descartáveis e revogação imediata de sockets sem acesso;
 - `server/src/database.ts`: persistência e agregação de reações por usuário;
-- `server/src/index.test.ts`: regressões para ticket, replay, reações independentes e remoção de acesso;
+- `server/test/interfaces/http/application.integration.test.ts`: regressões para ticket, replay, reações independentes e remoção de acesso;
 - `server/prisma/schema.prisma` e nova migração: modelo `MessageReaction`;
 - `client/src/hooks/use-realtime.ts`: obtenção do ticket, áudio sem câmera, classificação e limpeza de tracks;
 - `client/src/components/ui/modal.tsx`: focus trap;
 - `client/src/lib/api.ts`: URL WebSocket com ticket;
-- `client/e2e/mobile-chat.spec.ts`: edição por modal;
+- `client/test/e2e/mobile-chat.spec.ts`: edição por modal;
 - `client/src/components/ui/button.tsx`: remoção do export auxiliar não utilizado.
 
 ## Validações executadas

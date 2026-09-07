@@ -90,7 +90,9 @@ export const useChatStore = create<ChatState>((set) => ({
 			});
 		}
 		catch (cause) {
-			set({ error: message(cause, "Não foi possível carregar os canais.") });
+			set((state) => state.serverId === serverId
+				? { channels: [], channelId: "", error: message(cause, "Você não possui permissão para visualizar os canais.") }
+				: state);
 		}
 	},
 	loadMembers: async () => {

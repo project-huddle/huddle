@@ -34,7 +34,11 @@ export const serverRoleRoutes = new Elysia({ name: "server-role-routes" })
     return json({ role }, 201);
   }, { params: serverIdParams, body: roleBody })
   .patch("/servers/:serverId/roles/:roleId", async ({ currentUser, params, body }) => {
-    const role = await updateRole(currentUser.id, params.serverId, params.roleId, body);
+    const role = await updateRole(currentUser.id, params.serverId, params.roleId, {
+      name: body.name,
+      color: body.color,
+      permissionKeys: body.permissions,
+    });
     if (!role) return error(403, "FORBIDDEN", "Você não pode editar este cargo.");
     return json({ role });
   }, { params: roleParams, body: roleUpdateBody })

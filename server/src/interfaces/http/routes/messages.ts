@@ -29,7 +29,7 @@ export const messageRoutes = new Elysia({ name: "message-routes" })
       const channelId = query.channelId || fallbackChannel?.id || "";
       const channel = await channelForUser(currentUser.id, channelId);
       if (!channel)
-        return error(403, "FORBIDDEN", "You cannot access this channel.");
+        return error(403, "FORBIDDEN", "Você não possui permissão para acessar este canal.");
       if (channel.type === "voice")
         return error(400, "INVALID_CHANNEL", "Voice channels do not contain messages.");
       if (query.before && Number.isNaN(Date.parse(query.before)))

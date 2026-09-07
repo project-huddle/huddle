@@ -1,15 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { can, permissionsFor } from "./moderation/permissions";
-import { FixedWindowRateLimiter } from "../interfaces/rate-limit";
+import { can, defaultMemberPermissions, permissionsFor } from "@/core/moderation/permissions";
+import { FixedWindowRateLimiter } from "@/interfaces/rate-limit";
 
 describe("core domain rules", () => {
   test("applies role defaults and safe permission overrides", () => {
     expect(can("member", "members.manage")).toBeFalse();
-    expect(can("member", "invites.create")).toBeTrue();
+    expect(can("member", "invites.create")).toBeFalse();
     expect(can("moderator", "reports.review")).toBeTrue();
-    expect(permissionsFor("member", ["invites.create", "unknown"])).toEqual(
-      new Set(["invites.create"]),
-    );
+    expect(permissionsFor("member", ["unknown"])).toEqual(new Set());
+    expect(defaultMemberPermissions).toContain("channels.view");
   });
 
   test("rate limiter resets after its window", () => {

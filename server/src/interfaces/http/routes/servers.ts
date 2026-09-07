@@ -40,7 +40,7 @@ export const serverRoutes = new Elysia({ name: "server-routes" })
     async ({ currentUser, params }) => {
       const server = await serverForUser(currentUser.id, params.serverId);
       if (!server)
-        return error(403, "FORBIDDEN", "You are not a member of this server.");
+        return error(403, "FORBIDDEN", "Você não pertence a este servidor.");
       return json({ server });
     },
     { params: serverIdParams },
