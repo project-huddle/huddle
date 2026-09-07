@@ -39,6 +39,14 @@ function send(ws: RealtimeSocket, value: unknown): void {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(value));
 }
 
+function sdpSendsMedia(sdp: unknown, media: "audio" | "video"): boolean {
+  if (!sdp || typeof sdp !== "object" || !("sdp" in sdp) || typeof sdp.sdp !== "string") return false;
+  const section = sdp.sdp.split(/\r?\nm=/).find((item) => item.startsWith(`${media} `));
+  if (!section) return false;
+  const direction = section.match(/(?:^|\r?\n)(sendrecv|sendonly|recvonly|inactive)(?:\r?\n|$)/)?.[1];
+  return direction === undefined || direction === "sendrecv" || direction === "sendonly";
+}
+
 function broadcastChannel(channelId: string, value: unknown): void {
   for (const sockets of socketsByUser.values()) {
     for (const socket of sockets)
@@ -195,7 +203,7 @@ export const realtimeWebSocket = {
         return send(ws, {
           type: "error",
           code: "FORBIDDEN",
-          message: "You cannot access this channel.",
+          message: "Você não possui permissão para acessar este canal.",
         });
       if (channel.type === "voice")
         return send(ws, {
@@ -203,6 +211,8 @@ export const realtimeWebSocket = {
           code: "INVALID_CHANNEL",
           message: "Voice channels do not contain messages.",
         });
+      if (!(await hasServerPermission(session(ws).user.id, channel.serverId, "messages.send")))
+        return send(ws, { type: "error", code: "FORBIDDEN", message: "Você não possui permissão para enviar mensagens." });
       const content = messageContent(event.content, true);
       const media = messageMedia(event.media);
       if (content === null || (!content && !media))
@@ -242,6 +252,8 @@ export const realtimeWebSocket = {
           message: "Message not found.",
         });
       let message = null;
+      const targetChannel = await channelForUser(session(ws).user.id, target.channelId);
+      const canModerate = Boolean(targetChannel && await hasServerPermission(session(ws).user.id, targetChannel.serverId, "messages.moderate"));
       if (event.type === "edit_message") {
         const content = messageContent(event.content);
         if (!content)
@@ -250,9 +262,9 @@ export const realtimeWebSocket = {
             code: "INVALID_MESSAGE",
             message: "Message content is invalid.",
           });
-        message = await editMessage(session(ws).user.id, messageId, content);
+        message = await editMessage(session(ws).user.id, messageId, content, canModerate);
       } else if (event.type === "delete_message")
-        message = await deleteMessage(session(ws).user.id, messageId);
+        message = await deleteMessage(session(ws).user.id, messageId, canModerate);
       else
         message =
           typeof event.emoji === "string"
@@ -280,7 +292,7 @@ export const realtimeWebSocket = {
         return send(ws, {
           type: "error",
           code: "FORBIDDEN",
-          message: "You cannot access this channel.",
+          message: "Você não possui permissão para acessar este canal.",
         });
       leaveCall(ws);
       session(ws).channelId = channelId;
@@ -344,11 +356,19 @@ export const realtimeWebSocket = {
         "screen_share",
       ].includes(String(event.type))
     ) {
+      const subscribedChannelId = session(ws).channelId;
+      const currentChannel = subscribedChannelId
+        ? await channelForUser(session(ws).user.id, subscribedChannelId)
+        : null;
+      if (!currentChannel)
+        return send(ws, { type: "error", code: "FORBIDDEN", message: "Você não possui acesso a este canal." });
+      if (event.type === "webrtc_offer" || event.type === "webrtc_answer") {
+        if (sdpSendsMedia(event.sdp, "audio") && !(await hasServerPermission(session(ws).user.id, currentChannel.serverId, "voice.speak")))
+          return send(ws, { type: "error", code: "FORBIDDEN", message: "Você não possui permissão para usar o microfone." });
+        if (sdpSendsMedia(event.sdp, "video") && !(await hasServerPermission(session(ws).user.id, currentChannel.serverId, "voice.camera")))
+          return send(ws, { type: "error", code: "FORBIDDEN", message: "Você não possui permissão para usar a câmera." });
+      }
       if (event.type === "screen_share") {
-        const subscribedChannelId = session(ws).channelId;
-        const currentChannel = subscribedChannelId
-          ? await channelForUser(session(ws).user.id, subscribedChannelId)
-          : null;
         if (!currentChannel || !(await hasServerPermission(session(ws).user.id, currentChannel.serverId, "voice.screen_share")))
           return send(ws, { type: "error", code: "FORBIDDEN", message: "Você não possui permissão para compartilhar a tela." });
       }

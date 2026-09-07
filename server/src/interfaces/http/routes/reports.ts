@@ -38,6 +38,10 @@ export const reportRoutes = new Elysia({ name: "report-routes" })
         });
         if (!membership)
           return error(403, "FORBIDDEN", "Você não pertence a este servidor.");
+        if (body.messageId) {
+          const message = await db.message.findFirst({ where: { id: body.messageId, channel: { serverId: body.serverId } }, select: { id: true } });
+          if (!message) return error(404, "NOT_FOUND", "Mensagem não encontrada neste servidor.");
+        }
       }
       const report = await db.report.create({
         data: {

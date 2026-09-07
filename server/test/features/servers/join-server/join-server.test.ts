@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { createJoinServer } from "./join-server";
-import type { JoinServerRepository } from "./join-server.port";
+import { createJoinServer } from "@/features/servers/join-server/join-server";
+import type { JoinServerRepository } from "@/features/servers/join-server/join-server.port";
 
 function createRepository(): JoinServerRepository & { addedMembers: string[] } {
   return {

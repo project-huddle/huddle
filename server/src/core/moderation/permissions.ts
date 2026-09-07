@@ -30,16 +30,30 @@ export const permissions = [
 export type Permission = (typeof permissions)[number];
 export type Role = "owner" | "moderator" | "member";
 
+export const defaultMemberPermissions: readonly Permission[] = [
+  "channels.view",
+  "invites.create",
+  "members.view",
+  "messages.send",
+  "voice.camera",
+  "voice.connect",
+  "voice.screen_share",
+  "voice.speak",
+];
+
 const rolePermissions: Record<Role, readonly Permission[]> = {
   owner: permissions,
   moderator: [
     "channels.create",
     "channels.manage",
+    "channels.delete",
     "invites.create",
     "messages.moderate",
     "reports.review",
   ],
-  member: ["invites.create"],
+  // Default member access is persisted in the server's default role. Keeping
+  // permissions here would make role edits ineffective for legacy members.
+  member: [],
 };
 
 export function permissionsFor(

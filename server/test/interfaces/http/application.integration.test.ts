@@ -9,7 +9,7 @@ const temporaryDirectory = mkdtempSync(join(tmpdir(), "huddle-test-"));
 process.env.HOST = "127.0.0.1";
 process.env.UPLOADS_PATH = join(temporaryDirectory, "uploads");
 
-let server: typeof import("../../index").server;
+let server: typeof import("../../../src/index").server;
 let baseUrl: string;
 
 function availablePort(): Promise<number> {
@@ -30,7 +30,7 @@ beforeAll(async () => {
     throw new Error(
       "DATABASE_URL must point to an isolated PostgreSQL test database",
     );
-  const { db } = await import("../../infra/database/client");
+  const { db } = await import("../../../src/infra/database/client");
   await db.$transaction([
     db.emailToken.deleteMany(),
     db.report.deleteMany(),
@@ -46,13 +46,13 @@ beforeAll(async () => {
     db.user.deleteMany(),
   ]);
   process.env.PORT = String(await availablePort());
-  ({ server } = await import("../../index"));
+  ({ server } = await import("../../../src/index"));
   baseUrl = `http://127.0.0.1:${server.port}`;
 });
 
 afterAll(async () => {
   server?.stop(true);
-  const { db } = await import("../../infra/database/client");
+  const { db } = await import("../../../src/infra/database/client");
   await db.$disconnect();
   rmSync(temporaryDirectory, { recursive: true, force: true });
 });
@@ -446,7 +446,7 @@ describe("huddle API", () => {
     const mod = await register("channel-mod@example.com", "Moderator");
     const member = await register("channel-member@example.com", "Member");
     const outsider = await register("channel-outsider@example.com", "Outsider");
-    const { db } = await import("../../infra/database/client");
+    const { db } = await import("../../../src/infra/database/client");
     const community = await db.server.create({
       data: {
         name: "Channel management",
@@ -569,6 +569,28 @@ describe("huddle API", () => {
     });
     expect(joined.status).toBe(201);
 
+    const rolesResponse = await fetch(
+      `${baseUrl}/servers/${createdBody.server.id}/roles`,
+      { headers: ownerHeaders },
+    );
+    expect(rolesResponse.status).toBe(200);
+    const rolesBody = (await rolesResponse.json()) as {
+      roles: { id: string; isDefault: boolean; permissions: string[] }[];
+    };
+    const defaultRole = rolesBody.roles.find((role) => role.isDefault);
+    expect(defaultRole?.permissions).toEqual(
+      expect.arrayContaining([
+        "channels.view",
+        "invites.create",
+        "members.view",
+        "messages.send",
+        "voice.camera",
+        "voice.connect",
+        "voice.screen_share",
+        "voice.speak",
+      ]),
+    );
+
     const memberList = await fetch(
       `${baseUrl}/servers/${createdBody.server.id}/members`,
       { headers: guestHeaders },
@@ -585,6 +607,44 @@ describe("huddle API", () => {
       },
     );
     expect(promoted.status).toBe(204);
+    const roleResponse = await fetch(
+      `${baseUrl}/servers/${createdBody.server.id}/roles`,
+      {
+        method: "POST",
+        headers: { ...ownerHeaders, "content-type": "application/json" },
+        body: JSON.stringify({ name: "Criador de cargos", permissions: ["roles.create"] }),
+      },
+    );
+    expect(roleResponse.status).toBe(201);
+    const customRole = (await roleResponse.json()) as { role: { id: string } };
+    const assigned = await fetch(
+      `${baseUrl}/servers/${createdBody.server.id}/members/${guest.user.id}/roles/${customRole.role.id}`,
+      { method: "PUT", headers: ownerHeaders },
+    );
+    expect(assigned.status).toBe(204);
+    const guestCanCreateRoles = await fetch(
+      `${baseUrl}/servers/${createdBody.server.id}/roles`,
+      {
+        method: "POST",
+        headers: { ...guestHeaders, "content-type": "application/json" },
+        body: JSON.stringify({ name: "Cargo criado pelo membro", permissions: [] }),
+      },
+    );
+    expect(guestCanCreateRoles.status).toBe(201);
+    const removedRole = await fetch(
+      `${baseUrl}/servers/${createdBody.server.id}/members/${guest.user.id}/roles/${customRole.role.id}`,
+      { method: "DELETE", headers: ownerHeaders },
+    );
+    expect(removedRole.status).toBe(204);
+    const guestCannotCreateRoles = await fetch(
+      `${baseUrl}/servers/${createdBody.server.id}/roles`,
+      {
+        method: "POST",
+        headers: { ...guestHeaders, "content-type": "application/json" },
+        body: JSON.stringify({ name: "Cargo sem permissão", permissions: [] }),
+      },
+    );
+    expect(guestCannotCreateRoles.status).toBe(403);
     const channel = await fetch(
       `${baseUrl}/servers/${createdBody.server.id}/channels`,
       {
@@ -694,6 +754,20 @@ describe("huddle API", () => {
     expect((await cannotSendAfterRemoval).code).toBe("FORBIDDEN");
     ownerSocket.close();
     guestSocket.close();
+    const defaultRoleWithoutChannelView = await fetch(
+      `${baseUrl}/servers/${createdBody.server.id}/roles/${defaultRole!.id}`,
+      {
+        method: "PATCH",
+        headers: { ...ownerHeaders, "content-type": "application/json" },
+        body: JSON.stringify({ permissions: defaultRole!.permissions.filter((permission) => permission !== "channels.view") }),
+      },
+    );
+    expect(defaultRoleWithoutChannelView.status).toBe(200);
+    const hiddenChannels = await fetch(
+      `${baseUrl}/servers/${createdBody.server.id}/channels`,
+      { headers: guestHeaders },
+    );
+    expect(hiddenChannels.status).toBe(403);
   });
 
   test("updates protected profiles, manages friendships and exchanges private messages", async () => {
@@ -717,7 +791,7 @@ describe("huddle API", () => {
       },
     });
     const stored = await (
-      await import("../../infra/database/client")
+      await import("../../../src/infra/database/client")
     ).db.user.findUniqueOrThrow({ where: { id: alice.user.id } });
     expect(stored.countryCode).toBe("BR");
 
@@ -755,7 +829,7 @@ describe("huddle API", () => {
       ],
     });
 
-    const { db } = await import("../../infra/database/client");
+    const { db } = await import("../../../src/infra/database/client");
     const verificationCode = "123456";
     await db.emailToken.create({
       data: {

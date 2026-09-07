@@ -25,7 +25,6 @@ export function RoomSidebar() {
 		serverId,
 		openDialog,
 		createInvite,
-		changeMemberRole,
 		removeMember,
 	} = useChatStore(useShallow((state) => ({
 		members: state.members,
@@ -33,7 +32,6 @@ export function RoomSidebar() {
 		serverId: state.serverId,
 		openDialog: state.openDialog,
 		createInvite: state.createInvite,
-		changeMemberRole: state.changeMemberRole,
 		removeMember: state.removeMember,
 	})));
 
@@ -86,14 +84,6 @@ export function RoomSidebar() {
 
 						{canManageMembers && !member.isOwner && (
 							<div className="hidden gap-1 group-hover:flex group-focus-within:flex">
-								<button
-									type="button"
-									onClick={() => void changeMemberRole(member)}
-									className="rounded-lg px-2 py-1 text-[10px] font-bold hover:bg-(--canvas)"
-									title="Alternar moderador"
-								>
-									{member.role === "moderator" ? "membro" : "mod"}
-								</button>
 								<button
 									type="button"
 									onClick={() => handleRemoveMember(member)}
