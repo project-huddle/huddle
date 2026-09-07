@@ -6,9 +6,10 @@ import type {
 	RealtimePeer,
 	SocketEvent,
 } from "@/types/realtime";
+import { playCallSound } from "@/lib/call-sounds";
 
 type Options = {
-	token: string; channelId: string; channelType: HuddleChannel["type"];
+	token: string; channelId: string; channelType: HuddleChannel["type"]; currentUserId: string;
 	socketRef: MutableRefObject<WebSocket | null>;
 	peerUsers: MutableRefObject<Map<string, User>>;
 	displayStream: MutableRefObject<MediaStream | null>;
@@ -30,6 +31,7 @@ type Options = {
 	setPeers: Dispatch<SetStateAction<RealtimePeer[]>>;
 	setJoining: Dispatch<SetStateAction<boolean>>;
 	setInCall: Dispatch<SetStateAction<boolean>>;
+	setServerMuted: Dispatch<SetStateAction<boolean>>;
 };
 
 export function useRealtimeConnection(options: Options) {
@@ -37,10 +39,10 @@ export function useRealtimeConnection(options: Options) {
 	subscribedHandlerRef.current = options.onChannelSubscribed;
 	const callLeftHandlerRef = useRef(options.onCallLeft);
 	callLeftHandlerRef.current = options.onCallLeft;
-	const { token, channelId, channelType, socketRef, peerUsers, displayStream, remoteSharing, connections, pendingCandidates,
+	const { token, channelId, channelType, currentUserId, socketRef, peerUsers, displayStream, remoteSharing, connections, pendingCandidates,
 		callLifecycle,
 		closeCall, createPeer, flushCandidates, makeOffer, send, updatePeer,
-		setMessages, setConnected, setError, setPeers, setJoining, setInCall } = options;
+		setMessages, setConnected, setError, setPeers, setJoining, setInCall, setServerMuted } = options;
 	useEffect(() => {
 		setConnected(false);
 		if (!channelId) return;
@@ -98,6 +100,7 @@ export function useRealtimeConnection(options: Options) {
 						"webrtc_answer",
 						"ice_candidate",
 						"screen_share",
+						"participant_state",
 					].includes(event.type);
 					const expectedCallId = `channel-${channelId}`;
 					if (
@@ -120,6 +123,8 @@ export function useRealtimeConnection(options: Options) {
 							subscribedHandlerRef.current?.();
 						}
 					}
+					if (event.type === "voice_presence" && typeof event.channelId === "string")
+						useChatStore.getState().setVoiceUsers(event.channelId, (event.users as User[]) ?? [], typeof event.revision === "number" ? event.revision : 0);
 					if (event.type === "call_left") {
 						callLeftHandlerRef.current?.();
 					}
@@ -139,34 +144,34 @@ export function useRealtimeConnection(options: Options) {
 					}
 					if (event.type === "call_joined") {
 						if (callLifecycle.current !== "joining") return;
-						const users = Array.from(
-							new Map(
-								(event.peers as User[]).map((user) => [user.id, user]),
-							).values(),
-						);
-						users.forEach((user) =>
-							peerUsers.current.set(user.id, user),
-						);
+						setJoining(false);
+						setInCall(true);
+						const snapshots = (event.peers as Array<{ user: User; muted?: boolean; serverMuted?: boolean }>) ?? [];
+						const users = Array.from(new Map(snapshots.map(({ user }) => [user.id, user])).values());
+						users.forEach((user) => peerUsers.current.set(user.id, user));
 						setPeers(
-							users.map((user) => ({
+							snapshots.map(({ user, muted = false, serverMuted = false }) => ({
 								user,
 								audioStream: null,
 								cameraStream: null,
 								screenStream: null,
+								screenAudioStream: null,
 								sharing: false,
+								muted,
+								serverMuted,
+								speaking: false,
 							})),
 						);
-						setJoining(false);
-						setInCall(true);
 						callLifecycle.current = "active";
 					}
 					if (event.type === "peer_joined") {
 						if (callLifecycle.current !== "active") return;
 						const user = event.user as User;
+						playCallSound("join");
 						if (!user?.id || user.id === peerUsers.current.get(user.id)?.id)
 							return;
 						peerUsers.current.set(user.id, user);
-						updatePeer(user.id, {});
+						updatePeer(user.id, { muted: event.muted === true, serverMuted: event.serverMuted === true });
 						const pc = createPeer(user.id);
 						if (displayStream.current)
 							send({
@@ -240,9 +245,17 @@ export function useRealtimeConnection(options: Options) {
 								: { sharing: false, screenStream: null },
 						);
 					}
+					if (event.type === "participant_state") {
+						const userId = event.userId as string;
+						if (userId) {
+							updatePeer(userId, { muted: event.muted === true, serverMuted: event.serverMuted === true });
+							if (userId === currentUserId) setServerMuted(event.serverMuted === true);
+						}
+					}
 					if (event.type === "peer_left") {
 						if (callLifecycle.current !== "active") return;
 						const userId = event.userId as string;
+						playCallSound("leave");
 						connections.current.get(userId)?.close();
 						connections.current.delete(userId);
 						remoteSharing.current.delete(userId);
@@ -306,6 +319,7 @@ export function useRealtimeConnection(options: Options) {
 	}, [
 		channelId,
 		channelType,
+		currentUserId,
 		closeCall,
 		createPeer,
 		flushCandidates,
@@ -314,6 +328,7 @@ export function useRealtimeConnection(options: Options) {
 		token,
 		updatePeer,
 		setInCall,
+		setServerMuted,
 		setJoining,
 		setPeers,
 		setConnected,

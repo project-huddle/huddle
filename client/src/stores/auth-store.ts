@@ -10,6 +10,11 @@ const signedOutState = {
 	twoFactorChallenge: null,
 };
 
+// Invalidates in-flight session checks whenever authentication state changes.
+// Without this guard, a slow `/auth/me` response can arrive after a login and
+// reset the freshly established session back to the signed-out state.
+let sessionOperationVersion = 0;
+
 type AuthState = {
 	user: User | null;
 	token: string | null;
@@ -47,6 +52,7 @@ export const useAuthStore = create<AuthState>()(
 			error: null,
 			twoFactorChallenge: null,
 			login: async (email, password, remember) => {
+				sessionOperationVersion += 1;
 				set({ isLoading: true, error: null });
 
 				try {
@@ -91,6 +97,7 @@ export const useAuthStore = create<AuthState>()(
 			verifyTwoFactor: async (code) => {
 				const challengeId = useAuthStore.getState().twoFactorChallenge;
 				if (!challengeId) return;
+				sessionOperationVersion += 1;
 				set({ isLoading: true, error: null });
 				try {
 					const result = await api<{
@@ -120,6 +127,7 @@ export const useAuthStore = create<AuthState>()(
 				}
 			},
 			register: async (email, displayName, password) => {
+				sessionOperationVersion += 1;
 				set({ isLoading: true, error: null });
 				try {
 					const result = await api<{
@@ -148,6 +156,7 @@ export const useAuthStore = create<AuthState>()(
 				}
 			},
 			logout: () => {
+				sessionOperationVersion += 1;
 				const token = useAuthStore.getState().token;
 				if (token)
 					void api("/auth/logout", { method: "POST" }, token).catch(
@@ -156,6 +165,7 @@ export const useAuthStore = create<AuthState>()(
 				set({ ...signedOutState, isSessionValidated: true });
 			},
 			validateSession: async () => {
+				const operationVersion = ++sessionOperationVersion;
 				const token = useAuthStore.getState().token;
 				if (!token) {
 					set({ ...signedOutState, isSessionValidated: true });
@@ -164,12 +174,23 @@ export const useAuthStore = create<AuthState>()(
 
 				try {
 					const { user } = await api<{ user: User }>("/auth/me", {}, token);
+					if (
+						operationVersion !== sessionOperationVersion ||
+						useAuthStore.getState().token !== token
+					)
+						return;
 					set({ user, isAuthenticated: true, isSessionValidated: true });
 				} catch {
+					if (
+						operationVersion !== sessionOperationVersion ||
+						useAuthStore.getState().token !== token
+					)
+						return;
 					set({ ...signedOutState, isSessionValidated: true });
 				}
 			},
 			invalidateSession: () => {
+				sessionOperationVersion += 1;
 				set({ ...signedOutState, isSessionValidated: true });
 			},
 			clearError: () => set({ error: null }),

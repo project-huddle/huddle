@@ -7,7 +7,16 @@ export type RealtimePeer = {
 	audioStream: MediaStream | null;
 	cameraStream: MediaStream | null;
 	screenStream: MediaStream | null;
+	screenAudioStream: MediaStream | null;
 	sharing: boolean;
+	muted: boolean;
+	serverMuted: boolean;
+	speaking: boolean;
+};
+
+export type VoicePresence = {
+	channelId: string;
+	users: User[];
 };
 
 export type SocketEvent = Record<string, unknown> & { type: string };

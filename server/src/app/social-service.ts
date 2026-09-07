@@ -50,14 +50,19 @@ export type RequestFriendResult =
 
 export async function requestFriend(
   user: User,
-  rawEmail: string,
+  rawIdentifier: string,
 ): Promise<RequestFriendResult> {
-  const email = rawEmail.trim().toLowerCase();
-  if (!validEmail(email) || email === user.email) return { type: "invalid" };
-  const target = await db.user.findUnique({
-    where: { email },
-    select: publicUserSelect,
-  });
+  const value = rawIdentifier.trim();
+  const friendId = extractFriendId(value);
+  if (friendId === user.id) return { type: "invalid" };
+  const target = friendId
+    ? await db.user.findUnique({ where: { id: friendId }, select: publicUserSelect })
+    : await db.user.findUnique({
+        where: { email: value.toLowerCase() },
+        select: publicUserSelect,
+      });
+  if (!friendId && (!validEmail(value.toLowerCase()) || value.toLowerCase() === user.email))
+    return { type: "invalid" };
   if (!target) return { type: "not-found" };
   const reverse = await db.friendship.findUnique({
     where: {
@@ -73,6 +78,17 @@ export async function requestFriend(
     update: {},
   });
   return { type: "success", user: publicUser(target) };
+}
+
+function extractFriendId(value: string): string | null {
+  const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
+  if (uuid.test(value)) return value;
+  try {
+    const candidate = new URL(value).searchParams.get("friend");
+    return candidate && uuid.test(candidate) ? candidate : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function acceptFriend(

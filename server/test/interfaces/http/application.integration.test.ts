@@ -402,6 +402,14 @@ describe("huddle API", () => {
       callId: "general",
     });
 
+    const participantState = nextEvent(aliceSocket, "participant_state");
+    bobSocket.send(JSON.stringify({ type: "participant_state", muted: true }));
+    expect(await participantState).toMatchObject({
+      userId: bob.user.id,
+      muted: true,
+      serverMuted: false,
+    });
+
     const peerLeft = nextEvent(aliceSocket, "peer_left");
     const callLeft = nextEvent(bobSocket, "call_left");
     bobSocket.send(JSON.stringify({ type: "leave_call" }));
@@ -781,6 +789,9 @@ describe("huddle API", () => {
       body: JSON.stringify({
         displayName: "Alice BR",
         countryCode: "BR",
+        audioInputDeviceId: "mic-1",
+        audioOutputDeviceId: "speaker-1",
+        videoInputDeviceId: "camera-1",
       }),
     });
     expect(profile.status).toBe(200);
@@ -788,12 +799,18 @@ describe("huddle API", () => {
       user: {
         displayName: "Alice BR",
         countryCode: "BR",
+        audioInputDeviceId: "mic-1",
+        audioOutputDeviceId: "speaker-1",
+        videoInputDeviceId: "camera-1",
       },
     });
     const stored = await (
       await import("../../../src/infra/database/client")
     ).db.user.findUniqueOrThrow({ where: { id: alice.user.id } });
     expect(stored.countryCode).toBe("BR");
+    expect(stored.audioInputDeviceId).toBe("mic-1");
+    expect(stored.audioOutputDeviceId).toBe("speaker-1");
+    expect(stored.videoInputDeviceId).toBe("camera-1");
 
     const requested = await fetch(`${baseUrl}/friends`, {
       method: "POST",
