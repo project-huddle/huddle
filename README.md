@@ -146,10 +146,16 @@ No segundo, inicie o cliente:
 ```bash
 cd client
 bun install --frozen-lockfile
+cd web
 VITE_API_URL=http://localhost:3000 bun run dev
 ```
 
 Cliente e API ficam disponíveis, respectivamente, em `http://localhost:8080` e `http://localhost:3000`.
+
+
+### Cliente desktop
+
+A interface é compartilhada entre web e Electron. Veja [a estrutura dos clientes](client/README.md) e [como executar e empacotar o desktop](client/desktop/README.md).
 
 ## Variáveis de ambiente
 
@@ -212,6 +218,7 @@ DATABASE_URL=postgresql://USUARIO:SENHA@localhost:5432/huddle_test?schema=public
 ```bash
 cd client
 bun install --frozen-lockfile
+cd web
 bun run lint
 bun run build
 ```
@@ -219,7 +226,7 @@ bun run build
 Há também uma suíte de interface com Playwright. Ela inicia cliente e API, mas requer o banco de teste configurado e o Chromium do Playwright instalado:
 
 ```bash
-cd client
+cd client/web
 bunx playwright install chromium
 DATABASE_URL=postgresql://USUARIO:SENHA@localhost:5432/huddle_test?schema=public bun run e2e
 ```
@@ -247,7 +254,7 @@ Os endpoints de saúde são `/health` na API e `/healthz` no Nginx.
 O frontend não impõe um padrão arquitetural formal. A organização atual separa composição de telas, componentes visuais, estado compartilhado, integrações e validação da seguinte forma:
 
 ```text
-client/src/
+client/shared/src/
 ├── assets/       # Logos e outros arquivos estáticos importados pela interface
 ├── components/   # Blocos visuais reutilizáveis e componentes de chat, chamadas e autenticação
 ├── hooks/        # Estado e efeitos de fluxos da interface, API, WebSocket e WebRTC

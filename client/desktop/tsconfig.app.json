@@ -25,10 +25,10 @@
     "baseUrl": ".",
     "paths": {
       "@/*": [
-        "./src/*"
+        "../shared/src/*"
       ]
     }
 
   },
-  "include": ["src"]
+  "include": ["src", "../shared/src"]
 }

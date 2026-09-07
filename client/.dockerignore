@@ -1,5 +1,7 @@
-node_modules
-dist
-.env*
-coverage
-README.md
+**/node_modules
+**/dist
+**/dist-electron
+**/release
+**/.env*
+**/playwright-report
+**/test-results

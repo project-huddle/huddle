@@ -1,0 +1,15 @@
+FROM oven/bun:1.4.0-alpine AS bun
+FROM node:24-alpine
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
+WORKDIR /app
+COPY package.json bun.lock ./
+COPY desktop/package.json desktop/package.json
+COPY web/package.json web/package.json
+COPY shared/package.json shared/package.json
+RUN bun install --frozen-lockfile --filter @huddle/web --filter @huddle/shared
+COPY web web
+COPY shared shared
+EXPOSE 8080
+HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 \
+  CMD wget -q --spider http://127.0.0.1:8080/ || exit 1
+CMD ["bun", "run", "--cwd", "web", "dev", "--", "--host", "0.0.0.0", "--port", "8080"]

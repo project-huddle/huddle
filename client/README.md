@@ -1,12 +1,14 @@
-# Huddle client
+# Clientes Huddle
 
-Cliente React, TypeScript e Vite do Huddle.
+Este diretório é um workspace Bun, com um único `bun.lock`.
 
-```bash
-npm install
-npm run dev
-npm run lint
-npm run build
-```
+- `shared/src`: interface React, estilos, hooks, stores e acesso à API.
+- `web`: entrada do navegador, Vite, testes de navegador e Nginx.
+- `desktop`: entrada do renderer, processo principal e preload do Electron.
 
-Use `VITE_API_URL` para apontar para a API. O ambiente Docker configura proxy para HTTP, mídia e WebSocket. Os testes de navegador ficam em `e2e/` e executam com `npm run e2e` após instalar o Chromium do Playwright.
+Instale as dependências a partir deste diretório com `bun install --frozen-lockfile`.
+Use `bun run dev:web` ou `bun run dev:desktop`. Para validar ambos:
+`bun run typecheck`, `bun run lint` e `bun run build`.
+
+O Docker usa este diretório como contexto para incluir `shared`, mas instala
+apenas os workspaces web e shared. O Electron roda no sistema do usuário.

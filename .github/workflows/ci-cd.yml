@@ -43,6 +43,12 @@ jobs:
       - name: Test and type-check server
         working-directory: server
         run: bun run db:migrate && bun test --coverage && bun run typecheck
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
       - name: Install client dependencies
         working-directory: client
         run: bun install --frozen-lockfile
@@ -62,8 +68,10 @@ jobs:
         include:
           - image: server
             context: ./server
+            dockerfile: ./server/Dockerfile
           - image: client
             context: ./client
+            dockerfile: ./client/web/Dockerfile
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -84,6 +92,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}

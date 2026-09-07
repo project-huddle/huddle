@@ -1,0 +1,64 @@
+{
+  "name": "@huddle/desktop",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint src electron",
+    "typecheck": "tsc -b",
+    "start": "electron .",
+    "package": "bun run build && electron-builder",
+    "package:dir": "bun run build && electron-builder --dir",
+    "test:smoke": "bun run build && node tests/smoke.cjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.4",
+    "electron": "^44.2.0",
+    "electron-builder": "^26.15.3",
+    "oxlint": "^1.75.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0",
+    "vite-plugin-electron": "^1.1.2",
+    "@huddle/shared": "*"
+  },
+  "build": {
+    "appId": "com.huddle.desktop",
+    "productName": "Huddle",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Network"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "extendInfo": {
+        "NSCameraUsageDescription": "Huddle usa a câmera nas chamadas.",
+        "NSMicrophoneUsageDescription": "Huddle usa o microfone nas chamadas."
+      }
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    }
+  },
+  "description": "Cliente desktop do Huddle"
+}

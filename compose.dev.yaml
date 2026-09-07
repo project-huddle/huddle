@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile.dev
     environment:
       NODE_ENV: development
+      CORS_ORIGINS: ${APP_ORIGIN:-http://localhost:8080},${DESKTOP_ORIGIN:-huddle://app},http://localhost:8081
     volumes:
       - ./server:/app
       - server-node-modules:/app/node_modules
@@ -14,15 +15,17 @@ services:
   client:
     build:
       context: ./client
-      dockerfile: Dockerfile.dev
+      dockerfile: web/Dockerfile.dev
     environment:
       VITE_API_URL: /api
       VITE_DEV_PROXY_TARGET: http://server:3000
     volumes:
       - ./client:/app
-      - client-node-modules:/app/node_modules
+      - client-workspace-node-modules:/app/node_modules
+      - /app/web/node_modules
+      - /app/shared/node_modules
     restart: "no"
 
 volumes:
-  client-node-modules:
+  client-workspace-node-modules:
   server-node-modules:

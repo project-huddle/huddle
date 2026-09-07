@@ -30,7 +30,7 @@ services:
       UPLOADS_PATH: /app/data/uploads
       TENOR_API_KEY: ${TENOR_API_KEY:-}
       TENOR_CLIENT_KEY: ${TENOR_CLIENT_KEY:-huddle}
-      CORS_ORIGINS: ${APP_ORIGIN:?Defina APP_ORIGIN no .env.production}
+      CORS_ORIGINS: ${APP_ORIGIN:?Defina APP_ORIGIN no .env.production},${DESKTOP_ORIGIN:-huddle://app}
       SERPRO_AGE_VERIFICATION_URL: ${SERPRO_AGE_VERIFICATION_URL:-}
       SERPRO_AGE_VERIFICATION_TOKEN: ${SERPRO_AGE_VERIFICATION_TOKEN:-}
       SMTP_HOST: ${SMTP_HOST:-}
@@ -51,7 +51,7 @@ services:
   client:
     build:
       context: ./client
-      dockerfile: Dockerfile
+      dockerfile: web/Dockerfile
       args:
         VITE_API_URL: /api
         VITE_TURN_URL: ${TURN_URL:-}

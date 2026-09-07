@@ -26,7 +26,7 @@ services:
       UPLOADS_PATH: /app/data/uploads
       TENOR_API_KEY: ${TENOR_API_KEY:-}
       TENOR_CLIENT_KEY: ${TENOR_CLIENT_KEY:-huddle}
-      CORS_ORIGINS: ${APP_ORIGIN:-http://localhost:8080}
+      CORS_ORIGINS: ${APP_ORIGIN:-http://localhost:8080},${DESKTOP_ORIGIN:-huddle://app}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
@@ -43,6 +43,7 @@ services:
   client:
     build:
       context: ./client
+      dockerfile: web/Dockerfile
       args:
         VITE_API_URL: /api
         VITE_TURN_URL: ${TURN_URL:-}

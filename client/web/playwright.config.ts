@@ -14,8 +14,8 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   webServer: [
-    { command: "bun run start", cwd: "../server", url: "http://127.0.0.1:3000/health", reuseExistingServer: !process.env.CI, timeout: 30_000 },
-    { command: "bun run dev -- --host 127.0.0.1", cwd: ".", url: "http://127.0.0.1:5173", reuseExistingServer: !process.env.CI, timeout: 30_000, env: { VITE_API_URL: "http://127.0.0.1:3000" } },
+    { command: "bun run start", cwd: "../../server", url: "http://127.0.0.1:3000/health", reuseExistingServer: !process.env.CI, timeout: 30_000 },
+    { command: "bun run dev -- --host 127.0.0.1 --port 5173", cwd: ".", url: "http://127.0.0.1:5173", reuseExistingServer: !process.env.CI, timeout: 30_000, env: { VITE_API_URL: "http://127.0.0.1:3000" } },
   ],
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], permissions: ["microphone", "camera"] } }],
 })
