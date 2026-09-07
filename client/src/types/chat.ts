@@ -1,5 +1,5 @@
 import type { SetStateAction } from "react";
-import type { HuddleChannel, HuddleMember, HuddleServer } from "@/lib/api";
+import type { HuddleChannel, HuddleMember, HuddlePermission, HuddleServer, HuddleServerRole } from "@/lib/api";
 
 export type ChatDialog =
 	| "add-server"
@@ -19,6 +19,9 @@ export type ChatStoreState = {
 	mobileNavOpen: boolean;
 	socialOpen: boolean;
 	settingsOpen: boolean;
+	serverSettingsOpen: boolean;
+	roles: HuddleServerRole[];
+	permissions: HuddlePermission[];
 	dialog: ChatDialog | null;
 	dialogValue: string;
 	inviteUrl: string | null;
@@ -37,10 +40,18 @@ export type ChatStoreState = {
 	setMobileNavOpen: (value: boolean) => void;
 	setSocialOpen: (value: boolean) => void;
 	setSettingsOpen: (value: boolean) => void;
+	setServerSettingsOpen: (value: boolean) => void;
 	reset: () => void;
 	loadServers: () => Promise<void>;
 	loadChannels: () => Promise<void>;
 	loadMembers: () => Promise<void>;
+	loadRoles: () => Promise<void>;
+	createRole: (input: { name: string; color: string; permissions: string[] }) => Promise<void>;
+	updateRole: (roleId: string, input: { name?: string; color?: string; permissions?: string[] }) => Promise<void>;
+	deleteRole: (roleId: string) => Promise<void>;
+	assignRole: (memberId: string, roleId: string, assign: boolean) => Promise<void>;
+	updateServer: (input: { name?: string; iconUrl?: string | null }) => Promise<void>;
+	setChannelAccess: (channelId: string, roleIds: string[]) => Promise<void>;
 	createServer: (value: string) => Promise<void>;
 	createChannel: (value: string, type?: HuddleChannel["type"]) => Promise<void>;
 	joinServer: (value: string) => Promise<void>;
@@ -48,5 +59,6 @@ export type ChatStoreState = {
 	leaveServer: () => Promise<void>;
 	changeMemberRole: (member: HuddleMember) => Promise<void>;
 	removeMember: (member: HuddleMember) => Promise<void>;
+	banMember: (member: HuddleMember) => Promise<void>;
 	clearError: () => void;
 };

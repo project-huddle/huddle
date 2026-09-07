@@ -1,7 +1,8 @@
 import { Elysia, t } from "elysia";
-import { can, permissions, type Role } from "@/core/moderation/permissions";
+import { permissions } from "@/core/moderation/permissions";
 import { error, json } from "@/interfaces/http/responses";
 import { db } from "@/infra/database/client";
+import { hasServerPermission } from "@/infra/database/server-repository";
 import { sendMail } from "@/infra/email/mailer";
 import { authenticatedRoutes } from "../plugins/auth";
 import { resourceId, serverIdParams, serverMemberParams } from "../schemas";
@@ -71,10 +72,7 @@ export const reportRoutes = new Elysia({ name: "report-routes" })
           },
         },
       });
-      if (
-        !membership ||
-        !can(membership.role as Role, "reports.review", membership.permissions)
-      )
+      if (!membership || !(await hasServerPermission(currentUser.id, params.serverId, "reports.review")))
         return error(
           403,
           "FORBIDDEN",

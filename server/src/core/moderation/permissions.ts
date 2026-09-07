@@ -1,9 +1,30 @@
 export const permissions = [
+  "server.view",
+  "server.settings.manage",
+  "channels.view",
   "channels.create",
+  "channels.manage",
+  "channels.delete",
+  "channels.access.manage",
+  "roles.create",
+  "roles.manage",
+  "members.view",
+  "members.manage_roles",
+  "members.kick",
+  "members.ban",
   "invites.create",
+  "messages.send",
   "members.manage",
   "messages.moderate",
   "reports.review",
+  "voice.connect",
+  "voice.speak",
+  "voice.camera",
+  "voice.screen_share",
+  "voice.moderate_mute",
+  "voice.moderate_camera",
+  "voice.moderate_screen_share",
+  "voice.disconnect",
 ] as const;
 
 export type Permission = (typeof permissions)[number];
@@ -13,6 +34,7 @@ const rolePermissions: Record<Role, readonly Permission[]> = {
   owner: permissions,
   moderator: [
     "channels.create",
+    "channels.manage",
     "invites.create",
     "messages.moderate",
     "reports.review",

@@ -19,7 +19,8 @@ export type JoinServerResult =
       };
     }
   | { type: "invalid-code" }
-  | { type: "invite-not-found" };
+  | { type: "invite-not-found" }
+  | { type: "banned" };
 
 export type JoinServerDependencies = {
   repository: JoinServerRepository;
@@ -57,6 +58,8 @@ export function createJoinServer({
     if (!serverSnapshot) return { type: "invite-not-found" };
 
     const server = Server.restore(serverSnapshot);
+    if (repository.isBanned && (await repository.isBanned(serverSnapshot.id, command.userId)))
+      return { type: "banned" };
     const decision = server.join(command.userId);
     if (decision.type === "joined") {
       await repository.addMember(serverSnapshot.id, command.userId);
