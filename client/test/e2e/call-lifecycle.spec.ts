@@ -223,6 +223,9 @@ test.describe("call lifecycle", () => {
 			await expect(volumeDialog.getByText("150%" )).toBeVisible();
 			await expect(page.locator("audio")).toHaveCount(1);
 			await expect(guestPage.locator("audio")).toHaveCount(1);
+			await page.getByRole("button", { name: "geral" }).click();
+			await expect(page.locator("textarea")).toBeEnabled();
+			await expect(page.locator("audio")).toHaveCount(1);
 		} finally {
 			await guestContext.close();
 		}

@@ -13,6 +13,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import MobileNavigation from "@/components/chat/mobile-navigation";
 import { ServerRail } from "@/components/chat/server-rail";
 import { ResizableChatPanels } from "@/components/chat/resizable-chat-panels";
+import { CallAudioSession } from "@/components/call/call-media";
 
 const CALL_SWITCH_DELAY_MS = 1_000;
 
@@ -92,6 +93,7 @@ export default function ChatPage() {
 
 				<RoomSidebar />
 			</div>
+			<CallAudioSession peers={callRealtime.peers} enabled={callRealtime.inCall && activeChannel?.type !== "voice"} />
 
 			<MobileNavigation />
 			{callRealtime.inCall && activeChannel?.id !== callChannelId && (

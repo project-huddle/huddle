@@ -1,5 +1,6 @@
 import { useEffect, useRef, type CSSProperties } from "react";
 import { applyAudioOutput, readMediaDevicePreferences } from "@/lib/media-devices";
+import type { RealtimePeer } from "@/types/realtime";
 
 export function StreamVideo({ stream, muted = false, className, style }: { stream: MediaStream | null; muted?: boolean; className?: string; style?: CSSProperties }) {
 	const ref = useRef<HTMLVideoElement>(null);
@@ -73,4 +74,14 @@ export function AudioOutput({ stream, volume = 1, muted = false, onSpeaking }: {
 		return () => { cancelAnimationFrame(frame); source.disconnect(); analyser.disconnect(); void context.close(); };
 	}, [stream]);
 	return <audio ref={ref} autoPlay />;
+}
+
+export function CallAudioSession({ peers, enabled }: { peers: RealtimePeer[]; enabled: boolean }) {
+	if (!enabled) return null;
+	return <div aria-hidden="true" className="pointer-events-none fixed size-0 overflow-hidden opacity-0">
+		{peers.map((peer) => <div key={peer.user.id}>
+			<AudioOutput stream={peer.audioStream} volume={1} muted={peer.muted} />
+			<AudioOutput stream={peer.screenAudioStream} volume={1} muted={false} />
+		</div>)}
+	</div>;
 }
