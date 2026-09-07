@@ -22,7 +22,7 @@ export const serverMemberRoutes = new Elysia({ name: "server-member-routes" })
     async ({ currentUser, params }) => {
       const members = await serverMembers(currentUser.id, params.serverId);
       if (!members)
-        return error(403, "FORBIDDEN", "You are not a member of this server.");
+        return error(403, "FORBIDDEN", "Você não possui permissão para visualizar os membros deste servidor.");
       return json({ members });
     },
     { params: serverIdParams },
@@ -40,7 +40,7 @@ export const serverMemberRoutes = new Elysia({ name: "server-member-routes" })
       );
       if (result === "ok") return new Response(null, { status: 204 });
       if (result === "forbidden")
-        return error(403, "FORBIDDEN", "Only the owner can change roles.");
+        return error(403, "FORBIDDEN", "Você não possui permissão para alterar cargos.");
       return error(404, "NOT_FOUND", "Member not found.");
     },
     { params: serverMemberParams, body: memberRoleBody },
@@ -54,7 +54,7 @@ export const serverMemberRoutes = new Elysia({ name: "server-member-routes" })
         params.memberId,
       );
       if (result === "forbidden")
-        return error(403, "FORBIDDEN", "Only the owner can remove members.");
+        return error(403, "FORBIDDEN", "Você não possui permissão para remover membros.");
       if (result === "missing")
         return error(404, "NOT_FOUND", "Member not found.");
       await revokeUnauthorizedSocketAccess(params.memberId);

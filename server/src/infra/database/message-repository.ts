@@ -65,9 +65,10 @@ export async function editMessage(
   userId: string,
   messageId: string,
   content: string,
+  canModerate = false,
 ): Promise<ChatMessage | null> {
   const row = await messageForUser(userId, messageId);
-  if (!row || row.userId !== userId || row.deletedAt) return null;
+  if (!row || (row.userId !== userId && !canModerate) || row.deletedAt) return null;
   return messageView(
     await db.message.update({
       where: { id: messageId },
@@ -79,9 +80,10 @@ export async function editMessage(
 export async function deleteMessage(
   userId: string,
   messageId: string,
+  canModerate = false,
 ): Promise<ChatMessage | null> {
   const row = await messageForUser(userId, messageId);
-  if (!row || row.userId !== userId || row.deletedAt) return null;
+  if (!row || (row.userId !== userId && !canModerate) || row.deletedAt) return null;
   return messageView(
     await db.message.update({
       where: { id: messageId },

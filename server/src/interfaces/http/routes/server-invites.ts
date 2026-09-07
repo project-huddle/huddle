@@ -48,7 +48,7 @@ export const serverInviteRoutes = new Elysia({ name: "server-invite-routes" })
         return error(
           403,
           "FORBIDDEN",
-          "You cannot create invites for this server.",
+          "Você não possui permissão para criar convites neste servidor.",
         );
       return json({ invite, url: `/invite/${invite.code}` }, 201);
     },

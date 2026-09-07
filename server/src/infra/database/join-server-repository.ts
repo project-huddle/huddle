@@ -32,7 +32,18 @@ export function createJoinServerRepository(
 
     async addMember(serverId, userId) {
       try {
-        await database.serverMember.create({ data: { serverId, userId } });
+        await database.$transaction(async (tx) => {
+          await tx.serverMember.create({ data: { serverId, userId } });
+          const defaultRole = await tx.serverRole.findFirst({
+            where: { serverId, isDefault: true },
+            select: { id: true },
+          });
+          if (defaultRole) {
+            await tx.serverMemberRole.create({
+              data: { serverId, userId, roleId: defaultRole.id },
+            });
+          }
+        });
         return "joined";
       } catch (cause) {
         if (

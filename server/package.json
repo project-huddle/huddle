@@ -12,7 +12,7 @@
     "db:dev": "prisma migrate dev",
     "db:seed": "bun prisma/seed.ts",
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test test"
   },
   "devDependencies": {
     "@types/bun": "latest",

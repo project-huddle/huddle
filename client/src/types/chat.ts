@@ -57,7 +57,6 @@ export type ChatStoreState = {
 	joinServer: (value: string) => Promise<void>;
 	createInvite: (durationHours?: number) => Promise<void>;
 	leaveServer: () => Promise<void>;
-	changeMemberRole: (member: HuddleMember) => Promise<void>;
 	removeMember: (member: HuddleMember) => Promise<void>;
 	banMember: (member: HuddleMember) => Promise<void>;
 	clearError: () => void;

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { Invite } from "./invite";
-import { Server } from "./server";
+import { Invite } from "@/domain/servers/invite";
+import { Server } from "@/domain/servers/server";
 
 describe("server domain", () => {
   test("allows a user to join once", () => {

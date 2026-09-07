@@ -11,7 +11,7 @@ import {
   type ServerRole,
   type User,
 } from "./mappers";
-import { can, type Permission } from "@/core/moderation/permissions";
+import { can, defaultMemberPermissions, type Permission } from "@/core/moderation/permissions";
 import { permissions as knownPermissions } from "@/core/moderation/permissions";
 
 export type {
@@ -33,16 +33,6 @@ export type RoleDefinition = {
 };
 
 const roleInclude = { permissions: { select: { permissionKey: true } } } as const;
-const baselineMemberPermissions = new Set<Permission>([
-  "server.view",
-  "channels.view",
-  "messages.send",
-  "voice.connect",
-  "voice.speak",
-  "voice.camera",
-  "voice.screen_share",
-]);
-
 function roleView(role: {
   id: string;
   serverId: string;
@@ -70,7 +60,15 @@ export async function createServer(
       include: { channels: true },
     });
     const everyone = await tx.serverRole.create({
-      data: { serverId: server.id, name: "Membro", isDefault: true, position: 0 },
+      data: {
+        serverId: server.id,
+        name: "Membro",
+        isDefault: true,
+        position: 0,
+        permissions: {
+          create: defaultMemberPermissions.map((permissionKey) => ({ permissionKey })),
+        },
+      },
     });
     await tx.serverMemberRole.create({ data: { serverId: server.id, userId: user.id, roleId: everyone.id } });
     return server;
@@ -92,6 +90,7 @@ export async function listChannels(
   userId: string,
   serverId: string,
 ): Promise<Channel[]> {
+  if (!(await hasServerPermission(userId, serverId, "channels.view"))) return [];
   return (
     await db.channel.findMany({
       where: {
@@ -132,7 +131,7 @@ export async function serverMembers(
   userId: string,
   serverId: string,
 ): Promise<ServerMember[] | null> {
-  if (!(await isServerMember(userId, serverId))) return null;
+  if (!(await hasServerPermission(userId, serverId, "members.view"))) return null;
   const rows = await db.serverMember.findMany({
     where: { serverId },
     include: {
@@ -190,7 +189,7 @@ export async function hasServerPermission(
   });
   if (!member) return false;
   const rolePermissions = member.roleLinks.flatMap(({ role }) => role.permissions.map(({ permissionKey }) => permissionKey));
-  return rolePermissions.includes(permission) || baselineMemberPermissions.has(permission) || can(member.role as ServerRole, permission, member.permissions);
+  return rolePermissions.includes(permission) || can(member.role as ServerRole, permission, member.permissions);
 }
 
 export async function listPermissions() {
@@ -229,7 +228,7 @@ async function canManageRole(actorId: string, serverId: string, roleId: string, 
 export async function updateRole(actorId: string, serverId: string, roleId: string, input: { name?: string; color?: string; permissionKeys?: string[] }) {
   if (!(await canManageRole(actorId, serverId, roleId, "roles.manage"))) return null;
   const role = await db.serverRole.findFirst({ where: { id: roleId, serverId } });
-  if (!role || role.isDefault) return null;
+  if (!role) return null;
   const updated = await db.$transaction(async (tx) => {
     if (input.permissionKeys) await tx.serverRolePermission.deleteMany({ where: { roleId } });
     return tx.serverRole.update({ where: { id: roleId }, data: { name: input.name, color: input.color, permissions: input.permissionKeys ? { create: input.permissionKeys.filter((key) => knownPermissions.includes(key as never)).map((permissionKey) => ({ permissionKey })) } : undefined }, include: roleInclude });
@@ -259,15 +258,16 @@ export async function memberRoles(userId: string, serverId: string) {
 }
 
 export async function updateServer(actorId: string, serverId: string, input: { name?: string; iconUrl?: string | null }) {
-  const server = await db.server.findFirst({ where: { id: serverId, ownerId: actorId } });
-  if (!server) return null;
+  const server = await db.server.findFirst({ where: { id: serverId } });
+  if (!server || !(await hasServerPermission(actorId, serverId, "server.settings.manage"))) return null;
   if (input.iconUrl !== undefined && input.iconUrl !== null && !/^\/media\/[a-f0-9-]+\.(jpg|png|gif|webp)$/.test(input.iconUrl)) return null;
   const updated = await db.server.update({ where: { id: serverId }, data: input });
   return serverView(updated);
 }
 
 export async function banMember(actorId: string, serverId: string, memberId: string, reason?: string) {
-  const server = await db.server.findFirst({ where: { id: serverId, ownerId: actorId } });
+  const server = await db.server.findUnique({ where: { id: serverId }, select: { ownerId: true } });
+  if (!server || !(await hasServerPermission(actorId, serverId, "members.ban"))) return false;
   if (!server || memberId === server.ownerId || !(await isServerMember(memberId, serverId))) return false;
   await db.$transaction([
     db.serverBan.upsert({ where: { serverId_userId: { serverId, userId: memberId } }, create: { serverId, userId: memberId, createdBy: actorId, reason }, update: { createdBy: actorId, reason } }),
@@ -277,14 +277,12 @@ export async function banMember(actorId: string, serverId: string, memberId: str
 }
 
 export async function listBans(actorId: string, serverId: string) {
-  const server = await db.server.findFirst({ where: { id: serverId, ownerId: actorId } });
-  if (!server) return null;
+  if (!(await hasServerPermission(actorId, serverId, "members.ban"))) return null;
   return db.serverBan.findMany({ where: { serverId }, include: { user: { select: userSelect } }, orderBy: { createdAt: "desc" } });
 }
 
 export async function unbanMember(actorId: string, serverId: string, memberId: string) {
-  const server = await db.server.findFirst({ where: { id: serverId, ownerId: actorId } });
-  if (!server) return false;
+  if (!(await hasServerPermission(actorId, serverId, "members.ban"))) return false;
   const result = await db.serverBan.deleteMany({ where: { serverId, userId: memberId } });
   return result.count > 0;
 }
@@ -312,8 +310,8 @@ export async function setMemberRole(
   role: "moderator" | "member",
 ): Promise<"ok" | "forbidden" | "missing"> {
   const server = await serverForUser(actorId, serverId);
-  if (!server || server.ownerId !== actorId)
-    return server ? "forbidden" : "missing";
+  if (!server) return "missing";
+  if (!(await hasServerPermission(actorId, serverId, "members.manage_roles"))) return "forbidden";
   if (
     !(await isServerMember(memberId, serverId)) ||
     memberId === server.ownerId
@@ -331,8 +329,8 @@ export async function removeMember(
   memberId: string,
 ): Promise<"ok" | "forbidden" | "missing"> {
   const server = await serverForUser(actorId, serverId);
-  if (!server || server.ownerId !== actorId)
-    return server ? "forbidden" : "missing";
+  if (!server) return "missing";
+  if (!(await hasServerPermission(actorId, serverId, "members.kick"))) return "forbidden";
   if (
     !(await isServerMember(memberId, serverId)) ||
     memberId === server.ownerId
@@ -392,6 +390,7 @@ export async function channelForUser(
   userId: string,
   channelId: string,
 ): Promise<Channel | null> {
+  if (!(await hasServerPermission(userId, (await db.channel.findUnique({ where: { id: channelId }, select: { serverId: true } }))?.serverId ?? "", "channels.view"))) return null;
   const channel = await db.channel.findFirst({
     where: {
       id: channelId,
@@ -409,9 +408,21 @@ export async function channelForUser(
 export async function firstChannelForUser(
   userId: string,
 ): Promise<Channel | null> {
+  const userServers = await db.server.findMany({
+    where: { members: { some: { userId } } },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
+  const permittedServers = await Promise.all(
+    userServers.map(async ({ id }) =>
+      (await hasServerPermission(userId, id, "channels.view")) ? id : null,
+    ),
+  );
+  const serverIds = permittedServers.filter((id): id is string => id !== null);
+  if (!serverIds.length) return null;
   const channel = await db.channel.findFirst({
     where: {
-      server: { members: { some: { userId } } },
+      serverId: { in: serverIds },
       OR: [
         { roleAccess: { none: {} } },
         { roleAccess: { some: { role: { members: { some: { userId } } } } } },

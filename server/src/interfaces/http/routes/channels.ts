@@ -5,6 +5,7 @@ import {
   isServerMember,
   listChannels,
   updateChannelAccess,
+  hasServerPermission,
 } from "@/infra/database/server-repository";
 import { authenticatedRoutes } from "../plugins/auth";
 import { createChannelBody, serverIdParams, resourceId } from "../schemas";
@@ -35,7 +36,9 @@ export const channelRoutes = new Elysia({ name: "channel-routes" })
     async ({ currentUser, params }) => {
       const isMember = await isServerMember(currentUser.id, params.serverId);
       if (!isMember)
-        return error(403, "FORBIDDEN", "You are not a member of this server.");
+        return error(403, "FORBIDDEN", "Você não pertence a este servidor.");
+      if (!(await hasServerPermission(currentUser.id, params.serverId, "channels.view")))
+        return error(403, "FORBIDDEN", "Você não tem permissão para visualizar os canais.");
       return json({
         channels: await listChannels(currentUser.id, params.serverId),
       });
@@ -59,7 +62,7 @@ export const channelRoutes = new Elysia({ name: "channel-routes" })
         body.type ?? "text",
       );
       if (!channel)
-        return error(403, "FORBIDDEN", "You are not a member of this server.");
+        return error(403, "FORBIDDEN", "Você não possui permissão para criar canais.");
       return json({ channel }, 201);
     },
     { params: serverIdParams, body: createChannelBody },
