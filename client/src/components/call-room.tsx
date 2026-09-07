@@ -12,14 +12,17 @@ import {
 	Users,
 	Video,
 	VideoOff,
+	Settings2,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CallControl } from "@/components/call/call-controls";
-import { PeerAudio, StreamVideo } from "@/components/call/call-media";
+import { AudioOutput, StreamVideo } from "@/components/call/call-media";
 import { Participant } from "@/components/call/call-participants";
+import { Modal } from "@/components/ui/modal";
 import type { User } from "@/lib/api";
 import type { RealtimePeer } from "@/types/realtime";
+import { listMediaDevices, deviceLabel, readMediaDevicePreferences, writeMediaDevicePreferences } from "@/lib/media-devices";
 
 export type CallPeer = RealtimePeer;
 
@@ -32,10 +35,13 @@ type CallRoomProps = {
 	localDisplayStream: MediaStream | null;
 	localMediaStream: MediaStream | null;
 	muted: boolean;
+	serverMuted: boolean;
 	onLeave: () => void;
 	onToggleCamera: () => void;
 	onToggleMute: () => void;
 	onToggleShare: () => void;
+	onMuteParticipant?: (userId: string, muted: boolean) => void;
+	onChangeDevice?: (kind: "audioInputDeviceId" | "videoInputDeviceId" | "audioOutputDeviceId", id: string | null) => void;
 	peers: CallPeer[];
 	sharing: boolean;
 	user: User;
@@ -49,6 +55,15 @@ export function CallRoom(props: CallRoomProps) {
 	const [selectedScreenName, setSelectedScreenName] = useState<string | null>(null);
 	const [isFullscreen, setIsFullscreen] = useState(false);
 	const [zoom, setZoom] = useState(100);
+	const [screenMuted, setScreenMuted] = useState(false);
+	const [screenVolume, setScreenVolume] = useState(100);
+	const [peerVolumes, setPeerVolumes] = useState<Record<string, number>>({});
+	const [speakingUsers, setSpeakingUsers] = useState<Record<string, boolean>>({});
+	const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+	const [devicePrefs, setDevicePrefs] = useState(readMediaDevicePreferences);
+	const [devicesOpen, setDevicesOpen] = useState(false);
+	useEffect(() => { void listMediaDevices().then(setDevices); }, []);
+	const updateDevice = (kind: "audioInputDeviceId" | "videoInputDeviceId" | "audioOutputDeviceId", id: string | null) => { const next = { ...devicePrefs, [kind]: id }; setDevicePrefs(next); writeMediaDevicePreferences(next); props.onChangeDevice?.(kind, id); };
 	const screenPanelRef = useRef<HTMLElement>(null);
 	const peers = useMemo(
 		() => [
@@ -63,11 +78,11 @@ export function CallRoom(props: CallRoomProps) {
 	const sharedScreens = useMemo(
 		() => [
 			...(props.localDisplayStream
-				? [{ name: props.user.displayName, stream: props.localDisplayStream }]
+				? [{ name: props.user.displayName, stream: props.localDisplayStream, audioStream: props.localDisplayStream }]
 				: []),
 			...peers.flatMap((peer) =>
 				peer.screenStream
-					? [{ name: peer.user.displayName, stream: peer.screenStream }]
+					? [{ name: peer.user.displayName, stream: peer.screenStream, audioStream: peer.screenAudioStream }]
 					: [],
 			),
 		],
@@ -135,6 +150,7 @@ export function CallRoom(props: CallRoomProps) {
 
 				{props.inCall && (
 					<div className="ml-auto flex items-center gap-2 rounded-2xl border border-(--line) bg-(--surface) p-2">
+						<CallControl label="Configurações de áudio e vídeo" onClick={() => setDevicesOpen(true)} icon={<Settings2 />} />
 						<CallControl active={props.muted} label={props.muted ? "Ativar microfone" : "Silenciar"} onClick={props.onToggleMute} icon={props.muted ? <MicOff /> : <Mic />} />
 						<CallControl active={props.cameraOff} label={props.cameraOff ? "Ativar câmera" : "Desativar câmera"} onClick={props.onToggleCamera} icon={props.cameraOff ? <VideoOff /> : <Video />} />
 						<CallControl active={props.sharing} label={props.sharing ? "Parar compartilhamento" : "Compartilhar tela"} onClick={props.onToggleShare} icon={<MonitorUp />} positive={props.sharing} />
@@ -158,6 +174,7 @@ export function CallRoom(props: CallRoomProps) {
 								<span className="w-12 text-center text-xs font-bold">{zoom}%</span>
 								<button type="button" onClick={() => changeZoom(ZOOM_STEP)} disabled={zoom === MAX_ZOOM} className="grid size-8 place-items-center rounded-lg bg-white/10 disabled:opacity-35" aria-label="Aumentar zoom"><Plus className="size-4" /></button>
 								<button type="button" onClick={() => setZoom(100)} className="grid size-8 place-items-center rounded-lg bg-white/10" aria-label="Restaurar zoom"><RotateCcw className="size-4" /></button>
+								{selectedScreen.stream.getAudioTracks().length > 0 && <><button type="button" onClick={() => setScreenMuted((value) => !value)} className="rounded-lg bg-white/10 px-2 py-2 text-xs">{screenMuted ? "Ativar som" : "Mutar tela"}</button><label className="flex items-center gap-2 text-xs">Volume <input aria-label="Volume da transmissão" type="range" min="0" max="100" value={screenVolume} onChange={(event) => setScreenVolume(Number(event.target.value))} /></label></>}
 								<button type="button" onClick={() => void toggleFullscreen()} className="grid size-8 place-items-center rounded-lg bg-white/10" aria-label={isFullscreen ? "Sair da tela cheia" : "Abrir em tela cheia"}>
 									{isFullscreen ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
 								</button>
@@ -169,6 +186,7 @@ export function CallRoom(props: CallRoomProps) {
 									className="max-w-none object-contain transition-[width] duration-200"
 									style={{ width: `${zoom}%` }}
 								/>
+								<AudioOutput stream={selectedScreen.audioStream} volume={screenVolume / 100} muted={screenMuted} />
 							</div>
 							{sharedScreens.length > 1 && (
 								<div className="flex gap-2 overflow-x-auto border-t border-white/10 p-3">
@@ -194,13 +212,20 @@ export function CallRoom(props: CallRoomProps) {
 						<Users className="size-4" /> Participantes
 					</p>
 					<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-						<Participant user={props.user} stream={props.localMediaStream} cameraOff={props.cameraOff} muted={props.muted} self />
-						{peers.map((peer) => <Participant key={peer.user.id} user={peer.user} stream={peer.cameraStream} />)}
+						<Participant user={props.user} stream={props.localMediaStream} cameraOff={props.cameraOff} muted={props.muted || props.serverMuted} speaking={false} self />
+						{peers.map((peer) => <Participant key={peer.user.id} user={peer.user} stream={peer.cameraStream} muted={peer.muted} speaking={speakingUsers[peer.user.id] ?? false} volume={peerVolumes[peer.user.id] ?? 100} onVolumeChange={(value) => setPeerVolumes((items) => ({ ...items, [peer.user.id]: value }))} onMute={() => props.onMuteParticipant?.(peer.user.id, !peer.serverMuted)} />)}
 					</div>
 				</aside>
 			</div>
 
-			{peers.map((peer) => <PeerAudio key={`audio-${peer.user.id}`} stream={peer.audioStream} />)}
+			{peers.map((peer) => <AudioOutput key={`audio-${peer.user.id}`} stream={peer.audioStream} volume={(peerVolumes[peer.user.id] ?? 100) / 100} muted={peer.muted} onSpeaking={(speaking) => setSpeakingUsers((items) => items[peer.user.id] === speaking ? items : ({ ...items, [peer.user.id]: speaking }))} />)}
+			<Modal open={devicesOpen} onClose={() => setDevicesOpen(false)} title="Dispositivos da call" description="Escolha o microfone, a câmera e a saída de áudio. As alterações são aplicadas imediatamente.">
+				<div className="space-y-4"><DeviceSelect label="Microfone" kind="audioinput" devices={devices} value={devicePrefs.audioInputDeviceId} onChange={(id) => updateDevice("audioInputDeviceId", id)} /><DeviceSelect label="Câmera" kind="videoinput" devices={devices} value={devicePrefs.videoInputDeviceId} onChange={(id) => updateDevice("videoInputDeviceId", id)} /><DeviceSelect label="Saída de áudio" kind="audiooutput" devices={devices} value={devicePrefs.audioOutputDeviceId} onChange={(id) => updateDevice("audioOutputDeviceId", id)} /></div>
+			</Modal>
 		</div>
 	);
+}
+
+function DeviceSelect({ label, kind, devices, value, onChange }: { label: string; kind: MediaDeviceKind; devices: MediaDeviceInfo[]; value: string | null; onChange: (value: string | null) => void }) {
+	return <label className="block text-sm font-bold">{label}<select aria-label={label} value={value ?? ""} onChange={(event) => onChange(event.target.value || null)} className="mt-1.5 h-11 w-full rounded-xl border border-(--line) bg-(--canvas) px-3"><option value="">Padrão do sistema</option>{devices.filter((device) => device.kind === kind).map((device) => <option key={device.deviceId} value={device.deviceId}>{deviceLabel(device)}</option>)}</select></label>;
 }

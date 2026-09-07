@@ -7,12 +7,12 @@ async function managedChannel(
   serverId: string,
   channelId: string,
   permission: "channels.manage" | "channels.delete",
-): Promise<Prisma.ChannelWhereInput> {
+): Promise<Prisma.ChannelWhereInput | null> {
   const canManage = await hasServerPermission(actorId, serverId, permission);
+  if (!canManage) return null;
   return {
     id: channelId,
     serverId,
-    ...(canManage ? {} : { id: "__forbidden__" }),
   };
 }
 
@@ -22,8 +22,10 @@ export async function renameChannel(
   channelId: string,
   name: string,
 ) {
+  const where = await managedChannel(actorId, serverId, channelId, "channels.manage");
+  if (!where) return null;
   const channels = await db.channel.updateManyAndReturn({
-    where: await managedChannel(actorId, serverId, channelId, "channels.manage"),
+    where,
     data: { name },
   });
   const channel = channels[0];
@@ -35,8 +37,10 @@ export async function deleteChannel(
   serverId: string,
   channelId: string,
 ) {
+  const where = await managedChannel(actorId, serverId, channelId, "channels.delete");
+  if (!where) return false;
   const result = await db.channel.deleteMany({
-    where: await managedChannel(actorId, serverId, channelId, "channels.delete"),
+    where,
   });
   return result.count > 0;
 }

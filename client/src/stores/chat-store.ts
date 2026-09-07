@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import type { HuddleChannel, HuddleMember, HuddlePermission, HuddleServer, HuddleServerRole } from "@/lib/api";
+import type { HuddleChannel, HuddleMember, HuddlePermission, HuddleServer, HuddleServerRole, User } from "@/lib/api";
 import { api } from "@/lib/api";
 import type { ChatStoreState } from "@/types/chat";
 import { channelNameSchema, inviteCodeSchema, serverNameSchema } from "@/schemas/chat-schema";
@@ -27,6 +27,8 @@ const initialState = {
 	dialogValue: "",
 	inviteUrl: null,
 	error: null,
+	voiceUsers: {},
+	voicePresenceRevisions: {},
 } satisfies Omit<ChatState, keyof ChatActions>;
 
 type ChatActions = Pick<ChatState,
@@ -35,7 +37,7 @@ type ChatActions = Pick<ChatState,
 	| "closeDialog" | "setDialogValue" | "setMobileNavOpen"
 	| "setSocialOpen" | "setSettingsOpen" | "reset"
 	| "setServerSettingsOpen" | "loadServers" | "loadChannels" | "loadMembers" | "loadRoles" | "createRole" | "updateRole" | "deleteRole" | "assignRole" | "updateServer" | "setChannelAccess" | "createServer" | "createChannel"
-	| "joinServer" | "createInvite" | "leaveServer" | "removeMember" | "clearError"
+	| "joinServer" | "createInvite" | "leaveServer" | "removeMember" | "clearError" | "setVoiceUsers"
 	| "banMember"
 >;
 
@@ -62,6 +64,10 @@ export const useChatStore = create<ChatState>((set) => ({
 	setServerSettingsOpen: (serverSettingsOpen) => set({ serverSettingsOpen }),
 	reset: () => set(initialState),
 	clearError: () => set({ error: null }),
+	setVoiceUsers: (channelId: string, users: User[], revision = 0) => set((state) => {
+		if (revision < (state.voicePresenceRevisions[channelId] ?? 0)) return state;
+		return { voiceUsers: { ...state.voiceUsers, [channelId]: users }, voicePresenceRevisions: { ...state.voicePresenceRevisions, [channelId]: revision } };
+	}),
 	loadServers: async () => {
 		try {
 			const { token } = credentials();

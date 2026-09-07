@@ -39,6 +39,9 @@ export function ProfileSettings({
 		verifyEmail,
 		toggle2fa,
 		changePassword,
+		devices,
+		devicePreferences,
+		setDevicePreferences,
 	} = useProfileSettings({ token, open, onUpdated });
 
 	const handleLogout = () => {
@@ -89,6 +92,9 @@ export function ProfileSettings({
 										className="mt-1.5 h-11 w-full rounded-xl border border-(--line) bg-(--canvas) px-3 outline-none focus:ring-2 focus:ring-(--brand)"
 									/>
 								</label>
+								<DeviceSelect label="Microfone" kind="audioinput" devices={devices} value={devicePreferences.audioInputDeviceId} onChange={(value) => setDevicePreferences({ ...devicePreferences, audioInputDeviceId: value })} />
+								<DeviceSelect label="Saída de áudio" kind="audiooutput" devices={devices} value={devicePreferences.audioOutputDeviceId} onChange={(value) => setDevicePreferences({ ...devicePreferences, audioOutputDeviceId: value })} />
+								<DeviceSelect label="Câmera" kind="videoinput" devices={devices} value={devicePreferences.videoInputDeviceId} onChange={(value) => setDevicePreferences({ ...devicePreferences, videoInputDeviceId: value })} />
 								<label className="block text-sm font-bold">
 									País
 									<select
@@ -190,4 +196,8 @@ function SettingsSection({ icon, title, description, children }: SettingsSection
 			{children}
 		</section>
 	);
+}
+
+function DeviceSelect({ label, kind, devices, value, onChange }: { label: string; kind: MediaDeviceKind; devices: MediaDeviceInfo[]; value: string | null; onChange: (value: string | null) => void }) {
+	return <label className="block text-sm font-bold">{label}<select value={value ?? ""} onChange={(event) => onChange(event.target.value || null)} className="mt-1.5 h-11 w-full rounded-xl border border-(--line) bg-(--canvas) px-3"><option value="">Padrão do sistema</option>{devices.filter((device) => device.kind === kind).map((device) => <option key={device.deviceId} value={device.deviceId}>{device.label || "Dispositivo sem nome"}</option>)}</select></label>;
 }

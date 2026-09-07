@@ -13,14 +13,18 @@ import type {
 } from "@/types/realtime";
 import { useRealtimeConnection } from "@/hooks/use-realtime-connection";
 import { mediaErrorMessage, rtcConfig } from "@/lib/realtime";
+import { useAuthStore } from "@/stores/auth-store";
+import { readMediaDevicePreferences, writeMediaDevicePreferences } from "@/lib/media-devices";
+import { unlockCallSounds } from "@/lib/call-sounds";
 
 
 export function useRealtime(token: string, channelId: string, channelType: HuddleChannel["type"] = "text") {
+	const currentUserId = useAuthStore((state) => state.user?.id ?? "");
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [connected, setConnected] = useState(false);
 	const { joining, inCall, muted, cameraOff, sharing, localMediaStream,
 		localDisplayStream, peers, setJoining, setInCall, setMuted, setCameraOff,
-		setSharing, setLocalMediaStream, setLocalDisplayStream, setPeers } = useCallState();
+		setSharing, setLocalMediaStream, setLocalDisplayStream, setPeers, serverMuted, setServerMuted } = useCallState();
 	const [error, setError] = useState<string | null>(null);
 	const socketRef = useRef<WebSocket | null>(null);
 	const connections = useRef(new Map<string, RTCPeerConnection>());
@@ -35,6 +39,11 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 	const pendingLeave = useRef<Promise<void> | null>(null);
 	const resolvePendingLeave = useRef<(() => void) | null>(null);
 	const leaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const joinTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const joiningRef = useRef(false);
+	const inCallRef = useRef(false);
+	joiningRef.current = joining;
+	inCallRef.current = inCall;
 
 	const send = useCallback((event: object) => {
 		if (socketRef.current?.readyState !== WebSocket.OPEN) return false;
@@ -60,7 +69,11 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 							audioStream: null,
 							cameraStream: null,
 							screenStream: null,
+							screenAudioStream: null,
 							sharing: false,
+							muted: false,
+							serverMuted: false,
+							speaking: false,
 							...changes,
 						},
 					];
@@ -105,7 +118,7 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 			pc.ontrack = ({ track, streams }) => {
 				const stream = streams[0] ?? new MediaStream([track]);
 				if (track.kind === "audio")
-					updatePeer(userId, { audioStream: stream });
+					updatePeer(userId, remoteSharing.current.has(userId) ? { screenAudioStream: stream } : { audioStream: stream });
 				if (track.kind === "video") {
 					const screen = remoteSharing.current.has(userId);
 					updatePeer(
@@ -117,7 +130,7 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 				}
 				track.onended = () => {
 					if (track.kind === "audio")
-						updatePeer(userId, { audioStream: null });
+						updatePeer(userId, remoteSharing.current.has(userId) ? { screenAudioStream: null } : { audioStream: null });
 					if (track.kind === "video") {
 						const screen = remoteSharing.current.has(userId);
 						updatePeer(
@@ -164,6 +177,10 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 
 	const closeCall = useCallback(
 		(notifyServer: boolean) => {
+			if (joinTimeout.current) clearTimeout(joinTimeout.current);
+			joinTimeout.current = null;
+			joiningRef.current = false;
+			inCallRef.current = false;
 			callAttempt.current += 1;
 			callLifecycle.current = "idle";
 			if (notifyServer) send({ type: "leave_call" });
@@ -183,20 +200,23 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 			setInCall(false);
 			setSharing(false);
 			setMuted(false);
+			setServerMuted(false);
 			setCameraOff(true);
 			remoteSharing.current.clear();
 		},
-		[send, setCameraOff, setInCall, setJoining, setLocalDisplayStream, setLocalMediaStream, setMuted, setPeers, setSharing],
+		[send, setCameraOff, setInCall, setJoining, setLocalDisplayStream, setLocalMediaStream, setMuted, setPeers, setServerMuted, setSharing],
 	);
 
 	const joinCall = useCallback(async () => {
-		if (joining || inCall || callLifecycle.current !== "idle") return;
+		if (joiningRef.current || inCallRef.current || callLifecycle.current !== "idle") return;
+		unlockCallSounds();
 		setError(null);
 		setCameraOff(true);
 		setMuted(false);
 		const attempt = callAttempt.current + 1;
 		callAttempt.current = attempt;
 		callLifecycle.current = "joining";
+		joiningRef.current = true;
 		setJoining(true);
 		try {
 			if (!navigator.mediaDevices?.getUserMedia)
@@ -209,10 +229,19 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 				noiseSuppression: true,
 				autoGainControl: true,
 			};
-			const stream = await navigator.mediaDevices.getUserMedia({
-				audio,
-				video: false,
-			});
+			const preferences = readMediaDevicePreferences();
+			let stream: MediaStream;
+			try {
+				stream = await navigator.mediaDevices.getUserMedia({
+					audio: preferences.audioInputDeviceId ? { ...audio, deviceId: { exact: preferences.audioInputDeviceId } } : audio,
+					video: false,
+				});
+			} catch (cause) {
+				if (preferences.audioInputDeviceId && cause instanceof DOMException && cause.name === "OverconstrainedError") {
+					writeMediaDevicePreferences({ ...preferences, audioInputDeviceId: null });
+					stream = await navigator.mediaDevices.getUserMedia({ audio, video: false });
+				} else throw cause;
+			}
 			if (callAttempt.current !== attempt || callLifecycle.current !== "joining") {
 				stream.getTracks().forEach((track) => track.stop());
 				return;
@@ -225,13 +254,19 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 				setLocalMediaStream(null);
 				throw new Error("WebSocket is not connected");
 			}
+			joinTimeout.current = setTimeout(() => {
+				if (callLifecycle.current !== "joining") return;
+				closeCall(false);
+				setError("A chamada demorou para responder. Tente entrar novamente.");
+			}, 10_000);
 		} catch (cause) {
 			if (callAttempt.current !== attempt) return;
 			callLifecycle.current = "idle";
+			joiningRef.current = false;
 			setJoining(false);
 			setError(mediaErrorMessage(cause, "microphone"));
 		}
-	}, [channelId, inCall, joining, send, setCameraOff, setError, setJoining, setLocalMediaStream, setMuted]);
+	}, [channelId, closeCall, send, setCameraOff, setError, setJoining, setLocalMediaStream, setMuted]);
 
 	useRealtimeConnection({
 		token, channelId, channelType, socketRef, peerUsers, displayStream, remoteSharing,
@@ -240,7 +275,9 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 		closeCall, createPeer, flushCandidates, makeOffer, send, updatePeer,
 		setMessages, setConnected, onChannelSubscribed: channelType === "voice" ? joinCall : undefined,
 		onCallLeft: () => resolvePendingLeave.current?.(),
+		currentUserId,
 		setError, setPeers, setJoining, setInCall,
+		setServerMuted,
 	});
 
 	const leaveCall = useCallback(() => {
@@ -268,11 +305,32 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 	}, [closeCall, send]);
 
 	const toggleMute = () => {
+		if (serverMuted) return;
 		const next = !muted;
 		localStream.current?.getAudioTracks().forEach((track) => {
 			track.enabled = !next;
 		});
 		setMuted(next);
+		send({ type: "participant_state", muted: next });
+	};
+	const muteParticipant = (userId: string, muted: boolean) => send({ type: "participant_mute", targetUserId: userId, muted });
+	const changeDevice = async (kind: "audioInputDeviceId" | "videoInputDeviceId" | "audioOutputDeviceId", deviceId: string | null) => {
+		const preferences = { ...readMediaDevicePreferences(), [kind]: deviceId };
+		writeMediaDevicePreferences(preferences);
+		if (kind === "audioOutputDeviceId") return;
+		const stream = localStream.current;
+		if (!stream || (kind === "videoInputDeviceId" && cameraOff)) return;
+		const next = await navigator.mediaDevices.getUserMedia(kind === "audioInputDeviceId" ? { audio: { deviceId: deviceId ? { exact: deviceId } : undefined }, video: false } : { audio: false, video: { deviceId: deviceId ? { exact: deviceId } : undefined } });
+		const nextTrack = kind === "audioInputDeviceId" ? next.getAudioTracks()[0] : next.getVideoTracks()[0];
+		if (!nextTrack) return;
+		const oldTracks = kind === "audioInputDeviceId" ? stream.getAudioTracks() : stream.getVideoTracks();
+		for (const pc of connections.current.values()) {
+			const sender = pc.getSenders().find((item) => item.track && oldTracks.includes(item.track));
+			if (sender) await sender.replaceTrack(nextTrack);
+		}
+		oldTracks.forEach((track) => { stream.removeTrack(track); track.stop(); });
+		stream.addTrack(nextTrack);
+		setLocalMediaStream(new MediaStream(stream.getTracks()));
 	};
 
 	const toggleCamera = async () => {
@@ -298,14 +356,17 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 
 		setError(null);
 		try {
-			const cameraStream = await navigator.mediaDevices.getUserMedia({
-				video: {
-					width: { ideal: 1280 },
-					height: { ideal: 720 },
-					facingMode: "user",
-				},
-				audio: false,
-			});
+			const videoDeviceId = readMediaDevicePreferences().videoInputDeviceId;
+			const cameraConstraints = { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user", ...(videoDeviceId ? { deviceId: { exact: videoDeviceId } } : {}) };
+			let cameraStream: MediaStream;
+			try {
+				cameraStream = await navigator.mediaDevices.getUserMedia({ video: cameraConstraints, audio: false });
+			} catch (cause) {
+				if (videoDeviceId && cause instanceof DOMException && cause.name === "OverconstrainedError") {
+					writeMediaDevicePreferences({ ...readMediaDevicePreferences(), videoInputDeviceId: null });
+					cameraStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }, audio: false });
+				} else throw cause;
+			}
 			const track = cameraStream.getVideoTracks()[0];
 			if (!track) throw new DOMException("No camera track", "NotFoundError");
 			stream.addTrack(track);
@@ -389,6 +450,7 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 		joining,
 		inCall,
 		muted,
+		serverMuted,
 		cameraOff,
 		sharing,
 		peers,
@@ -417,6 +479,8 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 		joinCall,
 		leaveCall,
 		toggleMute,
+		muteParticipant,
+		changeDevice,
 		toggleCamera,
 		toggleShare,
 	};

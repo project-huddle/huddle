@@ -95,6 +95,16 @@ test.describe("call lifecycle", () => {
 		await loginAndCreateServer(page, account);
 
 		await enterCall(page);
+		await page.getByRole("button", { name: "Configurações de áudio e vídeo" }).click();
+		const deviceDialog = page.getByRole("dialog", { name: "Dispositivos da call" });
+		await expect(deviceDialog.getByLabel("Microfone")).toBeVisible();
+		await expect(deviceDialog.getByLabel("Câmera")).toBeVisible();
+		await expect(deviceDialog.getByLabel("Saída de áudio")).toBeVisible();
+		await deviceDialog.getByRole("button", { name: "Fechar" }).click();
+		await page.getByRole("button", { name: "Abrir configurações do perfil" }).click();
+		const settings = page.getByRole("dialog", { name: "Configurações" });
+		await expect(settings.getByText("Microfone").first()).toBeVisible();
+		await settings.getByRole("button", { name: "Fechar" }).click().catch(() => undefined);
 			await expect(page.getByRole("heading", { name: "Chamada do canal" })).toBeVisible();
 			await expect(page.getByRole("button", { name: "Ativar câmera" })).toBeVisible();
 			await expect(page.getByRole("button", { name: "Silenciar" })).toBeVisible();
@@ -103,6 +113,7 @@ test.describe("call lifecycle", () => {
 
 			await page.getByRole("button", { name: "geral" }).click();
 			await expect(page.locator("textarea")).toBeEnabled();
+			await expect(page.getByText("Chamada ativa")).toBeVisible();
 
 			await page.getByRole("button", { name: "Criar canal" }).click();
 			const secondVoiceDialog = page.getByRole("dialog", { name: "Criar canal" });
@@ -205,6 +216,11 @@ test.describe("call lifecycle", () => {
 
 			await expect(page.getByText("2 pessoas conectadas")).toBeVisible();
 			await expect(guestPage.getByText("2 pessoas conectadas")).toBeVisible();
+			await page.getByText("call-guest", { exact: true }).click({ button: "right" });
+			const volumeDialog = page.getByRole("dialog", { name: "Volume de call-guest" });
+			await expect(volumeDialog.getByRole("slider")).toHaveValue("100");
+			await volumeDialog.getByRole("slider").fill("150");
+			await expect(volumeDialog.getByText("150%" )).toBeVisible();
 			await expect(page.locator("audio")).toHaveCount(1);
 			await expect(guestPage.locator("audio")).toHaveCount(1);
 		} finally {

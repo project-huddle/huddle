@@ -5,6 +5,7 @@ import {
 	passwordChangeSchema,
 	profileSchema,
 } from "@/schemas/profile-schema";
+import { listMediaDevices, type MediaDevicePreferences, writeMediaDevicePreferences } from "@/lib/media-devices";
 
 export function useProfileSettings({
 	token,
@@ -21,11 +22,15 @@ export function useProfileSettings({
 	const [currentPassword, setCurrentPassword] = useState("");
 	const [newPassword, setNewPassword] = useState("");
 	const avatarRef = useRef<HTMLInputElement>(null);
+	const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+	const [devicePreferences, setDevicePreferences] = useState<MediaDevicePreferences>({ audioInputDeviceId: null, audioOutputDeviceId: null, videoInputDeviceId: null });
 	useEffect(() => {
-		if (open)
+		if (open) {
+			void listMediaDevices().then(setDevices);
 			void api<{ user: UserProfile }>("/profile", {}, token).then(
-				({ user }) => setProfile(user),
+				({ user }) => { setProfile(user); setDevicePreferences({ audioInputDeviceId: user.audioInputDeviceId, audioOutputDeviceId: user.audioOutputDeviceId, videoInputDeviceId: user.videoInputDeviceId }); },
 			);
+		}
 	}, [open, token]);
 	const save = async (event: FormEvent) => {
 		event.preventDefault();
@@ -43,11 +48,15 @@ export function useProfileSettings({
 						displayName: input.displayName,
 						avatarUrl: profile.avatarUrl,
 						countryCode: input.countryCode,
+						audioInputDeviceId: devicePreferences.audioInputDeviceId,
+						audioOutputDeviceId: devicePreferences.audioOutputDeviceId,
+						videoInputDeviceId: devicePreferences.videoInputDeviceId,
 					}),
 				},
 				token,
 			);
 			setProfile(result.user);
+			writeMediaDevicePreferences(devicePreferences);
 			onUpdated(result.user);
 			setMessage("Perfil atualizado.");
 		} catch (cause) {
@@ -118,6 +127,9 @@ export function useProfileSettings({
 	return {
 		profile,
 		setProfile,
+		devices,
+		devicePreferences,
+		setDevicePreferences,
 		code,
 		setCode,
 		message,

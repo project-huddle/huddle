@@ -1,5 +1,5 @@
 import type { SetStateAction } from "react";
-import type { HuddleChannel, HuddleMember, HuddlePermission, HuddleServer, HuddleServerRole } from "@/lib/api";
+import type { HuddleChannel, HuddleMember, HuddlePermission, HuddleServer, HuddleServerRole, User } from "@/lib/api";
 
 export type ChatDialog =
 	| "add-server"
@@ -26,6 +26,8 @@ export type ChatStoreState = {
 	dialogValue: string;
 	inviteUrl: string | null;
 	error: string | null;
+	voiceUsers: Record<string, User[]>;
+	voicePresenceRevisions: Record<string, number>;
 	setServers: (value: SetStateAction<HuddleServer[]>) => void;
 	setChannels: (value: SetStateAction<HuddleChannel[]>) => void;
 	setMembers: (value: SetStateAction<HuddleMember[]>) => void;
@@ -60,4 +62,5 @@ export type ChatStoreState = {
 	removeMember: (member: HuddleMember) => Promise<void>;
 	banMember: (member: HuddleMember) => Promise<void>;
 	clearError: () => void;
+	setVoiceUsers: (channelId: string, users: User[], revision?: number) => void;
 };

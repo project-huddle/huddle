@@ -21,11 +21,15 @@ type SocketSession = {
   callId: string | null;
   channelId: string | null;
   limiter: FixedWindowRateLimiter;
+  muted: boolean;
+  serverMuted: boolean;
+  serverId: string | null;
 };
 type WsMessage = Record<string, unknown> & { type?: unknown };
 
 const socketsByUser = new Map<string, Set<RealtimeSocket>>();
 const calls = new Map<string, Set<RealtimeSocket>>();
+const voicePresenceRevisions = new Map<string, number>();
 const websocketTickets = new Map<string, { expiresAt: number; user: User }>();
 const sessions = new WeakMap<object, SocketSession>();
 
@@ -54,6 +58,17 @@ function broadcastChannel(channelId: string, value: unknown): void {
   }
 }
 
+function broadcastServer(serverId: string, value: unknown): void {
+  for (const sockets of socketsByUser.values()) for (const socket of sockets)
+    if (session(socket).serverId === serverId) send(socket, value);
+}
+
+function broadcastVoicePresence(channelId: string, serverId: string, users: RealtimeSocket[]): void {
+  const revision = (voicePresenceRevisions.get(channelId) ?? 0) + 1;
+  voicePresenceRevisions.set(channelId, revision);
+  broadcastServer(serverId, { type: "voice_presence", channelId, revision, users: users.map((peer) => session(peer).user) });
+}
+
 export function notifyUser(userId: string, value: unknown): void {
   for (const socket of socketsByUser.get(userId) ?? []) send(socket, value);
 }
@@ -80,6 +95,8 @@ function leaveCall(ws: RealtimeSocket, removeUserSockets = false): void {
   for (const socket of socketsToRemove) {
     peers?.delete(socket);
     session(socket).callId = null;
+    session(socket).muted = false;
+    session(socket).serverMuted = false;
   }
   for (const peer of peers ?? [])
     send(peer, { type: "peer_left", callId, userId: session(ws).user.id });
@@ -154,9 +171,14 @@ export const realtimeWebSocket = {
       callId: null,
       channelId: null,
       limiter: new FixedWindowRateLimiter(120),
+      muted: false,
+      serverMuted: false,
+      serverId: null,
     };
     sessions.set(ws.raw, current);
-    current.channelId = (await firstChannelForUser(user.id))?.id ?? null;
+    const firstChannel = await firstChannelForUser(user.id);
+    current.channelId = firstChannel?.id ?? null;
+    current.serverId = firstChannel?.serverId ?? null;
     const sockets = socketsByUser.get(session(ws).user.id) ?? new Set();
     sockets.add(ws);
     socketsByUser.set(session(ws).user.id, sockets);
@@ -296,6 +318,11 @@ export const realtimeWebSocket = {
         });
       leaveCall(ws);
       session(ws).channelId = channelId;
+      session(ws).serverId = channel.serverId;
+      for (const peers of calls.values()) {
+        const active = [...peers].filter((peer) => session(peer).channelId === channelId);
+        if (active.length) send(ws, { type: "voice_presence", channelId, revision: voicePresenceRevisions.get(channelId) ?? 0, users: active.map((peer) => session(peer).user) });
+      }
       return send(ws, { type: "channel_subscribed", channelId });
     }
     if (event.type === "join_call") {
@@ -321,9 +348,9 @@ export const realtimeWebSocket = {
         return send(ws, {
           type: "call_joined",
           callId,
-          peers: [...(calls.get(key) ?? [])]
+      peers: [...(calls.get(key) ?? [])]
             .filter((peer) => session(peer).user.id !== session(ws).user.id)
-            .map((peer) => session(peer).user),
+            .map((peer) => ({ user: session(peer).user, muted: session(peer).muted || session(peer).serverMuted, serverMuted: session(peer).serverMuted })),
         });
       leaveCall(ws);
       leaveOtherCalls(session(ws).user.id, ws);
@@ -336,17 +363,39 @@ export const realtimeWebSocket = {
         callId,
         peers: [...peers]
           .filter((peer) => session(peer).user.id !== session(ws).user.id)
-          .map((peer) => session(peer).user),
+          .map((peer) => ({ user: session(peer).user, muted: session(peer).muted || session(peer).serverMuted, serverMuted: session(peer).serverMuted })),
       });
       for (const peer of peers)
         if (peer !== ws)
-          send(peer, { type: "peer_joined", callId, user: session(ws).user });
+          send(peer, { type: "peer_joined", callId, user: session(ws).user, muted: session(ws).muted || session(ws).serverMuted, serverMuted: session(ws).serverMuted });
+      broadcastVoicePresence(session(ws).channelId!, session(ws).serverId!, [...peers]);
       return;
     }
     if (event.type === "leave_call") {
       const callId = session(ws).callId;
+      const serverId = session(ws).serverId;
+      const channelId = session(ws).channelId;
       leaveCall(ws, true);
+      if (serverId && channelId) broadcastVoicePresence(channelId, serverId, [...(calls.get(`${channelId}:${callId}`) ?? [])]);
       return send(ws, { type: "call_left", callId });
+    }
+    if (event.type === "participant_mute") {
+      const channel = session(ws).channelId ? await channelForUser(session(ws).user.id, session(ws).channelId!) : null;
+      if (!channel || !(await hasServerPermission(session(ws).user.id, channel.serverId, "voice.moderate_mute")))
+        return send(ws, { type: "error", code: "FORBIDDEN", message: "Você não possui permissão para silenciar participantes." });
+      const targetUserId = typeof event.targetUserId === "string" ? event.targetUserId : "";
+      const target = [...(calls.get(callKey(ws) ?? "") ?? [])].find((peer) => session(peer).user.id === targetUserId);
+      if (!target) return send(ws, { type: "error", code: "PEER_NOT_FOUND", message: "O participante não está nesta chamada." });
+      const serverMuted = event.muted === true;
+      session(target).serverMuted = serverMuted;
+      for (const peer of calls.get(callKey(ws) ?? "") ?? []) send(peer, { type: "participant_state", callId: session(ws).callId, userId: targetUserId, muted: session(target).muted || serverMuted, serverMuted });
+      return;
+    }
+    if (event.type === "participant_state") {
+      const targetUserId = session(ws).user.id;
+      session(ws).muted = event.muted === true;
+      for (const peer of calls.get(callKey(ws) ?? "") ?? []) if (peer !== ws) send(peer, { type: "participant_state", callId: session(ws).callId, userId: targetUserId, muted: session(ws).muted || session(ws).serverMuted, serverMuted: session(ws).serverMuted });
+      return;
     }
     if (
       [
