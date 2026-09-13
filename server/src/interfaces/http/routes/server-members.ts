@@ -96,4 +96,32 @@ export const serverMemberRoutes = new Elysia({ name: "server-member-routes" })
       return new Response(null, { status: 204 });
     },
     { params: serverMemberParams },
+  )
+  .post(
+    "/servers/:serverId/members/:memberId/ban",
+    async ({ currentUser, params, body }) => {
+      if (!(await banMember(currentUser.id, params.serverId, params.memberId, body.reason?.trim())))
+        return error(403, "FORBIDDEN", "Somente o proprietário pode banir membros.");
+      await revokeUnauthorizedSocketAccess(params.memberId);
+      return new Response(null, { status: 204 });
+    },
+    { params: serverMemberParams, body: banBody },
+  )
+  .get(
+    "/servers/:serverId/bans",
+    async ({ currentUser, params }) => {
+      const bans = await listBans(currentUser.id, params.serverId);
+      if (!bans) return error(403, "FORBIDDEN", "Somente o proprietário pode ver banimentos.");
+      return json({ bans });
+    },
+    { params: serverIdParams },
+  )
+  .delete(
+    "/servers/:serverId/bans/:memberId",
+    async ({ currentUser, params }) => {
+      if (!(await unbanMember(currentUser.id, params.serverId, params.memberId)))
+        return error(404, "NOT_FOUND", "Banimento não encontrado.");
+      return new Response(null, { status: 204 });
+    },
+    { params: serverMemberParams },
   );
