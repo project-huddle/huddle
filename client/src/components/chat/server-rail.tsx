@@ -16,6 +16,7 @@ export function ServerRail() {
 		selectServer,
 		openDialog,
 		setSocialOpen,
+		unreadByServer,
 	} = useChatStore(
 		useShallow((state) => ({
 			servers: state.servers,
@@ -24,6 +25,7 @@ export function ServerRail() {
 			selectServer: state.setServerId,
 			openDialog: state.openDialog,
 			setSocialOpen: state.setSocialOpen,
+			unreadByServer: state.unreadByServer,
 		})),
 	);
 
@@ -55,6 +57,7 @@ export function ServerRail() {
 					name={server.name}
 					active={server.id === serverId}
 					onSelect={selectServer}
+					unread={unreadByServer[server.id]}
 				/>
 			))}
 

@@ -20,6 +20,7 @@ import { unlockCallSounds } from "@/lib/call-sounds";
 
 export function useRealtime(token: string, channelId: string, channelType: HuddleChannel["type"] = "text") {
 	const currentUserId = useAuthStore((state) => state.user?.id ?? "");
+	const currentUserDisplayName = useAuthStore((state) => state.user?.displayName ?? "");
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [connected, setConnected] = useState(false);
 	const { joining, inCall, muted, cameraOff, sharing, localMediaStream,
@@ -33,6 +34,8 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 	const localStream = useRef<MediaStream | null>(null);
 	const displayStream = useRef<MediaStream | null>(null);
 	const displaySenders = useRef(new Map<string, RTCRtpSender>());
+	const recoveryAttempts = useRef(new Map<string, number>());
+	const recoveryTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 	const remoteSharing = useRef(new Set<string>());
 	const callLifecycle = useRef<CallLifecycle>("idle");
 	const callAttempt = useRef(0);
@@ -92,7 +95,15 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 
 	const createPeer = useCallback(
 		(userId: string) => {
-			connections.current.get(userId)?.close();
+			const previous = connections.current.get(userId);
+			if (previous) {
+				previous.onconnectionstatechange = null;
+				previous.close();
+			}
+			const recoveryTimer = recoveryTimers.current.get(userId);
+			if (recoveryTimer) clearTimeout(recoveryTimer);
+			recoveryTimers.current.delete(userId);
+			recoveryAttempts.current.delete(userId);
 			const pc = new RTCPeerConnection(rtcConfig);
 			connections.current.set(userId, pc);
 			localStream.current
@@ -143,10 +154,36 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 				};
 			};
 			pc.onconnectionstatechange = () => {
-				if (pc.connectionState === "failed")
-					setError(
-						"A conexão de mídia falhou. Verifique a rede ou configure um servidor TURN.",
-					);
+				if (pc.connectionState === "connected") {
+					const recoveryTimer = recoveryTimers.current.get(userId);
+					if (recoveryTimer) clearTimeout(recoveryTimer);
+					recoveryTimers.current.delete(userId);
+					recoveryAttempts.current.delete(userId);
+					setError(null);
+					return;
+				}
+				if (["failed", "disconnected"].includes(pc.connectionState)) {
+					if (recoveryTimers.current.has(userId)) return;
+					const attempt = recoveryAttempts.current.get(userId) ?? 0;
+					if (attempt >= 3) {
+						setError("A conexão de mídia falhou. Verifique a rede ou configure um servidor TURN.");
+						return;
+					}
+					recoveryAttempts.current.set(userId, attempt + 1);
+					const delay = 1_000 * 2 ** attempt;
+					recoveryTimers.current.set(userId, setTimeout(async () => {
+						recoveryTimers.current.delete(userId);
+						if (callLifecycle.current !== "active" || connections.current.get(userId) !== pc) return;
+						try {
+							pc.restartIce();
+							await pc.setLocalDescription(await pc.createOffer({ iceRestart: true }));
+							if (callLifecycle.current === "active" && pc.localDescription)
+								send({ type: "webrtc_offer", targetUserId: userId, sdp: pc.localDescription });
+						} catch (cause) {
+							console.warn("Unable to restart media connection", cause);
+						}
+					}, delay));
+				}
 				if (["failed", "closed"].includes(pc.connectionState)) {
 					updatePeer(userId, {
 						audioStream: null,
@@ -186,6 +223,9 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 			if (notifyServer) send({ type: "leave_call" });
 			connections.current.forEach((pc) => pc.close());
 			connections.current.clear();
+			recoveryTimers.current.forEach((timer) => clearTimeout(timer));
+			recoveryTimers.current.clear();
+			recoveryAttempts.current.clear();
 			pendingCandidates.current.clear();
 			peerUsers.current.clear();
 			localStream.current?.getTracks().forEach((track) => track.stop());
@@ -269,7 +309,7 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 	}, [channelId, closeCall, send, setCameraOff, setError, setJoining, setLocalMediaStream, setMuted]);
 
 	useRealtimeConnection({
-		token, channelId, channelType, socketRef, peerUsers, displayStream, remoteSharing,
+		token, channelId, channelType, currentUserDisplayName, socketRef, peerUsers, displayStream, remoteSharing,
 		connections, pendingCandidates,
 		callLifecycle,
 		closeCall, createPeer, flushCandidates, makeOffer, send, updatePeer,

@@ -4,6 +4,7 @@ import {
   firstChannelForUser,
   hasServerPermission,
 } from "@/infra/database/server-repository";
+import { db } from "@/infra/database/mappers";
 import {
   deleteMessage,
   editMessage,
@@ -32,6 +33,7 @@ const calls = new Map<string, Set<RealtimeSocket>>();
 const voicePresenceRevisions = new Map<string, number>();
 const websocketTickets = new Map<string, { expiresAt: number; user: User }>();
 const sessions = new WeakMap<object, SocketSession>();
+const CALL_REPLACED_CLOSE_CODE = 4001;
 
 function session(ws: RealtimeSocket): SocketSession {
   const current = sessions.get(ws.raw);
@@ -63,6 +65,53 @@ function broadcastServer(serverId: string, value: unknown): void {
     if (session(socket).serverId === serverId) send(socket, value);
 }
 
+async function mentionedUserIds(serverId: string, content: string): Promise<string[]> {
+	const members = await db.serverMember.findMany({
+		where: { serverId },
+		select: { userId: true, user: { select: { displayName: true } } },
+	});
+	return members
+		.filter(({ user }) => {
+			const escapedName = user.displayName.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&");
+			const mentionPattern = new RegExp(`(^|\\s)@${escapedName}(?=\\s|$|[.,!?])`, "iu");
+			return mentionPattern.test(content);
+		})
+		.map(({ userId }) => userId);
+}
+
+async function serverIdsForUser(userId: string): Promise<string[]> {
+  const servers = await db.server.findMany({
+    where: { members: { some: { userId } } },
+    select: { id: true },
+  });
+  return servers.map(({ id }) => id);
+}
+
+async function broadcastPresenceForUser(
+  userId: string,
+  status: "online" | "offline",
+): Promise<void> {
+  const value = { type: "presence", userId, status };
+  for (const serverId of await serverIdsForUser(userId))
+    broadcastServer(serverId, value);
+}
+
+async function sendPresenceSnapshot(
+  ws: RealtimeSocket,
+  serverId: string,
+): Promise<void> {
+  const onlineUserIds = [...socketsByUser.keys()];
+  if (!onlineUserIds.length) return;
+  const members = await db.serverMember.findMany({
+    where: { serverId, userId: { in: onlineUserIds } },
+    select: { userId: true },
+  });
+  send(ws, {
+    type: "presence_snapshot",
+    userIds: members.map(({ userId }) => userId),
+  });
+}
+
 function broadcastVoicePresence(channelId: string, serverId: string, users: RealtimeSocket[]): void {
   const revision = (voicePresenceRevisions.get(channelId) ?? 0) + 1;
   voicePresenceRevisions.set(channelId, revision);
@@ -71,6 +120,28 @@ function broadcastVoicePresence(channelId: string, serverId: string, users: Real
 
 export function notifyUser(userId: string, value: unknown): void {
   for (const socket of socketsByUser.get(userId) ?? []) send(socket, value);
+}
+
+export type ServerDataResource = "servers" | "channels" | "members" | "roles";
+
+/** Notify every connected member that a server-backed collection changed. */
+export async function notifyServerDataChanged(
+  serverId: string,
+  resources: ServerDataResource[],
+): Promise<void> {
+  await notifyServerMembers(serverId, {
+    type: "server_data_changed",
+    serverId,
+    resources,
+  });
+}
+
+async function notifyServerMembers(serverId: string, value: unknown): Promise<void> {
+	const members = await db.serverMember.findMany({
+		where: { serverId },
+		select: { userId: true },
+	});
+	for (const { userId } of members) notifyUser(userId, value);
 }
 
 function callKey(
@@ -103,12 +174,23 @@ function leaveCall(ws: RealtimeSocket, removeUserSockets = false): void {
   if (!peers?.size && key) calls.delete(key);
 }
 
+function leaveCallAndBroadcast(ws: RealtimeSocket, removeUserSockets = false): void {
+  const { callId, channelId, serverId } = session(ws);
+  leaveCall(ws, removeUserSockets);
+
+  if (!callId || !channelId || !serverId) return;
+
+  const remainingPeers = calls.get(`${channelId}:${callId}`) ?? new Set();
+  broadcastVoicePresence(channelId, serverId, [...remainingPeers]);
+}
+
 function leaveOtherCalls(userId: string, current: RealtimeSocket): void {
   for (const peers of calls.values()) {
     for (const peer of [...peers]) {
       if (peer === current || session(peer).user.id !== userId) continue;
       send(peer, { type: "call_replaced" });
-      leaveCall(peer, true);
+      leaveCallAndBroadcast(peer, true);
+      peer.close(CALL_REPLACED_CLOSE_CODE, "Call session replaced");
     }
   }
 }
@@ -144,7 +226,7 @@ export async function revokeUnauthorizedSocketAccess(
   for (const socket of socketsByUser.get(userId) ?? []) {
     const channelId = session(socket).channelId;
     if (!channelId || (await channelForUser(userId, channelId))) continue;
-    leaveCall(socket);
+    leaveCallAndBroadcast(socket);
     session(socket).channelId = null;
     send(socket, { type: "access_revoked", channelId });
   }
@@ -154,7 +236,7 @@ export function revokeChannelSocketAccess(channelId: string): void {
   for (const sockets of socketsByUser.values()) {
     for (const socket of sockets) {
       if (session(socket).channelId !== channelId) continue;
-      leaveCall(socket);
+      leaveCallAndBroadcast(socket);
       session(socket).channelId = null;
       send(socket, { type: "access_revoked", channelId });
     }
@@ -180,16 +262,11 @@ export const realtimeWebSocket = {
     current.channelId = firstChannel?.id ?? null;
     current.serverId = firstChannel?.serverId ?? null;
     const sockets = socketsByUser.get(session(ws).user.id) ?? new Set();
+    const wasOffline = sockets.size === 0;
     sockets.add(ws);
     socketsByUser.set(session(ws).user.id, sockets);
     send(ws, { type: "ready", user: session(ws).user });
-    const channelId = session(ws).channelId;
-    if (channelId)
-      broadcastChannel(channelId, {
-        type: "presence",
-        userId: session(ws).user.id,
-        status: "online",
-      });
+    if (wasOffline) void broadcastPresenceForUser(session(ws).user.id, "online");
   },
   async message(ws: RealtimeSocket, raw: unknown) {
     if (!session(ws).limiter.consume(session(ws).user.id))
@@ -255,7 +332,16 @@ export const realtimeWebSocket = {
         media,
         replyToId,
       );
-      return broadcastChannel(channelId, { type: "chat_message", message });
+      broadcastChannel(channelId, { type: "chat_message", message });
+      const mentioned = await mentionedUserIds(channel.serverId, message.content);
+      await notifyServerMembers(channel.serverId, {
+        type: "server_notification",
+        serverId: channel.serverId,
+        channelId,
+        message,
+        mentionedUserIds: mentioned,
+      });
+      return;
     }
     if (
       ["edit_message", "delete_message", "react_message"].includes(
@@ -316,12 +402,21 @@ export const realtimeWebSocket = {
           code: "FORBIDDEN",
           message: "Você não possui permissão para acessar este canal.",
         });
-      leaveCall(ws);
+      leaveCallAndBroadcast(ws);
       session(ws).channelId = channelId;
       session(ws).serverId = channel.serverId;
+      await sendPresenceSnapshot(ws, channel.serverId);
       for (const peers of calls.values()) {
-        const active = [...peers].filter((peer) => session(peer).channelId === channelId);
-        if (active.length) send(ws, { type: "voice_presence", channelId, revision: voicePresenceRevisions.get(channelId) ?? 0, users: active.map((peer) => session(peer).user) });
+        const active = [...peers].filter((peer) => session(peer).serverId === channel.serverId);
+        if (!active.length) continue;
+        const activeChannelId = session(active[0]!).channelId;
+        if (!activeChannelId) continue;
+        send(ws, {
+          type: "voice_presence",
+          channelId: activeChannelId,
+          revision: voicePresenceRevisions.get(activeChannelId) ?? 0,
+          users: active.map((peer) => session(peer).user),
+        });
       }
       return send(ws, { type: "channel_subscribed", channelId });
     }
@@ -373,10 +468,7 @@ export const realtimeWebSocket = {
     }
     if (event.type === "leave_call") {
       const callId = session(ws).callId;
-      const serverId = session(ws).serverId;
-      const channelId = session(ws).channelId;
-      leaveCall(ws, true);
-      if (serverId && channelId) broadcastVoicePresence(channelId, serverId, [...(calls.get(`${channelId}:${callId}`) ?? [])]);
+      leaveCallAndBroadcast(ws, true);
       return send(ws, { type: "call_left", callId });
     }
     if (event.type === "participant_mute") {
@@ -473,18 +565,12 @@ export const realtimeWebSocket = {
   close(ws: RealtimeSocket) {
     const current = sessions.get(ws.raw);
     if (!current) return;
-    leaveCall(ws);
+    leaveCallAndBroadcast(ws);
     const sockets = socketsByUser.get(session(ws).user.id);
     sockets?.delete(ws);
     if (!sockets?.size) {
       socketsByUser.delete(session(ws).user.id);
-      const channelId = session(ws).channelId;
-      if (channelId)
-        broadcastChannel(channelId, {
-          type: "presence",
-          userId: session(ws).user.id,
-          status: "offline",
-        });
+      void broadcastPresenceForUser(session(ws).user.id, "offline");
     }
   },
 };

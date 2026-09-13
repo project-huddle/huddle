@@ -40,10 +40,11 @@ export type Channel = {
   roleIds: string[];
 };
 export type ServerRole = "owner" | "moderator" | "member";
-export type ServerMember = User & {
-  joinedAt: string;
+export type ServerMember = {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
   role: ServerRole;
-  isOwner: boolean;
   roles: { id: string; name: string; color: string; position: number }[];
 };
 export type ServerInvite = {

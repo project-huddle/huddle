@@ -8,7 +8,7 @@ import {
   listBans,
   unbanMember,
 } from "@/infra/database/server-repository";
-import { revokeUnauthorizedSocketAccess } from "@/interfaces/realtime/realtime-gateway";
+import { notifyServerDataChanged, notifyUser, revokeUnauthorizedSocketAccess } from "@/interfaces/realtime/realtime-gateway";
 import { authenticatedRoutes } from "../plugins/auth";
 import { memberRoleBody, serverIdParams, serverMemberParams } from "../schemas";
 import { t } from "elysia";
@@ -38,7 +38,10 @@ export const serverMemberRoutes = new Elysia({ name: "server-member-routes" })
         params.memberId,
         body.role,
       );
-      if (result === "ok") return new Response(null, { status: 204 });
+      if (result === "ok") {
+        await notifyServerDataChanged(params.serverId, ["members"]);
+        return new Response(null, { status: 204 });
+      }
       if (result === "forbidden")
         return error(403, "FORBIDDEN", "Você não possui permissão para alterar cargos.");
       return error(404, "NOT_FOUND", "Member not found.");
@@ -58,6 +61,8 @@ export const serverMemberRoutes = new Elysia({ name: "server-member-routes" })
       if (result === "missing")
         return error(404, "NOT_FOUND", "Member not found.");
       await revokeUnauthorizedSocketAccess(params.memberId);
+      notifyUser(params.memberId, { type: "server_data_changed", serverId: params.serverId, resources: ["servers"] });
+      await notifyServerDataChanged(params.serverId, ["members"]);
       return new Response(null, { status: 204 });
     },
     { params: serverMemberParams },
@@ -68,6 +73,8 @@ export const serverMemberRoutes = new Elysia({ name: "server-member-routes" })
       if (!(await banMember(currentUser.id, params.serverId, params.memberId, body.reason?.trim())))
         return error(403, "FORBIDDEN", "Somente o proprietário pode banir membros.");
       await revokeUnauthorizedSocketAccess(params.memberId);
+      notifyUser(params.memberId, { type: "server_data_changed", serverId: params.serverId, resources: ["servers"] });
+      await notifyServerDataChanged(params.serverId, ["members"]);
       return new Response(null, { status: 204 });
     },
     { params: serverMemberParams, body: banBody },

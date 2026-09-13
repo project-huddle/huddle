@@ -20,6 +20,8 @@ export function ChannelSidebar() {
         setSettingsOpen,
         setServerSettingsOpen,
         voiceUsers,
+        unreadByChannel,
+        mentionedChannels,
     } = useChatStore(
         useShallow((state) => ({
             servers: state.servers,
@@ -33,6 +35,8 @@ export function ChannelSidebar() {
             setSettingsOpen: state.setSettingsOpen,
             setServerSettingsOpen: state.setServerSettingsOpen,
             voiceUsers: state.voiceUsers,
+            unreadByChannel: state.unreadByChannel,
+            mentionedChannels: state.mentionedChannels,
         })),
     );
 
@@ -89,6 +93,7 @@ export function ChannelSidebar() {
                         onClick={handleCreateChannel}
                         className="ml-auto text-(--muted-text) hover:text-(--ink)"
                         aria-label="Criar canal"
+                        title="Criar canal"
                     >
                         <Plus className="size-3.5" />
                     </button>
@@ -102,6 +107,8 @@ export function ChannelSidebar() {
                         active={channel.id === channelId}
                         type={channel.type}
                         onSelect={selectChannel}
+                        unread={unreadByChannel[channel.id]}
+                        mentioned={mentionedChannels[channel.id]}
                     />
                 ))}
 
@@ -121,6 +128,8 @@ export function ChannelSidebar() {
                         type={channel.type}
                         onSelect={selectChannel}
                         voiceUsers={voiceUsers[channel.id]}
+                        unread={unreadByChannel[channel.id]}
+                        mentioned={mentionedChannels[channel.id]}
                     />
                 ))}
             </div>
@@ -131,6 +140,7 @@ export function ChannelSidebar() {
                     onClick={() => setSettingsOpen(true)}
                     className="m-3 flex items-center gap-3 rounded-2xl border border-(--ink)/10 bg-(--surface) p-3 text-left transition hover:border-(--brand)"
                     aria-label="Abrir configurações do perfil"
+                    title="Abrir configurações do perfil"
                 >
                     <UserAvatar user={user} className="size-10 rounded-xl" />
                     <span className="min-w-0 flex-1">

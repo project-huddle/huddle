@@ -3,6 +3,7 @@ import { error, json } from "@/interfaces/http/responses";
 import { authenticatedRoutes } from "@/interfaces/http/plugins/auth";
 import { joinInviteBody } from "@/interfaces/http/schemas";
 import type { JoinServerHandler } from "./join-server";
+import { notifyServerDataChanged } from "@/interfaces/realtime/realtime-gateway";
 
 export function joinServerRoute(joinServer: JoinServerHandler) {
   return new Elysia({ name: "join-server-route" })
@@ -28,6 +29,7 @@ export function joinServerRoute(joinServer: JoinServerHandler) {
         if (result.type === "banned")
           return error(403, "BANNED", "Você está banido deste servidor.");
 
+        await notifyServerDataChanged(result.server.id, ["servers", "members"]);
         return json({ server: result.server }, 201);
       },
       { body: joinInviteBody },

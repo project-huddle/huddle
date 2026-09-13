@@ -29,6 +29,11 @@ const initialState = {
 	error: null,
 	voiceUsers: {},
 	voicePresenceRevisions: {},
+	onlineUsers: {},
+	unreadByChannel: {},
+	unreadByServer: {},
+	mentionedChannels: {},
+	seenNotificationIds: {},
 } satisfies Omit<ChatState, keyof ChatActions>;
 
 type ChatActions = Pick<ChatState,
@@ -36,9 +41,9 @@ type ChatActions = Pick<ChatState,
 	| "setReplyTo" | "setCreating" | "setInviteUrl" | "openDialog"
 	| "closeDialog" | "setDialogValue" | "setMobileNavOpen"
 	| "setSocialOpen" | "setSettingsOpen" | "reset"
-	| "setServerSettingsOpen" | "loadServers" | "loadChannels" | "loadMembers" | "loadRoles" | "createRole" | "updateRole" | "deleteRole" | "assignRole" | "updateServer" | "setChannelAccess" | "createServer" | "createChannel"
-	| "joinServer" | "createInvite" | "leaveServer" | "removeMember" | "clearError" | "setVoiceUsers"
-	| "banMember"
+	| "setServerSettingsOpen" | "loadServers" | "loadChannels" | "loadMembers" | "loadRoles" | "createRole" | "updateRole" | "deleteRole" | "assignRole" | "updateServer" | "deleteServer" | "transferOwnership" | "setChannelAccess" | "createServer" | "createChannel"
+	| "joinServer" | "createInvite" | "leaveServer" | "removeMember" | "clearError" | "setVoiceUsers" | "setPresence" | "setPresenceSnapshot"
+	| "banMember" | "markChannelUnread" | "clearChannelUnread"
 >;
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -49,9 +54,26 @@ export const useChatStore = create<ChatState>((set) => ({
 	setServerId: (value) => set((state) => {
 		const serverId = typeof value === "function" ? value(state.serverId) : value;
 		if (serverId === state.serverId) return state;
-		return { serverId, channels: [], members: [], roles: [], permissions: [], channelId: "", replyTo: null };
+		return {
+			serverId,
+			channels: [],
+			members: [],
+			roles: [],
+			permissions: [],
+			channelId: "",
+			replyTo: null,
+			unreadByServer: { ...state.unreadByServer, [serverId]: 0 },
+		};
 	}),
-	setChannelId: (value) => set((state) => ({ channelId: typeof value === "function" ? value(state.channelId) : value })),
+	setChannelId: (value) => set((state) => {
+		const channelId = typeof value === "function" ? value(state.channelId) : value;
+		if (channelId === state.channelId) return state;
+		const unreadByChannel = { ...state.unreadByChannel };
+		delete unreadByChannel[channelId];
+		const mentionedChannels = { ...state.mentionedChannels };
+		delete mentionedChannels[channelId];
+		return { channelId, unreadByChannel, mentionedChannels };
+	}),
 	setReplyTo: (replyTo) => set({ replyTo }),
 	setCreating: (creating) => set({ creating }),
 	setInviteUrl: (inviteUrl) => set({ inviteUrl }),
@@ -67,6 +89,34 @@ export const useChatStore = create<ChatState>((set) => ({
 	setVoiceUsers: (channelId: string, users: User[], revision = 0) => set((state) => {
 		if (revision < (state.voicePresenceRevisions[channelId] ?? 0)) return state;
 		return { voiceUsers: { ...state.voiceUsers, [channelId]: users }, voicePresenceRevisions: { ...state.voicePresenceRevisions, [channelId]: revision } };
+	}),
+	setPresence: (userId, online) => set((state) => ({ onlineUsers: { ...state.onlineUsers, [userId]: online } })),
+	setPresenceSnapshot: (userIds) => set((state) => ({
+		onlineUsers: userIds.reduce<Record<string, boolean>>((users, userId) => ({ ...users, [userId]: true }), state.onlineUsers),
+	})),
+	markChannelUnread: (messageId, channelId, serverId, mentioned) => set((state) => {
+		if (state.seenNotificationIds[messageId]) return state;
+		return {
+			seenNotificationIds: { ...state.seenNotificationIds, [messageId]: true },
+			unreadByChannel: {
+				...state.unreadByChannel,
+				[channelId]: (state.unreadByChannel[channelId] ?? 0) + 1,
+			},
+			unreadByServer: {
+				...state.unreadByServer,
+				[serverId]: (state.unreadByServer[serverId] ?? 0) + 1,
+			},
+			mentionedChannels: mentioned
+				? { ...state.mentionedChannels, [channelId]: (state.mentionedChannels[channelId] ?? 0) + 1 }
+				: state.mentionedChannels,
+		};
+	}),
+	clearChannelUnread: (channelId) => set((state) => {
+		const unreadByChannel = { ...state.unreadByChannel };
+		const mentionedChannels = { ...state.mentionedChannels };
+		delete unreadByChannel[channelId];
+		delete mentionedChannels[channelId];
+		return { unreadByChannel, mentionedChannels };
 	}),
 	loadServers: async () => {
 		try {
@@ -168,21 +218,44 @@ export const useChatStore = create<ChatState>((set) => ({
 	},
 	updateServer: async (input) => {
 		const { serverId } = useChatStore.getState();
-		if (!serverId) return;
+		if (!serverId) return false;
 		try {
 			const { token } = credentials();
 			const { server } = await api<{ server: HuddleServer }>(`/servers/${serverId}`, { method: "PATCH", body: JSON.stringify(input) }, token);
 			set((state) => ({ servers: state.servers.map((item) => item.id === server.id ? server : item), error: null }));
-		} catch (cause) { set({ error: message(cause, "Não foi possível atualizar o servidor.") }); }
+			return true;
+		} catch (cause) { set({ error: message(cause, "Não foi possível atualizar o servidor.") }); return false; }
+	},
+	deleteServer: async () => {
+		const { serverId, servers } = useChatStore.getState();
+		if (!serverId) return;
+		try {
+			const { token } = credentials();
+			await api(`/servers/${serverId}`, { method: "DELETE" }, token);
+			const remaining = servers.filter(({ id }) => id !== serverId);
+			set({ servers: remaining, serverId: remaining[0]?.id ?? "", channels: [], members: [], roles: [], permissions: [], channelId: "", serverSettingsOpen: false, error: null });
+		} catch (cause) { set({ error: message(cause, "Não foi possível excluir o servidor.") }); }
+	},
+	transferOwnership: async (memberId) => {
+		const { serverId } = useChatStore.getState();
+		if (!serverId) return false;
+		try {
+			const { token } = credentials();
+			await api(`/servers/${serverId}/transfer-ownership`, { method: "POST", body: JSON.stringify({ memberId }) }, token);
+			set((state) => ({ servers: state.servers.map((server) => server.id === serverId ? { ...server, ownerId: memberId } : server), error: null }));
+			await useChatStore.getState().loadMembers();
+			return true;
+		} catch (cause) { set({ error: message(cause, "Não foi possível transferir a propriedade.") }); return false; }
 	},
 	setChannelAccess: async (channelId, roleIds) => {
 		const { serverId } = useChatStore.getState();
-		if (!serverId) return;
+		if (!serverId) return false;
 		try {
 			const { token } = credentials();
 			await api(`/servers/${serverId}/channels/${channelId}/access`, { method: "PATCH", body: JSON.stringify({ roleIds }) }, token);
 			await useChatStore.getState().loadChannels();
-		} catch (cause) { set({ error: message(cause, "Não foi possível atualizar o acesso do canal.") }); }
+			return true;
+		} catch (cause) { set({ error: message(cause, "Não foi possível atualizar o acesso do canal.") }); return false; }
 	},
 	createServer: async (raw) => {
 		const parsed = serverNameSchema.safeParse(raw);
@@ -302,8 +375,8 @@ export const useChatStore = create<ChatState>((set) => ({
 		}
 	},
 	banMember: async (member) => {
-		const { serverId } = useChatStore.getState();
-		if (!serverId || member.isOwner) return;
+		const { serverId, servers } = useChatStore.getState();
+		if (!serverId || servers.find(({ id }) => id === serverId)?.ownerId === member.id) return;
 		try {
 			const { token } = credentials();
 			await api(`/servers/${serverId}/members/${member.id}/ban`, { method: "POST", body: JSON.stringify({}) }, token);

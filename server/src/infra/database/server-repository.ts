@@ -24,7 +24,6 @@ export type {
 
 export type RoleDefinition = {
   id: string;
-  serverId: string;
   name: string;
   color: string;
   position: number;
@@ -33,6 +32,12 @@ export type RoleDefinition = {
 };
 
 const roleInclude = { permissions: { select: { permissionKey: true } } } as const;
+const serverMemberUserSelect = {
+  id: true,
+  displayName: true,
+  avatarUrl: true,
+} as const;
+
 function roleView(role: {
   id: string;
   serverId: string;
@@ -42,7 +47,14 @@ function roleView(role: {
   isDefault: boolean;
   permissions: { permissionKey: string }[];
 }): RoleDefinition {
-  return { ...role, permissions: role.permissions.map(({ permissionKey }) => permissionKey) };
+  return {
+    id: role.id,
+    name: role.name,
+    color: role.color,
+    position: role.position,
+    isDefault: role.isDefault,
+    permissions: role.permissions.map(({ permissionKey }) => permissionKey),
+  };
 }
 
 export async function createServer(
@@ -135,7 +147,7 @@ export async function serverMembers(
   const rows = await db.serverMember.findMany({
     where: { serverId },
     include: {
-      user: { select: userSelect },
+      user: { select: serverMemberUserSelect },
       server: { select: { ownerId: true } },
       roleLinks: { include: { role: { select: { id: true, name: true, color: true, position: true } } } },
     },
@@ -147,10 +159,10 @@ export async function serverMembers(
   };
   return rows
     .map((row) => ({
-      ...userView(row.user),
-      joinedAt: row.createdAt.toISOString(),
+      id: row.user.id,
+      displayName: row.user.displayName,
+      avatarUrl: row.user.avatarUrl,
       role: row.role as ServerRole,
-      isOwner: row.userId === row.server.ownerId,
       roles: row.roleLinks.map(({ role }) => role),
     }))
     .sort(
@@ -263,6 +275,45 @@ export async function updateServer(actorId: string, serverId: string, input: { n
   if (input.iconUrl !== undefined && input.iconUrl !== null && !/^\/media\/[a-f0-9-]+\.(jpg|png|gif|webp)$/.test(input.iconUrl)) return null;
   const updated = await db.server.update({ where: { id: serverId }, data: input });
   return serverView(updated);
+}
+
+export async function deleteServer(actorId: string, serverId: string): Promise<boolean> {
+  const result = await db.server.deleteMany({
+    where: { id: serverId, ownerId: actorId },
+  });
+  return result.count > 0;
+}
+
+export async function transferServerOwnership(
+  actorId: string,
+  serverId: string,
+  newOwnerId: string,
+): Promise<"transferred" | "forbidden" | "target-not-member" | "same-owner"> {
+  if (actorId === newOwnerId) return "same-owner";
+
+  return db.$transaction(async (tx) => {
+    const target = await tx.serverMember.findUnique({
+      where: { serverId_userId: { serverId, userId: newOwnerId } },
+      select: { userId: true },
+    });
+    if (!target) return "target-not-member";
+
+    const ownership = await tx.server.updateMany({
+      where: { id: serverId, ownerId: actorId },
+      data: { ownerId: newOwnerId },
+    });
+    if (ownership.count === 0) return "forbidden";
+    await tx.serverMember.update({
+      where: { serverId_userId: { serverId, userId: actorId } },
+      data: { role: "member" },
+    });
+    await tx.serverMember.update({
+      where: { serverId_userId: { serverId, userId: newOwnerId } },
+      data: { role: "owner" },
+    });
+
+    return "transferred";
+  });
 }
 
 export async function banMember(actorId: string, serverId: string, memberId: string, reason?: string) {

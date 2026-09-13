@@ -2,7 +2,7 @@ import { Elysia } from "elysia";
 import { error, json } from "@/interfaces/http/responses";
 import { db } from "@/infra/database/client";
 import { createInvite, leaveServer } from "@/infra/database/server-repository";
-import { revokeUnauthorizedSocketAccess } from "@/interfaces/realtime/realtime-gateway";
+import { notifyServerDataChanged, notifyUser, revokeUnauthorizedSocketAccess } from "@/interfaces/realtime/realtime-gateway";
 import { authenticatedRoutes } from "../plugins/auth";
 import {
   createInviteBody,
@@ -67,6 +67,8 @@ export const serverInviteRoutes = new Elysia({ name: "server-invite-routes" })
       if (result === "missing")
         return error(404, "NOT_FOUND", "Server not found.");
       await revokeUnauthorizedSocketAccess(currentUser.id);
+      notifyUser(currentUser.id, { type: "server_data_changed", serverId: params.serverId, resources: ["servers"] });
+      await notifyServerDataChanged(params.serverId, ["members"]);
       return new Response(null, { status: 204 });
     },
     { params: serverIdParams },

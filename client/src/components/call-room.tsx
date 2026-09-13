@@ -31,6 +31,7 @@ type CallRoomProps = {
 	connected: boolean;
 	error: string | null;
 	inCall: boolean;
+	canMuteParticipants: boolean;
 	joining: boolean;
 	localDisplayStream: MediaStream | null;
 	localMediaStream: MediaStream | null;
@@ -213,7 +214,7 @@ export function CallRoom(props: CallRoomProps) {
 					</p>
 					<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
 						<Participant user={props.user} stream={props.localMediaStream} cameraOff={props.cameraOff} muted={props.muted || props.serverMuted} speaking={false} self />
-						{peers.map((peer) => <Participant key={peer.user.id} user={peer.user} stream={peer.cameraStream} muted={peer.muted} speaking={speakingUsers[peer.user.id] ?? false} volume={peerVolumes[peer.user.id] ?? 100} onVolumeChange={(value) => setPeerVolumes((items) => ({ ...items, [peer.user.id]: value }))} onMute={() => props.onMuteParticipant?.(peer.user.id, !peer.serverMuted)} />)}
+						{peers.map((peer) => <Participant key={peer.user.id} user={peer.user} stream={peer.cameraStream} muted={peer.muted} speaking={speakingUsers[peer.user.id] ?? false} volume={peerVolumes[peer.user.id] ?? 100} onVolumeChange={(value) => setPeerVolumes((items) => ({ ...items, [peer.user.id]: value }))} onMute={props.canMuteParticipants ? () => props.onMuteParticipant?.(peer.user.id, !peer.serverMuted) : undefined} />)}
 					</div>
 				</aside>
 			</div>

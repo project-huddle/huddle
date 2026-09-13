@@ -10,6 +10,7 @@ import {
 } from "@/infra/database/server-repository";
 import { authenticatedRoutes } from "../plugins/auth";
 import { resourceId, serverIdParams } from "../schemas";
+import { notifyServerDataChanged } from "@/interfaces/realtime/realtime-gateway";
 
 const roleParams = t.Object({ serverId: resourceId, roleId: resourceId });
 const memberRoleParams = t.Object({ serverId: resourceId, memberId: resourceId, roleId: resourceId });
@@ -31,6 +32,7 @@ export const serverRoleRoutes = new Elysia({ name: "server-role-routes" })
   .post("/servers/:serverId/roles", async ({ currentUser, params, body }) => {
     const role = await createRole(currentUser.id, params.serverId, body.name.trim(), body.color ?? "#64748b", body.permissions ?? []);
     if (!role) return error(403, "FORBIDDEN", "Você não pode criar cargos neste servidor.");
+    await notifyServerDataChanged(params.serverId, ["roles", "members"]);
     return json({ role }, 201);
   }, { params: serverIdParams, body: roleBody })
   .patch("/servers/:serverId/roles/:roleId", async ({ currentUser, params, body }) => {
@@ -40,17 +42,21 @@ export const serverRoleRoutes = new Elysia({ name: "server-role-routes" })
       permissionKeys: body.permissions,
     });
     if (!role) return error(403, "FORBIDDEN", "Você não pode editar este cargo.");
+    await notifyServerDataChanged(params.serverId, ["roles", "members"]);
     return json({ role });
   }, { params: roleParams, body: roleUpdateBody })
   .delete("/servers/:serverId/roles/:roleId", async ({ currentUser, params }) => {
     if (!(await deleteRole(currentUser.id, params.serverId, params.roleId))) return error(403, "FORBIDDEN", "Você não pode excluir este cargo.");
+    await notifyServerDataChanged(params.serverId, ["roles", "members", "channels"]);
     return new Response(null, { status: 204 });
   }, { params: roleParams })
   .put("/servers/:serverId/members/:memberId/roles/:roleId", async ({ currentUser, params }) => {
     if (!(await assignRole(currentUser.id, params.serverId, params.memberId, params.roleId, true))) return error(403, "FORBIDDEN", "Você não pode atribuir este cargo.");
+    await notifyServerDataChanged(params.serverId, ["members"]);
     return new Response(null, { status: 204 });
   }, { params: memberRoleParams })
   .delete("/servers/:serverId/members/:memberId/roles/:roleId", async ({ currentUser, params }) => {
     if (!(await assignRole(currentUser.id, params.serverId, params.memberId, params.roleId, false))) return error(403, "FORBIDDEN", "Você não pode remover este cargo.");
+    await notifyServerDataChanged(params.serverId, ["members"]);
     return new Response(null, { status: 204 });
   }, { params: memberRoleParams });
