@@ -8,22 +8,25 @@ import {
 import { error, json } from "@/interfaces/http/responses";
 import { notifyUser } from "@/interfaces/realtime/realtime-gateway";
 import { authenticatedRoutes } from "../plugins/auth";
-import { emailBody, userIdParams } from "../schemas";
+import { friendBody, userIdParams } from "../schemas";
 
 export const friendRoutes = new Elysia({ name: "friend-routes" })
   .use(authenticatedRoutes("authenticated-friend-routes"))
   .get("/friends", async ({ currentUser }) => {
     return json({ friendships: await listFriendships(currentUser.id) });
   })
+  .get("/friends/link", ({ currentUser }) => {
+    return json({ link: `/?friend=${currentUser.id}` });
+  })
   .post(
     "/friends",
     async ({ currentUser, body }) => {
-      const result = await requestFriend(currentUser, body.email);
+      const result = await requestFriend(currentUser, body.identifier ?? body.email ?? "");
       if (result.type === "invalid")
         return error(
           400,
           "INVALID_FRIEND",
-          "Informe o e-mail de outra pessoa.",
+          "Informe um e-mail ou link de amizade válido.",
         );
       if (result.type === "not-found")
         return error(404, "USER_NOT_FOUND", "Usuário não encontrado.");
@@ -36,7 +39,7 @@ export const friendRoutes = new Elysia({ name: "friend-routes" })
       notifyUser(result.user.id, { type: "friend_request", user: currentUser });
       return json({ user: result.user, status: "pending" }, 201);
     },
-    { body: emailBody },
+    { body: friendBody },
   )
   .patch(
     "/friends/:userId",

@@ -21,10 +21,17 @@ type ChatConversationProps = {
 export function ChatConversation({ onLeaveCall, realtime }: ChatConversationProps) {
 	const user = useAuthStore((state) => state.user);
 	const token = useAuthStore((state) => state.token);
-	const { servers, channels, serverId, channelId, setReplyTo: onReply, openDialog: openTextDialog, setMobileNavOpen, setSocialOpen } = useChatStore(useShallow((state) => ({ servers: state.servers, channels: state.channels, serverId: state.serverId, channelId: state.channelId, setReplyTo: state.setReplyTo, openDialog: state.openDialog, setMobileNavOpen: state.setMobileNavOpen, setSocialOpen: state.setSocialOpen })));
+	const { servers, channels, members, roles, serverId, channelId, setReplyTo: onReply, openDialog: openTextDialog, setMobileNavOpen, setSocialOpen } = useChatStore(useShallow((state) => ({ servers: state.servers, channels: state.channels, members: state.members, roles: state.roles, serverId: state.serverId, channelId: state.channelId, setReplyTo: state.setReplyTo, openDialog: state.openDialog, setMobileNavOpen: state.setMobileNavOpen, setSocialOpen: state.setSocialOpen })));
 	const activeServer = servers.find(({ id }) => id === serverId);
 	const activeChannel = channels.find(({ id }) => id === channelId);
 	const isVoiceChannel = activeChannel?.type === "voice";
+	const currentMember = members.find(({ id }) => id === user?.id);
+	const canMuteParticipants = Boolean(
+		activeServer?.ownerId === user?.id ||
+		currentMember?.roles?.some((memberRole) =>
+			roles.find((role) => role.id === memberRole.id)?.permissions.includes("voice.moderate_mute"),
+		),
+	);
 	const endRef = useRef<HTMLDivElement>(null);
 	const onOpenNavigation = () => setMobileNavOpen(true);
 	const onOpenSocial = () => setSocialOpen(true);
@@ -114,6 +121,7 @@ export function ChatConversation({ onLeaveCall, realtime }: ChatConversationProp
 								inCall={realtime.inCall}
 								error={realtime.error}
 								joining={realtime.joining}
+								canMuteParticipants={canMuteParticipants}
 							user={user}
 							peers={realtime.peers}
 							muted={realtime.muted}
@@ -132,6 +140,7 @@ export function ChatConversation({ onLeaveCall, realtime }: ChatConversationProp
 					) : (
 						<MessageList
 							currentUserId={user.id}
+							members={members}
 							messages={realtime.messages}
 							onReply={onReply}
 							onEdit={realtime.editMessage}

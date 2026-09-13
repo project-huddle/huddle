@@ -13,7 +13,7 @@ export function UserAvatar({
 	user,
 	className,
 }: {
-	user: User;
+	user: Pick<User, "id" | "displayName" | "avatarUrl">;
 	className?: string;
 }) {
 	const colorIndex = user.id.charCodeAt(0) % avatarColors.length;

@@ -1,4 +1,5 @@
 import { lazy, Suspense, useRef } from "react";
+import type { ClipboardEvent } from "react";
 import { ArrowUp, ImagePlus, Laugh, Reply, Search, X } from "lucide-react";
 import { useRealtime } from "@/hooks/use-realtime";
 import { resolveMediaUrl } from "@/lib/api";
@@ -14,9 +15,18 @@ export function MessageComposer({ realtime }: { realtime: ReturnType<typeof useR
 	const error = realtime.error ?? storeError;
 	const onCancelReply = () => setReplyTo(null);
 	const { draft, setDraft, media, setMedia, picker, setPicker, gifQuery, setGifQuery,
-		gifs, gifLoading, uploading, fileRef, submit, uploadImage, searchGifs } = useMessageComposer(realtime);
+		gifs, gifLoading, uploading, fileRef, submit, uploadImage, searchGifs,
+		mentionSuggestions, setCursorPosition, selectMention } = useMessageComposer(realtime);
 
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const chooseMention = (member: Parameters<typeof selectMention>[0]) => {
+		const cursor = selectMention(member);
+		if (cursor === null) return;
+		requestAnimationFrame(() => {
+			textareaRef.current?.focus();
+			textareaRef.current?.setSelectionRange(cursor, cursor);
+		});
+	};
 
 	const insertEmoji = (emoji: string) => {
 		const textarea = textareaRef.current;
@@ -36,6 +46,39 @@ export function MessageComposer({ realtime }: { realtime: ReturnType<typeof useR
 				textarea.setSelectionRange(selectionStart, selectionEnd);
 			}
 		});
+	};
+
+	const pasteImage = async (event: ClipboardEvent<HTMLTextAreaElement>) => {
+		const image =
+			Array.from(event.clipboardData.files).find((file) =>
+				file.type.startsWith("image/"),
+			) ??
+			Array.from(event.clipboardData.items)
+				.map((item) => item.kind === "file" ? item.getAsFile() : null)
+				.find((file): file is File => Boolean(file?.type.startsWith("image/")));
+
+		if (image) {
+			event.preventDefault();
+			await uploadImage(image);
+			return;
+		}
+
+		const html = event.clipboardData.getData("text/html");
+		if (!html) return;
+		const imageSource = new DOMParser()
+			.parseFromString(html, "text/html")
+			.querySelector<HTMLImageElement>("img[src]")?.src;
+		if (!imageSource || !/^https?:|^data:image\//.test(imageSource)) return;
+
+		event.preventDefault();
+		try {
+			const response = await fetch(imageSource);
+			if (!response.ok) throw new Error("Image fetch failed");
+			const blob = await response.blob();
+			await uploadImage(new File([blob], "imagem-colada", { type: blob.type }));
+		} catch {
+			realtime.setError("Não foi possível importar essa imagem. Use um screenshot ou 'Copiar imagem'.");
+		}
 	};
 
 	return (
@@ -208,16 +251,52 @@ export function MessageComposer({ realtime }: { realtime: ReturnType<typeof useR
 					>
 						GIF
 					</button>
-					<textarea
+					<div className="relative min-w-0 flex-1">
+						{mentionSuggestions.length > 0 && (
+							<div className="absolute bottom-full left-0 z-30 mb-2 w-full min-w-52 overflow-hidden rounded-2xl border border-(--line) bg-(--surface) p-1 shadow-[0_15px_35px_rgb(40_45_51_/_18%)]">
+								<p className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-(--muted-text)">
+									Membros deste servidor
+								</p>
+								{mentionSuggestions.map((member) => (
+									<button
+										key={member.id}
+										type="button"
+										onMouseDown={(event) => event.preventDefault()}
+										onClick={() => chooseMention(member)}
+										className="flex w-full items-center rounded-xl px-3 py-2 text-left text-sm hover:bg-(--brand-soft)"
+									>
+										<span className="font-bold">{member.displayName}</span>
+									</button>
+								))}
+							</div>
+						)}
+						<textarea
 						ref={textareaRef}
 						maxLength={MAX_MESSAGE_LENGTH}
+						onPaste={(event) => void pasteImage(event)}
 						value={draft}
-						onChange={(event) =>
-							setDraft(
-								event.target.value.slice(0, MAX_MESSAGE_LENGTH),
-							)
-						}
+						onChange={(event) => {
+							setDraft(event.target.value.slice(0, MAX_MESSAGE_LENGTH));
+							setCursorPosition(event.target.selectionStart);
+						}}
+						onClick={(event) => setCursorPosition(event.currentTarget.selectionStart)}
+						onKeyUp={(event) => setCursorPosition(event.currentTarget.selectionStart)}
 						onKeyDown={(event) => {
+							if (event.key === "Enter" && !event.shiftKey && mentionSuggestions.length > 0) {
+								event.preventDefault();
+								chooseMention(mentionSuggestions[0]);
+								return;
+							}
+							if (event.key === "Escape" && mentionSuggestions.length > 0) {
+								event.preventDefault();
+								setCursorPosition(0);
+								return;
+							}
+							if (event.key === "Tab" && mentionSuggestions.length > 0) {
+								event.preventDefault();
+								chooseMention(mentionSuggestions[0]);
+								return;
+							}
 							if (
 								event.key === "Enter" &&
 								!event.shiftKey
@@ -234,7 +313,8 @@ export function MessageComposer({ realtime }: { realtime: ReturnType<typeof useR
 						}
 						disabled={!realtime.connected}
 						className="max-h-32 min-h-10 min-w-0 flex-1 resize-none bg-transparent px-2 py-2 outline-none placeholder:text-(--muted-text)"
-					/>
+						/>
+					</div>
 					<button
 						disabled={
 							(!draft.trim() && !media) ||

@@ -26,6 +26,7 @@ export function RoomSidebar() {
 		openDialog,
 		createInvite,
 		removeMember,
+		onlineUsers,
 	} = useChatStore(useShallow((state) => ({
 		members: state.members,
 		servers: state.servers,
@@ -33,6 +34,7 @@ export function RoomSidebar() {
 		openDialog: state.openDialog,
 		createInvite: state.createInvite,
 		removeMember: state.removeMember,
+		onlineUsers: state.onlineUsers,
 	})));
 
 	if (!user) return null;
@@ -80,9 +82,13 @@ export function RoomSidebar() {
 							<p className="text-[10px] text-(--muted-text)">
 								{getRoleLabel(member.role)}
 							</p>
+							<p className={`flex items-center gap-1 text-[10px] font-semibold ${onlineUsers[member.id] ? "text-[#3c9b68]" : "text-(--muted-text)"}`}>
+								<span className={`size-1.5 rounded-full ${onlineUsers[member.id] ? "bg-[#3c9b68]" : "bg-(--muted-text)/50"}`} />
+								{onlineUsers[member.id] ? "online" : "offline"}
+							</p>
 						</div>
 
-						{canManageMembers && !member.isOwner && (
+						{canManageMembers && member.id !== activeServer?.ownerId && (
 							<div className="hidden gap-1 group-hover:flex group-focus-within:flex">
 								<button
 									type="button"

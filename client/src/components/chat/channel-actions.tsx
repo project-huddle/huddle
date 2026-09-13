@@ -113,6 +113,7 @@ export function ChannelActions({ channelId }: { channelId: string }) {
 				type="button"
 				onClick={open}
 				aria-label={`Configurações do canal ${channel.name}`}
+				title={`Configurações do canal ${channel.name}`}
 				className="mr-1 grid size-8 shrink-0 place-items-center rounded-lg text-(--muted-text) transition-colors hover:bg-(--surface) hover:text-(--ink) focus-visible:outline-2 focus-visible:outline-(--brand)"
 			>
 				<Settings className="size-4" />

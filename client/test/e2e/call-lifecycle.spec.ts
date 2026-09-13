@@ -87,6 +87,31 @@ test.use({
 });
 
 test.describe("call lifecycle", () => {
+	test("volta para o login quando o token da sessão deixa de ser válido", async ({
+		page,
+		request,
+	}) => {
+		const account = await register(request, "expired-session");
+		await page.goto("/");
+		await page.getByLabel("E-mail").fill(account.email);
+		await page.locator('input[autocomplete="current-password"]').fill(account.password);
+		await page.getByRole("button", { name: "entrar" }).click();
+		await expect(page.getByText("huddle").first()).toBeVisible();
+
+		await page.evaluate(() => {
+			const persisted = JSON.parse(localStorage.getItem("auth-session") ?? "{}");
+			persisted.state = {
+				...persisted.state,
+				token: "expired-token",
+				isAuthenticated: true,
+			};
+			localStorage.setItem("auth-session", JSON.stringify(persisted));
+		});
+		await page.reload();
+
+		await expect(page.getByLabel("E-mail")).toBeVisible();
+	});
+
 	test("entra, sai e entra novamente mantendo a mídia local", async ({
 		page,
 		request,
@@ -223,6 +248,9 @@ test.describe("call lifecycle", () => {
 			await expect(volumeDialog.getByText("150%" )).toBeVisible();
 			await expect(page.locator("audio")).toHaveCount(1);
 			await expect(guestPage.locator("audio")).toHaveCount(1);
+			await page.getByRole("button", { name: "geral" }).click();
+			await expect(page.locator("textarea")).toBeEnabled();
+			await expect(page.locator("audio")).toHaveCount(1);
 		} finally {
 			await guestContext.close();
 		}

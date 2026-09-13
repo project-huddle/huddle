@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api, type User } from "@/lib/api";
-import { directMessageSchema, friendEmailSchema } from "@/schemas/social-schema";
+import { directMessageSchema, friendIdentifierSchema } from "@/schemas/social-schema";
 import type { DirectMessage, Friendship } from "@/types/social";
 export function useSocialHub(token: string, open: boolean) {
 	const [friendships, setFriendships] = useState<Friendship[]>([]);
@@ -28,18 +28,21 @@ export function useSocialHub(token: string, open: boolean) {
 	useEffect(() => {
 		if (open) void loadFriends();
 	}, [loadFriends, open]);
+	const sendFriendRequest = useCallback(async (value: string) => {
+		const identifier = friendIdentifierSchema.parse(value);
+		await api(
+			"/friends",
+			{ method: "POST", body: JSON.stringify({ identifier }) },
+			token,
+		);
+		setEmail("");
+		setStatus("Solicitação enviada.");
+		await loadFriends();
+	}, [loadFriends, token]);
 	const addFriend = async (event: FormEvent) => {
 		event.preventDefault();
 		try {
-			const validEmail = friendEmailSchema.parse(email);
-			await api(
-				"/friends",
-				{ method: "POST", body: JSON.stringify({ email: validEmail }) },
-				token,
-			);
-			setEmail("");
-			setStatus("Solicitação enviada.");
-			await loadFriends();
+			await sendFriendRequest(email);
 		} catch (cause) {
 			setStatus(
 				cause instanceof Error
@@ -48,6 +51,14 @@ export function useSocialHub(token: string, open: boolean) {
 			);
 		}
 	};
+	useEffect(() => {
+		const friend = new URLSearchParams(window.location.search).get("friend");
+		if (!friend) return;
+		window.history.replaceState({}, "", window.location.pathname);
+		void sendFriendRequest(friend).catch((cause) =>
+			setStatus(cause instanceof Error ? cause.message : "Falha ao adicionar amizade."),
+		);
+	}, [sendFriendRequest]);
 	const accept = async (userId: string) => {
 		await api(`/friends/${userId}`, { method: "PATCH" }, token);
 		await loadFriends();
@@ -74,6 +85,11 @@ export function useSocialHub(token: string, open: boolean) {
 		setDraft("");
 		await loadMessages(selected.id);
 	};
+	const copyFriendLink = async () => {
+		const { link } = await api<{ link: string }>("/friends/link", {}, token);
+		await navigator.clipboard.writeText(new URL(link, window.location.origin).toString());
+		setStatus("Link de amizade copiado.");
+	};
 	return { friendships, email, setEmail, selected, messages, draft, setDraft, status,
-		addFriend, accept, openConversation, send };
+		addFriend, accept, openConversation, send, copyFriendLink };
 }
