@@ -69,11 +69,12 @@ export type HuddlePermission = {
 	description: string;
 	category: string;
 };
-export type HuddleMember = User & {
-	joinedAt: string;
-	role: "owner" | "moderator" | "member";
-	isOwner: boolean;
-	roles?: Pick<HuddleServerRole, "id" | "name" | "color" | "position">[];
+export type HuddleMember = {
+  id: string;
+  displayName: string;
+  avatarUrl: string | null;
+  role: "owner" | "moderator" | "member";
+  roles?: Pick<HuddleServerRole, "id" | "name" | "color" | "position">[];
 };
 export type InvitePreview = {
 	code: string;

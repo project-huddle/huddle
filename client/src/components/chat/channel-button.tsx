@@ -13,6 +13,8 @@ type ChannelButtonProps = {
 	onSelect: (id: string) => void;
 	variant?: "desktop" | "mobile";
 	voiceUsers?: User[];
+	unread?: number;
+	mentioned?: number;
 };
 
 export default function ChannelButton({
@@ -23,6 +25,8 @@ export default function ChannelButton({
 	onSelect,
 	variant = "desktop",
 	voiceUsers = [],
+	unread = 0,
+	mentioned = 0,
 }: ChannelButtonProps) {
 	const handleClick = () => {
 		onSelect(id);
@@ -51,7 +55,10 @@ export default function ChannelButton({
 					<Hash className="size-4 shrink-0" />
 				)}
 
-				<span className="truncate">{name}</span>
+				<span className={cn("truncate", unread > 0 && "font-bold text-(--ink)")}>{name}</span>
+				{unread > 0 && <span className={cn("ml-auto grid min-w-4 place-items-center rounded-full px-1 text-[9px] font-black", mentioned > 0 ? "bg-(--brand) text-(--ink)" : "bg-(--ink)/15 text-(--ink)")} aria-label={`${unread} mensagem${unread === 1 ? "" : "s"} não lida${unread === 1 ? "" : "s"}`}>
+					{unread > 99 ? "99+" : unread}
+				</span>}
 			</button>
 			<ChannelActions channelId={id} />
 			{type === "voice" && voiceUsers.length > 0 && <div className="basis-full mb-1 ml-9 grid gap-1 pb-1">{voiceUsers.map((user) => <div key={user.id} className="flex min-w-0 items-center gap-2 text-xs text-(--muted-text)"><UserAvatar user={user} className="size-5 rounded-md" /><span className="truncate">{user.displayName}</span></div>)}</div>}

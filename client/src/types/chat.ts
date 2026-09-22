@@ -28,6 +28,11 @@ export type ChatStoreState = {
 	error: string | null;
 	voiceUsers: Record<string, User[]>;
 	voicePresenceRevisions: Record<string, number>;
+	onlineUsers: Record<string, boolean>;
+	unreadByChannel: Record<string, number>;
+	unreadByServer: Record<string, number>;
+	mentionedChannels: Record<string, number>;
+	seenNotificationIds: Record<string, true>;
 	setServers: (value: SetStateAction<HuddleServer[]>) => void;
 	setChannels: (value: SetStateAction<HuddleChannel[]>) => void;
 	setMembers: (value: SetStateAction<HuddleMember[]>) => void;
@@ -52,8 +57,10 @@ export type ChatStoreState = {
 	updateRole: (roleId: string, input: { name?: string; color?: string; permissions?: string[] }) => Promise<void>;
 	deleteRole: (roleId: string) => Promise<void>;
 	assignRole: (memberId: string, roleId: string, assign: boolean) => Promise<void>;
-	updateServer: (input: { name?: string; iconUrl?: string | null }) => Promise<void>;
-	setChannelAccess: (channelId: string, roleIds: string[]) => Promise<void>;
+	updateServer: (input: { name?: string; iconUrl?: string | null }) => Promise<boolean>;
+	deleteServer: () => Promise<void>;
+	transferOwnership: (memberId: string) => Promise<boolean>;
+	setChannelAccess: (channelId: string, roleIds: string[]) => Promise<boolean>;
 	createServer: (value: string) => Promise<void>;
 	createChannel: (value: string, type?: HuddleChannel["type"]) => Promise<void>;
 	joinServer: (value: string) => Promise<void>;
@@ -63,4 +70,8 @@ export type ChatStoreState = {
 	banMember: (member: HuddleMember) => Promise<void>;
 	clearError: () => void;
 	setVoiceUsers: (channelId: string, users: User[], revision?: number) => void;
+	setPresence: (userId: string, online: boolean) => void;
+	setPresenceSnapshot: (userIds: string[]) => void;
+	markChannelUnread: (messageId: string, channelId: string, serverId: string, mentioned: boolean) => void;
+	clearChannelUnread: (channelId: string) => void;
 };

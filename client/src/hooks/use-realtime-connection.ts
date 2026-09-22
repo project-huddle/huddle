@@ -9,7 +9,7 @@ import type {
 import { playCallSound } from "@/lib/call-sounds";
 
 type Options = {
-	token: string; channelId: string; channelType: HuddleChannel["type"]; currentUserId: string;
+	token: string; channelId: string; channelType: HuddleChannel["type"]; currentUserId: string; currentUserDisplayName: string;
 	socketRef: MutableRefObject<WebSocket | null>;
 	peerUsers: MutableRefObject<Map<string, User>>;
 	displayStream: MutableRefObject<MediaStream | null>;
@@ -39,7 +39,7 @@ export function useRealtimeConnection(options: Options) {
 	subscribedHandlerRef.current = options.onChannelSubscribed;
 	const callLeftHandlerRef = useRef(options.onCallLeft);
 	callLeftHandlerRef.current = options.onCallLeft;
-	const { token, channelId, channelType, currentUserId, socketRef, peerUsers, displayStream, remoteSharing, connections, pendingCandidates,
+	const { token, channelId, channelType, currentUserId, currentUserDisplayName, socketRef, peerUsers, displayStream, remoteSharing, connections, pendingCandidates,
 		callLifecycle,
 		closeCall, createPeer, flushCandidates, makeOffer, send, updatePeer,
 		setMessages, setConnected, setError, setPeers, setJoining, setInCall, setServerMuted } = options;
@@ -67,7 +67,19 @@ export function useRealtimeConnection(options: Options) {
 			);
 
 		let socket: WebSocket | null = null;
-		const connect = async () => {
+		let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+		let reconnectAttempts = 0;
+		let connect: () => Promise<void>;
+		const scheduleReconnect = () => {
+			if (!alive || reconnectTimer) return;
+			const delay = Math.min(1_000 * 2 ** reconnectAttempts, 10_000);
+			reconnectAttempts += 1;
+			reconnectTimer = setTimeout(() => {
+				reconnectTimer = null;
+				void connect().catch(() => scheduleReconnect());
+			}, delay);
+		};
+		connect = async () => {
 			const { ticket } = await api<{ ticket: string }>(
 				"/auth/ws-ticket",
 				{ method: "POST" },
@@ -78,11 +90,13 @@ export function useRealtimeConnection(options: Options) {
 			socketRef.current = socket;
 			socket.onopen = () => {
 				if (!alive || socketRef.current !== socket) return;
+				reconnectAttempts = 0;
 			};
 			socket.onclose = () => {
 				if (!alive || socketRef.current !== socket) return;
 				setConnected(false);
 				closeCall(false);
+				scheduleReconnect();
 			};
 			socket.onerror = () => {
 				if (!alive || socketRef.current !== socket) return;
@@ -117,6 +131,34 @@ export function useRealtimeConnection(options: Options) {
 								: [...items, message],
 						);
 					}
+					if (event.type === "server_notification") {
+						const notificationChannelId = typeof event.channelId === "string" ? event.channelId : "";
+						const notificationServerId = typeof event.serverId === "string" ? event.serverId : "";
+						const message = event.message as ChatMessage;
+						if (
+							notificationChannelId &&
+							notificationServerId &&
+							message.author?.id !== currentUserId &&
+							notificationChannelId !== channelId
+						) {
+							const mentionedUserIds = Array.isArray(event.mentionedUserIds) ? event.mentionedUserIds : [];
+							const mentioned = mentionedUserIds.includes(currentUserId) || (
+								currentUserDisplayName.length > 0 &&
+								message.content.toLocaleLowerCase().includes(`@${currentUserDisplayName.toLocaleLowerCase()}`)
+							);
+							useChatStore.getState().markChannelUnread(message.id, notificationChannelId, notificationServerId, mentioned);
+						}
+					}
+					if (event.type === "server_data_changed" && typeof event.serverId === "string") {
+						const resources = Array.isArray(event.resources) ? event.resources : [];
+						const store = useChatStore.getState();
+						void (resources.includes("servers") ? store.loadServers() : Promise.resolve());
+						if (store.serverId === event.serverId) {
+							if (resources.includes("channels")) void store.loadChannels();
+							if (resources.includes("members")) void store.loadMembers();
+							if (resources.includes("roles")) void store.loadRoles();
+						}
+					}
 					if (event.type === "channel_subscribed") {
 						if (event.channelId === channelId) {
 							setConnected(true);
@@ -125,6 +167,10 @@ export function useRealtimeConnection(options: Options) {
 					}
 					if (event.type === "voice_presence" && typeof event.channelId === "string")
 						useChatStore.getState().setVoiceUsers(event.channelId, (event.users as User[]) ?? [], typeof event.revision === "number" ? event.revision : 0);
+					if (event.type === "presence" && typeof event.userId === "string")
+						useChatStore.getState().setPresence(event.userId, event.status === "online");
+					if (event.type === "presence_snapshot" && Array.isArray(event.userIds))
+						useChatStore.getState().setPresenceSnapshot(event.userIds.filter((userId): userId is string => typeof userId === "string"));
 					if (event.type === "call_left") {
 						callLeftHandlerRef.current?.();
 					}
@@ -302,15 +348,19 @@ export function useRealtimeConnection(options: Options) {
 			socket.addEventListener("open", subscribe);
 		};
 		void connect().catch((cause: unknown) => {
-			if (alive)
+			if (alive) {
 				setError(
 					cause instanceof Error
 						? cause.message
 						: "Não foi possível abrir a conexão em tempo real.",
-				);
+					);
+				scheduleReconnect();
+			}
 		});
 		return () => {
 			alive = false;
+			if (reconnectTimer) clearTimeout(reconnectTimer);
+			reconnectTimer = null;
 			setConnected(false);
 			socket?.close();
 			if (socketRef.current === socket) socketRef.current = null;
@@ -320,6 +370,7 @@ export function useRealtimeConnection(options: Options) {
 		channelId,
 		channelType,
 		currentUserId,
+		currentUserDisplayName,
 		closeCall,
 		createPeer,
 		flushCandidates,

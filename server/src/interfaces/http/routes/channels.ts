@@ -13,7 +13,7 @@ import {
   renameChannel,
   deleteChannel,
 } from "@/infra/database/channel-management-repository";
-import { revokeChannelSocketAccess } from "@/interfaces/realtime/realtime-gateway";
+import { notifyServerDataChanged, revokeChannelSocketAccess } from "@/interfaces/realtime/realtime-gateway";
 
 const channelParams = t.Object({ serverId: resourceId, channelId: resourceId });
 const renameChannelBody = t.Object({
@@ -63,6 +63,7 @@ export const channelRoutes = new Elysia({ name: "channel-routes" })
       );
       if (!channel)
         return error(403, "FORBIDDEN", "Você não possui permissão para criar canais.");
+      await notifyServerDataChanged(params.serverId, ["channels"]);
       return json({ channel }, 201);
     },
     { params: serverIdParams, body: createChannelBody },
@@ -82,6 +83,7 @@ export const channelRoutes = new Elysia({ name: "channel-routes" })
           "FORBIDDEN",
           "Canal indisponível ou sem permissão para editar.",
         );
+      await notifyServerDataChanged(params.serverId, ["channels"]);
       return json({ channel });
     },
     { params: channelParams, body: renameChannelBody },
@@ -92,6 +94,7 @@ export const channelRoutes = new Elysia({ name: "channel-routes" })
       if (!(await updateChannelAccess(currentUser.id, params.serverId, params.channelId, body.roleIds)))
         return error(403, "FORBIDDEN", "Você não pode alterar o acesso deste canal.");
       revokeChannelSocketAccess(params.channelId);
+      await notifyServerDataChanged(params.serverId, ["channels"]);
       return new Response(null, { status: 204 });
     },
     { params: channelParams, body: channelAccessBody },
@@ -111,6 +114,7 @@ export const channelRoutes = new Elysia({ name: "channel-routes" })
           "Canal indisponível ou sem permissão para excluir.",
         );
       revokeChannelSocketAccess(params.channelId);
+      await notifyServerDataChanged(params.serverId, ["channels"]);
       return new Response(null, { status: 204 });
     },
     { params: channelParams },

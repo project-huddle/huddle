@@ -36,6 +36,9 @@ export default function MobileNavigation() {
         openDialog,
         createInvite,
         setSettingsOpen,
+        unreadByServer,
+        unreadByChannel,
+        mentionedChannels,
     } = useChatStore(
         useShallow((state) => ({
             mobileNavOpen: state.mobileNavOpen,
@@ -50,6 +53,9 @@ export default function MobileNavigation() {
             openDialog: state.openDialog,
             createInvite: state.createInvite,
             setSettingsOpen: state.setSettingsOpen,
+            unreadByServer: state.unreadByServer,
+            unreadByChannel: state.unreadByChannel,
+            mentionedChannels: state.mentionedChannels,
         })),
     );
 
@@ -138,6 +144,7 @@ export default function MobileNavigation() {
                                 active={server.id === serverId}
                                 onSelect={handleSelectServer}
                                 size="small"
+                                unread={unreadByServer[server.id]}
                             />
                         ))}
 
@@ -175,6 +182,7 @@ export default function MobileNavigation() {
                                     type="button"
                                     onClick={handleCreateChannel}
                                     aria-label="Criar canal"
+                                    title="Criar canal"
                                 >
                                     <Plus className="size-4" />
                                 </button>
@@ -189,6 +197,8 @@ export default function MobileNavigation() {
                                     type={channel.type}
                                     onSelect={handleSelectChannel}
                                     variant="mobile"
+                                    unread={unreadByChannel[channel.id]}
+                                    mentioned={mentionedChannels[channel.id]}
                                 />
                             ))}
 
@@ -208,6 +218,8 @@ export default function MobileNavigation() {
                                     type={channel.type}
                                     onSelect={handleSelectChannel}
                                     variant="mobile"
+                                    unread={unreadByChannel[channel.id]}
+                                    mentioned={mentionedChannels[channel.id]}
                                 />
                             ))}
                         </section>
@@ -251,6 +263,7 @@ export default function MobileNavigation() {
                         }}
                         className="m-3 flex items-center gap-3 rounded-2xl border border-(--ink)/10 bg-(--surface) p-3 text-left"
                         aria-label="Abrir configurações do perfil"
+                        title="Abrir configurações do perfil"
                     >
                         <UserAvatar user={user} className="size-10 rounded-xl" />
                         <span className="min-w-0 flex-1">

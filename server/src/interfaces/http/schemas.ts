@@ -26,3 +26,4 @@ export const createInviteBody = t.Object({
   durationHours: t.Optional(t.Integer({ minimum: 1 })),
 });
 export const memberRoleBody = t.Object({ role: t.String() });
+export const transferOwnershipBody = t.Object({ memberId: resourceId });

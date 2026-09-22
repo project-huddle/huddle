@@ -585,6 +585,14 @@ describe("huddle API", () => {
     const rolesBody = (await rolesResponse.json()) as {
       roles: { id: string; isDefault: boolean; permissions: string[] }[];
     };
+    expect(Object.keys(rolesBody.roles[0] ?? {}).sort()).toEqual([
+      "color",
+      "id",
+      "isDefault",
+      "name",
+      "permissions",
+      "position",
+    ]);
     const defaultRole = rolesBody.roles.find((role) => role.isDefault);
     expect(defaultRole?.permissions).toEqual(
       expect.arrayContaining([
@@ -603,9 +611,21 @@ describe("huddle API", () => {
       `${baseUrl}/servers/${createdBody.server.id}/members`,
       { headers: guestHeaders },
     );
-    expect(
-      ((await memberList.json()) as { members: unknown[] }).members,
-    ).toHaveLength(2);
+    const memberListBody = (await memberList.json()) as {
+      members: Record<string, unknown>[];
+    };
+    expect(memberListBody.members).toHaveLength(2);
+    expect(Object.keys(memberListBody.members[0] ?? {}).sort()).toEqual([
+      "avatarUrl",
+      "displayName",
+      "id",
+      "role",
+      "roles",
+    ]);
+    expect(memberListBody.members[0]).not.toHaveProperty("isOwner");
+    expect(memberListBody.members[0]).not.toHaveProperty("email");
+    expect(memberListBody.members[0]).not.toHaveProperty("createdAt");
+    expect(memberListBody.members[0]).not.toHaveProperty("joinedAt");
     const promoted = await fetch(
       `${baseUrl}/servers/${createdBody.server.id}/members/${guest.user.id}`,
       {
