@@ -1,5 +1,6 @@
-import { ArrowLeft, ArrowUp, MessageCircle } from "lucide-react";
+import { ArrowLeft, MessageCircle } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
+import { ChatComposer } from "@/components/chat/message-composer";
 import { MessageList } from "@/components/message-list";
 import { UserAvatar } from "@/components/user-avatar";
 import type { ChatMessage, User } from "@/lib/api";
@@ -19,8 +20,15 @@ export function DirectConversation({
 	callAction,
 }: Props) {
 	const end = useRef<HTMLDivElement>(null);
-	const { selected, messages, draft, setDraft, send, sending, loading } =
-		social;
+	const {
+		selected,
+		messages,
+		sending,
+		loading,
+		sendMessage,
+		status,
+		setStatus,
+	} = social;
 	useEffect(() => {
 		end.current?.scrollIntoView({ behavior: "smooth" });
 	}, [messages]);
@@ -43,7 +51,7 @@ export function DirectConversation({
 		...message,
 		author: message.senderId === currentUser.id ? currentUser : selected,
 		channelId: selected.id,
-		media: null,
+		media: message.media,
 		editedAt: null,
 		deletedAt: null,
 		replyToId: null,
@@ -90,27 +98,17 @@ export function DirectConversation({
 					<div ref={end} />
 				</div>
 			</div>
-			<form
-				onSubmit={send}
-				className="flex shrink-0 gap-3 border-t border-(--line) p-4 sm:px-7"
-			>
-				<input
-					aria-label={`Mensagem para ${selected.displayName}`}
-					placeholder={`Mensagem para ${selected.displayName}`}
-					value={draft}
-					onChange={(event) => setDraft(event.target.value)}
-					maxLength={2000}
-					disabled={loading}
-					className="h-12 min-w-0 flex-1 rounded-xl border border-(--line) bg-(--surface) px-4"
-				/>
-				<button
-					disabled={sending || loading || !draft.trim()}
-					aria-label="Enviar mensagem privada"
-					className="grid size-12 place-items-center rounded-xl bg-(--brand) disabled:opacity-50"
-				>
-					<ArrowUp className="size-5" />
-				</button>
-			</form>
+			<ChatComposer
+				key={selected.id}
+				transport={{
+					connected: !loading && !sending,
+					error: status,
+					setError: setStatus,
+					sendMessage,
+				}}
+				placeholder={`Mensagem para ${selected.displayName}`}
+				sendLabel="Enviar mensagem privada"
+			/>
 		</section>
 	);
 }

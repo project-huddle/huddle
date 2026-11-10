@@ -5,18 +5,84 @@ import { useRealtime } from "@/hooks/use-realtime";
 import { resolveMediaUrl } from "@/lib/api";
 import { useChatStore } from "@/stores/chat-store";
 import { useShallow } from "zustand/react/shallow";
-import { useMessageComposer } from "@/hooks/use-message-composer";
+import {
+	useMessageComposer,
+	type ComposerTransport,
+} from "@/hooks/use-message-composer";
 
 const EmojiPicker = lazy(() => import("./emoji-picker"));
 const MAX_MESSAGE_LENGTH = 2000;
 
-export function MessageComposer({ realtime }: { realtime: ReturnType<typeof useRealtime> }) {
-	const { replyTo, setReplyTo, storeError, clearError } = useChatStore(useShallow((state) => ({ replyTo: state.replyTo, setReplyTo: state.setReplyTo, storeError: state.error, clearError: state.clearError })));
-	const error = realtime.error ?? storeError;
-	const onCancelReply = () => setReplyTo(null);
-	const { draft, setDraft, media, setMedia, picker, setPicker, gifQuery, setGifQuery,
-		gifs, gifLoading, uploading, fileRef, submit, uploadImage, searchGifs,
-		mentionSuggestions, setCursorPosition, selectMention } = useMessageComposer(realtime);
+export function MessageComposer({
+	realtime,
+}: {
+	realtime: ReturnType<typeof useRealtime>;
+}) {
+	const { replyTo, setReplyTo, storeError, clearError, members } =
+		useChatStore(
+			useShallow((state) => ({
+				replyTo: state.replyTo,
+				setReplyTo: state.setReplyTo,
+				storeError: state.error,
+				clearError: state.clearError,
+				members:
+					state.membersServerId === state.serverId
+						? state.members
+						: [],
+			})),
+		);
+	return (
+		<ChatComposer
+			transport={realtime}
+			replyTo={replyTo}
+			onCancelReply={() => setReplyTo(null)}
+			members={members}
+			error={realtime.error ?? storeError}
+			onClearError={clearError}
+		/>
+	);
+}
+
+export function ChatComposer({
+	transport: realtime,
+	replyTo = null,
+	onCancelReply,
+	members = [],
+	error = realtime.error,
+	onClearError,
+	placeholder = "escreva do seu jeito",
+	sendLabel = "Enviar",
+}: {
+	transport: ComposerTransport;
+	replyTo?: string | null;
+	onCancelReply?: () => void;
+	members?: import("@/lib/api").HuddleMember[];
+	error?: string | null;
+	onClearError?: () => void;
+	placeholder?: string;
+	sendLabel?: string;
+}) {
+	const {
+		draft,
+		setDraft,
+		media,
+		setMedia,
+		picker,
+		setPicker,
+		gifQuery,
+		setGifQuery,
+		gifs,
+		gifLoading,
+		uploading,
+		sending,
+		fileRef,
+		submit,
+		uploadImage,
+		searchGifs,
+		mentionSuggestions,
+		setCursorPosition,
+		selectMention,
+	} = useMessageComposer(realtime, { replyTo, onCancelReply, members });
 
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const chooseMention = (member: Parameters<typeof selectMention>[0]) => {
@@ -33,7 +99,8 @@ export function MessageComposer({ realtime }: { realtime: ReturnType<typeof useR
 		if (!textarea) return;
 
 		const { selectionStart, selectionEnd } = textarea;
-		const nextDraft = draft.slice(0, selectionStart) + emoji + draft.slice(selectionEnd);
+		const nextDraft =
+			draft.slice(0, selectionStart) + emoji + draft.slice(selectionEnd);
 		const fits = nextDraft.length <= MAX_MESSAGE_LENGTH;
 		if (fits) setDraft(nextDraft);
 
@@ -54,8 +121,10 @@ export function MessageComposer({ realtime }: { realtime: ReturnType<typeof useR
 				file.type.startsWith("image/"),
 			) ??
 			Array.from(event.clipboardData.items)
-				.map((item) => item.kind === "file" ? item.getAsFile() : null)
-				.find((file): file is File => Boolean(file?.type.startsWith("image/")));
+				.map((item) => (item.kind === "file" ? item.getAsFile() : null))
+				.find((file): file is File =>
+					Boolean(file?.type.startsWith("image/")),
+				);
 
 		if (image) {
 			event.preventDefault();
@@ -75,9 +144,13 @@ export function MessageComposer({ realtime }: { realtime: ReturnType<typeof useR
 			const response = await fetch(imageSource);
 			if (!response.ok) throw new Error("Image fetch failed");
 			const blob = await response.blob();
-			await uploadImage(new File([blob], "imagem-colada", { type: blob.type }));
+			await uploadImage(
+				new File([blob], "imagem-colada", { type: blob.type }),
+			);
 		} catch {
-			realtime.setError("Não foi possível importar essa imagem. Use um screenshot ou 'Copiar imagem'.");
+			realtime.setError(
+				"Não foi possível importar essa imagem. Use um screenshot ou 'Copiar imagem'.",
+			);
 		}
 	};
 
@@ -86,11 +159,12 @@ export function MessageComposer({ realtime }: { realtime: ReturnType<typeof useR
 			<div className="relative mx-auto max-w-3xl">
 				{error && (
 					<div className="mb-2 flex items-center rounded-2xl border border-[#d76b5b]/25 bg-[#fff0ea] px-4 py-2.5 text-sm text-[#9c3f33]">
-						<span className="flex-1">
-							{error}
-						</span>
+						<span className="flex-1">{error}</span>
 						<button
-							onClick={() => { realtime.setError(null); clearError(); }}
+							onClick={() => {
+								realtime.setError(null);
+								onClearError?.();
+							}}
 						>
 							<X className="size-4" />
 						</button>
@@ -110,7 +184,13 @@ export function MessageComposer({ realtime }: { realtime: ReturnType<typeof useR
 							</button>
 						</div>
 						{picker === "emoji" ? (
-							<Suspense fallback={<p role="status" className="p-4 text-sm">Carregando emojis...</p>}>
+							<Suspense
+								fallback={
+									<p role="status" className="p-4 text-sm">
+										Carregando emojis...
+									</p>
+								}
+							>
 								<EmojiPicker onSelect={insertEmoji} />
 							</Suspense>
 						) : (
@@ -124,19 +204,14 @@ export function MessageComposer({ realtime }: { realtime: ReturnType<typeof useR
 										<input
 											value={gifQuery}
 											onChange={(event) =>
-												setGifQuery(
-													event.target
-														.value,
-												)
+												setGifQuery(event.target.value)
 											}
 											placeholder="reação, festa, café..."
 											className="h-10 min-w-0 flex-1 bg-transparent text-sm outline-none"
 										/>
 									</div>
 									<button className="rounded-xl bg-(--solid) px-4 text-sm font-bold text-(--on-solid)">
-										{gifLoading
-											? "..."
-											: "buscar"}
+										{gifLoading ? "..." : "buscar"}
 									</button>
 								</form>
 								<div className="grid max-h-72 grid-cols-3 gap-2 overflow-y-auto">
@@ -164,10 +239,11 @@ export function MessageComposer({ realtime }: { realtime: ReturnType<typeof useR
 								{!gifs.length && (
 									<p className="py-7 text-center text-xs text-(--muted-text)">
 										Digite algo para procurar.
-										Requer uma chave Tenor
-										existente.
 									</p>
 								)}
+								<p className="mt-3 text-center text-[10px] font-bold text-(--muted-text)">
+									Powered by GIPHY
+								</p>
 							</>
 						)}
 					</div>
@@ -175,10 +251,10 @@ export function MessageComposer({ realtime }: { realtime: ReturnType<typeof useR
 
 				{replyTo && (
 					<div className="mb-2 flex items-center gap-2 rounded-2xl bg-(--surface) px-3 py-2 text-xs">
-						<Reply className="size-3.5" /> Respondendo a
-						uma mensagem{" "}
+						<Reply className="size-3.5" /> Respondendo a uma
+						mensagem{" "}
 						<button
-							onClick={() => onCancelReply()}
+							onClick={() => onCancelReply?.()}
 							className="ml-auto"
 						>
 							<X className="size-3.5" />
@@ -214,9 +290,7 @@ export function MessageComposer({ realtime }: { realtime: ReturnType<typeof useR
 						accept="image/jpeg,image/png,image/gif,image/webp"
 						className="hidden"
 						onChange={(event) =>
-							void uploadImage(
-								event.target.files?.[0],
-							)
+							void uploadImage(event.target.files?.[0])
 						}
 					/>
 					<button
@@ -231,9 +305,7 @@ export function MessageComposer({ realtime }: { realtime: ReturnType<typeof useR
 					<button
 						type="button"
 						onClick={() =>
-							setPicker(
-								picker === "emoji" ? null : "emoji",
-							)
+							setPicker(picker === "emoji" ? null : "emoji")
 						}
 						className="grid size-10 shrink-0 place-items-center rounded-2xl hover:bg-(--brand-soft)"
 						aria-label="Adicionar emoji"
@@ -243,11 +315,10 @@ export function MessageComposer({ realtime }: { realtime: ReturnType<typeof useR
 					<button
 						type="button"
 						onClick={() =>
-							setPicker(
-								picker === "gif" ? null : "gif",
-							)
+							setPicker(picker === "gif" ? null : "gif")
 						}
-						className="hidden h-10 shrink-0 rounded-2xl px-2 text-xs font-black hover:bg-(--brand-soft) sm:block"
+						aria-label="GIF"
+						className="h-10 shrink-0 rounded-2xl px-2 text-xs font-black hover:bg-(--brand-soft)"
 					>
 						GIF
 					</button>
@@ -261,67 +332,92 @@ export function MessageComposer({ realtime }: { realtime: ReturnType<typeof useR
 									<button
 										key={member.id}
 										type="button"
-										onMouseDown={(event) => event.preventDefault()}
+										onMouseDown={(event) =>
+											event.preventDefault()
+										}
 										onClick={() => chooseMention(member)}
 										className="flex w-full items-center rounded-xl px-3 py-2 text-left text-sm hover:bg-(--brand-soft)"
 									>
-										<span className="font-bold">{member.displayName}</span>
+										<span className="font-bold">
+											{member.displayName}
+										</span>
 									</button>
 								))}
 							</div>
 						)}
 						<textarea
-						ref={textareaRef}
-						maxLength={MAX_MESSAGE_LENGTH}
-						onPaste={(event) => void pasteImage(event)}
-						value={draft}
-						onChange={(event) => {
-							setDraft(event.target.value.slice(0, MAX_MESSAGE_LENGTH));
-							setCursorPosition(event.target.selectionStart);
-						}}
-						onClick={(event) => setCursorPosition(event.currentTarget.selectionStart)}
-						onKeyUp={(event) => setCursorPosition(event.currentTarget.selectionStart)}
-						onKeyDown={(event) => {
-							if (event.key === "Enter" && !event.shiftKey && mentionSuggestions.length > 0) {
-								event.preventDefault();
-								chooseMention(mentionSuggestions[0]);
-								return;
+							aria-label={placeholder}
+							ref={textareaRef}
+							maxLength={MAX_MESSAGE_LENGTH}
+							onPaste={(event) => void pasteImage(event)}
+							value={draft}
+							onChange={(event) => {
+								setDraft(
+									event.target.value.slice(
+										0,
+										MAX_MESSAGE_LENGTH,
+									),
+								);
+								setCursorPosition(event.target.selectionStart);
+							}}
+							onClick={(event) =>
+								setCursorPosition(
+									event.currentTarget.selectionStart,
+								)
 							}
-							if (event.key === "Escape" && mentionSuggestions.length > 0) {
-								event.preventDefault();
-								setCursorPosition(0);
-								return;
+							onKeyUp={(event) =>
+								setCursorPosition(
+									event.currentTarget.selectionStart,
+								)
 							}
-							if (event.key === "Tab" && mentionSuggestions.length > 0) {
-								event.preventDefault();
-								chooseMention(mentionSuggestions[0]);
-								return;
+							onKeyDown={(event) => {
+								if (
+									event.key === "Enter" &&
+									!event.shiftKey &&
+									mentionSuggestions.length > 0
+								) {
+									event.preventDefault();
+									chooseMention(mentionSuggestions[0]);
+									return;
+								}
+								if (
+									event.key === "Escape" &&
+									mentionSuggestions.length > 0
+								) {
+									event.preventDefault();
+									setCursorPosition(0);
+									return;
+								}
+								if (
+									event.key === "Tab" &&
+									mentionSuggestions.length > 0
+								) {
+									event.preventDefault();
+									chooseMention(mentionSuggestions[0]);
+									return;
+								}
+								if (event.key === "Enter" && !event.shiftKey) {
+									event.preventDefault();
+									event.currentTarget.form?.requestSubmit();
+								}
+							}}
+							rows={1}
+							placeholder={
+								uploading ? "enviando imagem..." : placeholder
 							}
-							if (
-								event.key === "Enter" &&
-								!event.shiftKey
-							) {
-								event.preventDefault();
-								event.currentTarget.form?.requestSubmit();
-							}
-						}}
-						rows={1}
-						placeholder={
-							uploading
-								? "enviando imagem..."
-								: "escreva do seu jeito"
-						}
-						disabled={!realtime.connected}
-						className="max-h-32 min-h-10 min-w-0 flex-1 resize-none bg-transparent px-2 py-2 outline-none placeholder:text-(--muted-text)"
+							disabled={!realtime.connected}
+							className="max-h-32 min-h-10 min-w-0 flex-1 resize-none bg-transparent px-2 py-2 outline-none placeholder:text-(--muted-text)"
 						/>
 					</div>
 					<button
 						disabled={
 							(!draft.trim() && !media) ||
-							!realtime.connected
+							!realtime.connected ||
+							uploading ||
+							sending
 						}
 						className="grid size-10 shrink-0 place-items-center rounded-2xl bg-(--solid) text-(--brand) transition hover:-translate-y-0.5 disabled:opacity-30"
-						aria-label="Enviar"
+						aria-label={sendLabel}
 					>
 						<ArrowUp className="size-5" />
 					</button>

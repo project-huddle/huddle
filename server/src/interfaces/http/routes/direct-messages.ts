@@ -1,5 +1,8 @@
 import { Elysia, t } from "elysia";
-import { directMessageHistory, sendDirectMessage } from "@/app/social-service";
+import {
+  directMessageHistory,
+  sendDirectMessage,
+} from "@/app/direct-message-service";
 import { error, json } from "@/interfaces/http/responses";
 import { notifyUser } from "@/interfaces/realtime/realtime-gateway";
 import { authenticatedRoutes } from "../plugins/auth";
@@ -7,7 +10,17 @@ import { resourceId } from "../schemas";
 
 const directMessageBody = t.Object({
   recipientId: resourceId,
-  content: t.String(),
+  content: t.String({ maxLength: 2000 }),
+  media: t.Optional(
+    t.Union([
+      t.Null(),
+      t.Object({
+        url: t.String({ maxLength: 2000 }),
+        type: t.Union([t.Literal("image"), t.Literal("gif")]),
+        alt: t.String({ maxLength: 160 }),
+      }),
+    ]),
+  ),
 });
 const directMessageQuery = t.Object({ userId: resourceId });
 const notFriends = () =>
@@ -35,6 +48,7 @@ export const directMessageRoutes = new Elysia({ name: "direct-message-routes" })
         currentUser.id,
         body.recipientId,
         body.content,
+        body.media,
       );
       if (result.type === "not-friends") return notFriends();
       if (result.type === "invalid-message")

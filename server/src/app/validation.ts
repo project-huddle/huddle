@@ -36,15 +36,16 @@ export function messageMedia(value: unknown): MessageMedia | null {
       : null;
   const url = typeof candidate?.url === "string" ? candidate.url : "";
   const local = /^\/media\/[a-f0-9-]+\.(jpg|png|gif|webp)$/.test(url);
-  let tenor = false;
+  let gifProvider = false;
   try {
     const parsed = new URL(url);
-    tenor =
-      parsed.protocol === "https:" && parsed.hostname === "media.tenor.com";
+    const isGiphyHost = /^(?:media\d*|i)\.giphy\.com$/.test(parsed.hostname);
+    gifProvider = parsed.protocol === "https:" && !parsed.username && !parsed.password && !parsed.port &&
+      (parsed.hostname === "media.tenor.com" || isGiphyHost);
   } catch {
     // Local media URLs are intentionally relative.
   }
-  if (!type || (!local && !(type === "gif" && tenor))) return null;
+  if (!type || (!local && !(type === "gif" && gifProvider))) return null;
   return {
     type,
     url,

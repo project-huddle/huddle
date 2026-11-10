@@ -6,7 +6,7 @@ import {
 	useState,
 	type FormEvent,
 } from "react";
-import { api, type User } from "@/lib/api";
+import { api, type User, type MessageMedia } from "@/lib/api";
 import {
 	directMessageSchema,
 	friendIdentifierSchema,
@@ -133,14 +133,11 @@ export function useSocialHub(token: string, open: boolean) {
 			if (selectedId.current === friend.id) setLoading(false);
 		}
 	};
-	const send = async (event: FormEvent) => {
-		event.preventDefault();
-		if (!selected || sending || loading) return;
-		const input = directMessageSchema.safeParse(draft);
-		if (!input.success) {
-			setStatus("Escreva uma mensagem de até 2000 caracteres.");
-			return;
-		}
+	const sendMessage = async (
+		content: string,
+		media: MessageMedia | null = null,
+	): Promise<boolean> => {
+		if (!selected || sending || loading) return false;
 		const recipientId = selected.id;
 		setSending(true);
 		try {
@@ -148,7 +145,7 @@ export function useSocialHub(token: string, open: boolean) {
 				"/direct-messages",
 				{
 					method: "POST",
-					body: JSON.stringify({ recipientId, content: input.data }),
+					body: JSON.stringify({ recipientId, content, media }),
 				},
 				token,
 			);
@@ -160,16 +157,28 @@ export function useSocialHub(token: string, open: boolean) {
 						: [...current, message],
 				);
 			}
+			return true;
 		} catch (cause) {
 			setStatus(
 				cause instanceof Error
 					? cause.message
 					: "Falha ao enviar mensagem.",
 			);
+			return false;
 		} finally {
 			setSending(false);
 		}
 	};
+	const send = async (event: FormEvent) => {
+		event.preventDefault();
+		const input = directMessageSchema.safeParse(draft);
+		if (!input.success) {
+			setStatus("Escreva uma mensagem válida.");
+			return;
+		}
+		await sendMessage(input.data);
+	};
+
 	useSocialEvents(token, (event) => {
 		if (event.type === "profile_updated") {
 			const user = event.user as User;
@@ -243,6 +252,8 @@ export function useSocialHub(token: string, open: boolean) {
 		addFriend,
 		accept,
 		openConversation,
+		setStatus,
+		sendMessage,
 		send,
 		copyFriendLink,
 	};

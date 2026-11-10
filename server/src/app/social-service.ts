@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import type { User } from "../infra/database/identity-repository";
 import { db } from "../infra/database/client";
-import { messageContent, validEmail } from "./validation";
+import { validEmail } from "./validation";
 
 const publicUserSelect = {
   id: true,
@@ -129,60 +129,4 @@ export async function areFriends(userId: string, peerId: string): Promise<boolea
       select: { requesterId: true },
     }),
   );
-}
-
-export async function directMessageHistory(userId: string, peerId: string) {
-  if (!(await areFriends(userId, peerId))) return null;
-  const messages = await db.directMessage.findMany({
-    where: {
-      OR: [
-        { senderId: userId, recipientId: peerId },
-        { senderId: peerId, recipientId: userId },
-      ],
-    },
-    orderBy: { createdAt: "asc" },
-    take: 100,
-  });
-  return messages.map((message) => ({
-    ...message,
-    createdAt: message.createdAt.toISOString(),
-    readAt: message.readAt?.toISOString() ?? null,
-  }));
-}
-
-export type SendDirectMessageResult =
-  | {
-      type: "success";
-      message: Awaited<ReturnType<typeof createDirectMessage>>;
-    }
-  | { type: "not-friends" }
-  | { type: "invalid-message" };
-
-async function createDirectMessage(
-  senderId: string,
-  recipientId: string,
-  content: string,
-) {
-  const created = await db.directMessage.create({
-    data: { senderId, recipientId, content },
-  });
-  return {
-    ...created,
-    createdAt: created.createdAt.toISOString(),
-    readAt: null,
-  };
-}
-
-export async function sendDirectMessage(
-  userId: string,
-  recipientId: string,
-  rawContent: string,
-): Promise<SendDirectMessageResult> {
-  if (!(await areFriends(userId, recipientId))) return { type: "not-friends" };
-  const content = messageContent(rawContent);
-  if (!content) return { type: "invalid-message" };
-  return {
-    type: "success",
-    message: await createDirectMessage(userId, recipientId, content),
-  };
 }

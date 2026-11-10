@@ -1,4 +1,4 @@
-import type { User } from "@/lib/api";
+import type { User, MessageMedia } from "@/lib/api";
 
 export type Friendship = {
 	status: "pending" | "accepted";
@@ -7,6 +7,7 @@ export type Friendship = {
 };
 
 export type DirectMessage = {
+	media: MessageMedia | null;
 	id: string;
 	senderId: string;
 	recipientId: string;

@@ -24,8 +24,7 @@ services:
       PORT: 3000
       DATABASE_URL: ${DATABASE_URL:-postgresql://huddle:huddle@database:5432/huddle?schema=public}
       UPLOADS_PATH: /app/data/uploads
-      TENOR_API_KEY: ${TENOR_API_KEY:-}
-      TENOR_CLIENT_KEY: ${TENOR_CLIENT_KEY:-huddle}
+      GIPHY_API_KEY: ${GIPHY_API_KEY:-}
       CORS_ORIGINS: ${APP_ORIGIN:-http://localhost:8080}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}

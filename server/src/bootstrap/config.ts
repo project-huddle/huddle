@@ -32,6 +32,5 @@ export const config = {
   maxJsonBytes: positiveInteger("MAX_JSON_BYTES", 16 * 1024),
   authAttemptsPerMinute: positiveInteger("AUTH_ATTEMPTS_PER_MINUTE", 20),
   requestsPerMinute: positiveInteger("REQUESTS_PER_MINUTE", 300),
-  tenorApiKey: process.env.TENOR_API_KEY?.trim() || null,
-  tenorClientKey: process.env.TENOR_CLIENT_KEY?.trim() || "huddle",
+  giphyApiKey: process.env.GIPHY_API_KEY?.trim() || null,
 };

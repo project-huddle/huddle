@@ -110,6 +110,9 @@ model Friendship {
 }
 
 model DirectMessage {
+  mediaUrl    String? @map("media_url")
+  mediaType   String? @map("media_type") @db.VarChar(16)
+  mediaAlt    String? @map("media_alt") @db.VarChar(160)
   id          String    @id @default(uuid()) @db.Uuid
   senderId    String    @map("sender_id") @db.Uuid
   recipientId String    @map("recipient_id") @db.Uuid

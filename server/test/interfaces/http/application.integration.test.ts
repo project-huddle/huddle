@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
 
 const temporaryDirectory = mkdtempSync(join(tmpdir(), "huddle-test-"));
 process.env.HOST = "127.0.0.1";
+process.env.AUTH_ATTEMPTS_PER_MINUTE = "100";
 process.env.UPLOADS_PATH = join(temporaryDirectory, "uploads");
 
 let server: typeof import("../../../src/index").server;
@@ -798,6 +799,25 @@ describe("huddle API", () => {
       { headers: guestHeaders },
     );
     expect(hiddenChannels.status).toBe(403);
+  });
+
+  test("persists image-only and GIF-only private messages and rejects untrusted media", async () => {
+    const alice = await register("media-alice@example.com", "Media Alice");
+    const bob = await register("media-bob@example.com", "Media Bob");
+    const headers = { authorization: `Bearer ${alice.session.token}`, "content-type": "application/json" };
+    const send = (media: { url: string; type: string; alt: string }) => fetch(`${baseUrl}/direct-messages`, {
+      method: "POST", headers, body: JSON.stringify({ recipientId: bob.user.id, content: "", media }),
+    });
+    const image = { url: "/media/12345678-1234-1234-1234-123456789abc.png", type: "image", alt: "Foto privada" };
+    expect((await send(image)).status).toBe(403);
+    const { db } = await import("../../../src/infra/database/client");
+    await db.friendship.create({ data: { requesterId: alice.user.id, addresseeId: bob.user.id, status: "accepted" } });
+    expect((await send(image)).status).toBe(201);
+    const gif = { url: "https://media2.giphy.com/media/example/giphy.gif", type: "gif", alt: "GIF privado" };
+    expect((await send(gif)).status).toBe(201);
+    expect((await send({ ...gif, url: "https://media.giphy.com.attacker.example/payload.gif" })).status).toBe(400);
+    const history = await fetch(`${baseUrl}/direct-messages?userId=${bob.user.id}`, { headers });
+    expect(await history.json()).toMatchObject({ messages: [{ media: image }, { media: gif }] });
   });
 
   test("authorizes private call invitations, acceptance and media signaling", async () => {
