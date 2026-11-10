@@ -46,6 +46,8 @@ export const friendRoutes = new Elysia({ name: "friend-routes" })
     async ({ currentUser, params }) => {
       if (!(await acceptFriend(currentUser.id, params.userId)))
         return error(404, "REQUEST_NOT_FOUND", "Solicitação não encontrada.");
+      notifyUser(currentUser.id, { type: "friendship_changed" });
+      notifyUser(params.userId, { type: "friendship_changed" });
       return new Response(null, { status: 204 });
     },
     { params: userIdParams },
@@ -54,6 +56,8 @@ export const friendRoutes = new Elysia({ name: "friend-routes" })
     "/friends/:userId",
     async ({ currentUser, params }) => {
       await deleteFriendship(currentUser.id, params.userId);
+      notifyUser(currentUser.id, { type: "friendship_changed" });
+      notifyUser(params.userId, { type: "friendship_changed" });
       return new Response(null, { status: 204 });
     },
     { params: userIdParams },

@@ -53,8 +53,9 @@ export const useChatStore = create<ChatState>((set) => ({
 	setMembers: (value) => set((state) => ({ members: typeof value === "function" ? value(state.members) : value, membersServerId: state.serverId })),
 	setServerId: (value) => set((state) => {
 		const serverId = typeof value === "function" ? value(state.serverId) : value;
-		if (serverId === state.serverId) return state;
+		if (serverId === state.serverId) return { socialOpen: false };
 		return {
+			socialOpen: false,
 			serverId,
 			channels: [],
 			members: [],

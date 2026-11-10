@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, PhoneOff, Volume2 } from "lucide-react";
 
 import { useRealtime } from "@/hooks/use-realtime";
-import { SocialHub } from "@/components/social-hub";
+import { PrivateWorkspace } from "@/components/direct/private-workspace";
 import { ProfileSettings } from "@/components/profile-settings";
 import { ServerSettings } from "@/components/chat/server-settings";
 import { RoomSidebar } from "@/components/chat/room-sidebar";
@@ -29,10 +29,13 @@ export default function ChatPage() {
 	const setChannelId = useChatStore((state) => state.setChannelId);
 	const socialOpen = useChatStore((state) => state.socialOpen);
 	const settingsOpen = useChatStore((state) => state.settingsOpen);
-	const serverSettingsOpen = useChatStore((state) => state.serverSettingsOpen);
-	const setSocialOpen = useChatStore((state) => state.setSocialOpen);
+	const serverSettingsOpen = useChatStore(
+		(state) => state.serverSettingsOpen,
+	);
 	const setSettingsOpen = useChatStore((state) => state.setSettingsOpen);
-	const setServerSettingsOpen = useChatStore((state) => state.setServerSettingsOpen);
+	const setServerSettingsOpen = useChatStore(
+		(state) => state.setServerSettingsOpen,
+	);
 	const loadServers = useChatStore((state) => state.loadServers);
 	const loadChannels = useChatStore((state) => state.loadChannels);
 	const loadMembers = useChatStore((state) => state.loadMembers);
@@ -44,14 +47,15 @@ export default function ChatPage() {
 	const messageRealtime = useRealtime(token, messageChannelId, "text");
 	const callRealtime = useRealtime(token, callChannelId, "voice");
 	const leaveCall = callRealtime.leaveCall;
-	const conversationRealtime = activeChannel?.type === "voice"
-		? callRealtime
-		: messageRealtime;
+	const conversationRealtime =
+		activeChannel?.type === "voice" ? callRealtime : messageRealtime;
 	const leaveActiveCall = () => {
 		void (async () => {
 			await leaveCall();
 			setCallChannelId("");
-			const textChannel = channels.find((channel) => channel.type === "text");
+			const textChannel = channels.find(
+				(channel) => channel.type === "text",
+			);
 			setChannelId(textChannel?.id ?? "");
 		})();
 	};
@@ -68,55 +72,103 @@ export default function ChatPage() {
 		void (async () => {
 			if (callChannelId) {
 				await leaveCall();
-				await new Promise((resolve) => setTimeout(resolve, CALL_SWITCH_DELAY_MS));
+				await new Promise((resolve) =>
+					setTimeout(resolve, CALL_SWITCH_DELAY_MS),
+				);
 			}
 			if (requestId !== callSwitchRequest.current) return;
 			setCallChannelId(nextCallChannelId);
 		})();
 	}, [activeChannel?.type, callChannelId, channelId, leaveCall]);
 
-	useEffect(() => { void loadServers(); }, [loadServers]);
-	useEffect(() => { void loadChannels(); }, [serverId, loadChannels]);
-	useEffect(() => { void loadMembers(); }, [serverId, loadMembers]);
-	useEffect(() => { void loadRoles(); }, [serverId, loadRoles]);
+	useEffect(() => {
+		void loadServers();
+	}, [loadServers]);
+	useEffect(() => {
+		void loadChannels();
+	}, [serverId, loadChannels]);
+	useEffect(() => {
+		void loadMembers();
+	}, [serverId, loadMembers]);
+	useEffect(() => {
+		void loadRoles();
+	}, [serverId, loadRoles]);
 
 	return (
 		<main className="chat-page relative h-svh overflow-hidden bg-(--canvas) text-(--ink)">
 			<div className="grid h-full w-full grid-cols-1 lg:grid-cols-[82px_minmax(0,1fr)_300px]">
 				<ServerRail />
-				<ResizableChatPanels>
-					<ChatConversation
-						realtime={conversationRealtime}
-						onLeaveCall={leaveActiveCall}
-					/>
-				</ResizableChatPanels>
+				{!socialOpen && (
+					<ResizableChatPanels>
+						<ChatConversation
+							realtime={conversationRealtime}
+							onLeaveCall={leaveActiveCall}
+						/>
+					</ResizableChatPanels>
+				)}
 
-				<RoomSidebar />
+				{!socialOpen && <RoomSidebar />}
+				<PrivateWorkspace
+					currentUser={user}
+					token={token}
+					open={socialOpen}
+				/>
 			</div>
-			<CallAudioSession peers={callRealtime.peers} enabled={callRealtime.inCall && activeChannel?.type !== "voice"} />
+			<CallAudioSession
+				peers={callRealtime.peers}
+				enabled={callRealtime.inCall && activeChannel?.type !== "voice"}
+			/>
 
 			<MobileNavigation />
 			{callRealtime.inCall && activeChannel?.id !== callChannelId && (
 				<div className="fixed bottom-4 right-4 z-40 flex items-center gap-3 rounded-2xl border border-(--line) bg-(--solid) p-3 text-(--on-solid) shadow-2xl">
-					<button type="button" onClick={() => setChannelId(callChannelId)} className="flex min-w-0 items-center gap-3 text-left">
-						<span className="grid size-10 place-items-center rounded-xl bg-(--brand) text-(--ink)"><Volume2 className="size-5" /></span>
+					<button
+						type="button"
+						onClick={() => setChannelId(callChannelId)}
+						className="flex min-w-0 items-center gap-3 text-left"
+					>
+						<span className="grid size-10 place-items-center rounded-xl bg-(--brand) text-(--ink)">
+							<Volume2 className="size-5" />
+						</span>
 						<span className="min-w-0">
-							<strong className="block text-sm">Chamada ativa</strong>
-							<span className="block text-xs text-(--on-solid)/55">{callRealtime.peers.length + 1} conectados</span>
+							<strong className="block text-sm">
+								Chamada ativa
+							</strong>
+							<span className="block text-xs text-(--on-solid)/55">
+								{callRealtime.peers.length + 1} conectados
+							</span>
 						</span>
 					</button>
-					<button type="button" onClick={callRealtime.toggleMute} className={`grid size-9 place-items-center rounded-xl ${callRealtime.muted ? "bg-[#d75a4a]" : "bg-white/10"}`} aria-label={callRealtime.muted ? "Ativar microfone" : "Silenciar"}>
-						{callRealtime.muted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+					<button
+						type="button"
+						onClick={callRealtime.toggleMute}
+						className={`grid size-9 place-items-center rounded-xl ${callRealtime.muted ? "bg-[#d75a4a]" : "bg-white/10"}`}
+						aria-label={
+							callRealtime.muted
+								? "Ativar microfone"
+								: "Silenciar"
+						}
+					>
+						{callRealtime.muted ? (
+							<MicOff className="size-4" />
+						) : (
+							<Mic className="size-4" />
+						)}
 					</button>
-					<button type="button" onClick={() => { void callRealtime.leaveCall().then(() => setCallChannelId("")); }} className="grid size-9 place-items-center rounded-xl bg-[#d75a4a]" aria-label="Sair da chamada"><PhoneOff className="size-4" /></button>
+					<button
+						type="button"
+						onClick={() => {
+							void callRealtime
+								.leaveCall()
+								.then(() => setCallChannelId(""));
+						}}
+						className="grid size-9 place-items-center rounded-xl bg-[#d75a4a]"
+						aria-label="Sair da chamada"
+					>
+						<PhoneOff className="size-4" />
+					</button>
 				</div>
 			)}
-			<SocialHub
-				currentUser={user}
-				token={token}
-				open={socialOpen}
-				onClose={() => setSocialOpen(false)}
-			/>
 			<ProfileSettings
 				token={token}
 				open={settingsOpen}
@@ -124,7 +176,10 @@ export default function ChatPage() {
 				onLogout={logout}
 				onUpdated={updateUser}
 			/>
-			<ServerSettings open={serverSettingsOpen} onClose={() => setServerSettingsOpen(false)} />
+			<ServerSettings
+				open={serverSettingsOpen}
+				onClose={() => setServerSettingsOpen(false)}
+			/>
 			<ChatDialogs />
 		</main>
 	);

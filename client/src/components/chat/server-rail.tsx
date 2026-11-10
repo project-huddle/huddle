@@ -1,7 +1,4 @@
-import {
-	MessageCircle,
-	Plus,
-} from "lucide-react";
+import { Plus } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 
 import { BrandMark } from "@/components/brand-logo";
@@ -39,15 +36,13 @@ export function ServerRail() {
 
 	return (
 		<aside className="hidden flex-col items-center gap-3 border-r border-(--ink)/10 bg-(--solid) py-5 lg:flex">
-			<BrandMark className="size-11" />
-
 			<button
 				type="button"
 				onClick={handleOpenSocial}
 				className="grid size-11 place-items-center rounded-[15px] bg-(--surface)/10 text-(--on-solid) hover:bg-(--brand) hover:text-(--ink)"
 				aria-label="Amigos e mensagens privadas"
 			>
-				<MessageCircle className="size-5" />
+				<BrandMark className="size-11" />
 			</button>
 
 			{servers.map((server) => (

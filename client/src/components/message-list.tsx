@@ -9,17 +9,19 @@ import { MessageAction } from "@/components/messages/message-action";
 import { MessageDialogs } from "@/components/messages/message-dialogs";
 
 type MessageListProps = {
+	readOnly?: boolean;
 	currentUserId: string;
 	messages: ChatMessage[];
 	members: HuddleMember[];
-	onDelete: (messageId: string) => void;
-	onEdit: (messageId: string, content: string) => void;
-	onReact: (messageId: string, emoji: string) => void;
-	onReport: (messageId: string, targetUserId: string, reason: string) => void;
-	onReply: (messageId: string) => void;
+	onDelete?: (messageId: string) => void;
+	onEdit?: (messageId: string, content: string) => void;
+	onReact?: (messageId: string, emoji: string) => void;
+	onReport?: (messageId: string, targetUserId: string, reason: string) => void;
+	onReply?: (messageId: string) => void;
 };
 
 export function MessageList({
+	readOnly = false,
 	currentUserId,
 	messages,
 	members,
@@ -46,13 +48,13 @@ export function MessageList({
 	const submitEdit = (event: FormEvent) => {
 		event.preventDefault();
 		if (!editing || !editValue.trim()) return;
-		onEdit(editing.id, editValue.trim());
+		onEdit?.(editing.id, editValue.trim());
 		setEditing(null);
 	};
 	const submitReport = (event: FormEvent) => {
 		event.preventDefault();
 		if (!reporting || reportReason.trim().length < 10) return;
-		onReport(reporting.id, reporting.author.id, reportReason.trim());
+		onReport?.(reporting.id, reporting.author.id, reportReason.trim());
 		setReporting(null);
 		setReportReason("");
 	};
@@ -190,11 +192,11 @@ export function MessageList({
 										)}
 									/>
 								)}
-								{!message.deletedAt && (
+								{!readOnly && !message.deletedAt && (
 									<div className="mt-2 flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
 										<MessageAction
 											label="Responder"
-											onClick={() => onReply(message.id)}
+											onClick={() => onReply?.(message.id)}
 										>
 											<Reply />
 										</MessageAction>
@@ -211,7 +213,7 @@ export function MessageList({
 												<MessageAction
 													label="Apagar"
 													onClick={() =>
-														onDelete(message.id)
+														onDelete?.(message.id)
 													}
 												>
 													<Trash2 />
@@ -220,7 +222,7 @@ export function MessageList({
 										)}
 									<button
 											onClick={() =>
-												onReact(message.id, "👍")
+												onReact?.(message.id, "👍")
 											}
 											className="rounded px-1 text-xs hover:bg-[var(--surface)]/20"
 											aria-label="Reagir com joinha"
@@ -234,7 +236,7 @@ export function MessageList({
 									)}
 										<button
 											onClick={() =>
-												onReact(message.id, "❤️")
+												onReact?.(message.id, "❤️")
 											}
 											className="rounded px-1 text-xs hover:bg-[var(--surface)]/20"
 											aria-label="Reagir com coração"
@@ -250,7 +252,7 @@ export function MessageList({
 												<button
 													key={emoji}
 													onClick={() =>
-														onReact(
+														onReact?.(
 															message.id,
 															emoji,
 														)
