@@ -554,8 +554,10 @@ export const realtimeWebSocket = {
       if (event.type === "webrtc_offer" || event.type === "webrtc_answer")
         forwarded.sdp = event.sdp;
       if (event.type === "ice_candidate") forwarded.candidate = event.candidate;
-      if (event.type === "screen_share")
+      if (event.type === "screen_share") {
         forwarded.active = event.active === true;
+        forwarded.streamId = typeof event.streamId === "string" ? event.streamId.slice(0, 128) : undefined;
+      }
       return send(target, forwarded);
     }
     send(ws, {

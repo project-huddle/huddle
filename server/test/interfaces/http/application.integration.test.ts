@@ -394,11 +394,13 @@ describe("huddle API", () => {
         type: "screen_share",
         targetUserId: bob.user.id,
         active: true,
+        streamId: "shared-tab-with-audio",
       }),
     );
     expect(await screenShare).toMatchObject({
       fromUserId: alice.user.id,
       active: true,
+      streamId: "shared-tab-with-audio",
       callId: "general",
     });
 

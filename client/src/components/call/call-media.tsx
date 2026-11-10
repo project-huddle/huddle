@@ -1,17 +1,41 @@
 import { useEffect, useRef, type CSSProperties } from "react";
-import { applyAudioOutput, readMediaDevicePreferences } from "@/lib/media-devices";
+import {
+	applyAudioOutput,
+	readMediaDevicePreferences,
+} from "@/lib/media-devices";
 import type { RealtimePeer } from "@/types/realtime";
 
-export function StreamVideo({ stream, muted = false, className, style }: { stream: MediaStream | null; muted?: boolean; className?: string; style?: CSSProperties }) {
+export function StreamVideo({
+	stream,
+	muted = false,
+	className,
+	style,
+}: {
+	stream: MediaStream | null;
+	muted?: boolean;
+	className?: string;
+	style?: CSSProperties;
+}) {
 	const ref = useRef<HTMLVideoElement>(null);
 
 	useEffect(() => {
 		const video = ref.current;
 		if (video) video.srcObject = stream;
-		return () => { if (video) video.srcObject = null; };
+		return () => {
+			if (video) video.srcObject = null;
+		};
 	}, [stream]);
 
-	return <video ref={ref} autoPlay playsInline muted={muted} className={className} style={style} />;
+	return (
+		<video
+			ref={ref}
+			autoPlay
+			playsInline
+			muted={muted}
+			className={className}
+			style={style}
+		/>
+	);
 }
 
 export function PeerAudio({ stream }: { stream: MediaStream | null }) {
@@ -23,16 +47,30 @@ export function PeerAudio({ stream }: { stream: MediaStream | null }) {
 			audio.srcObject = stream;
 			if (stream) void audio.play().catch(() => undefined);
 		}
-		return () => { if (audio) audio.srcObject = null; };
+		return () => {
+			if (audio) audio.srcObject = null;
+		};
 	}, [stream]);
 
 	return <audio ref={ref} autoPlay />;
 }
 
-export function AudioOutput({ stream, volume = 1, muted = false, onSpeaking }: { stream: MediaStream | null; volume?: number; muted?: boolean; onSpeaking?: (speaking: boolean) => void }) {
+export function AudioOutput({
+	stream,
+	volume = 1,
+	muted = false,
+	onSpeaking,
+}: {
+	stream: MediaStream | null;
+	volume?: number;
+	muted?: boolean;
+	onSpeaking?: (speaking: boolean) => void;
+}) {
 	const ref = useRef<HTMLAudioElement>(null);
 	const speakingRef = useRef(onSpeaking);
 	const gainRef = useRef<GainNode | null>(null);
+	const playback = useRef({ muted, volume });
+	playback.current = { muted, volume };
 	speakingRef.current = onSpeaking;
 	useEffect(() => {
 		const audio = ref.current;
@@ -41,17 +79,42 @@ export function AudioOutput({ stream, volume = 1, muted = false, onSpeaking }: {
 		const source = context.createMediaStreamSource(stream);
 		const gain = context.createGain();
 		gainRef.current = gain;
-		source.connect(gain).connect(context.destination);
-		audio.srcObject = stream;
-		audio.muted = true;
+		const output = context.createMediaStreamDestination();
+		gain.gain.value = playback.current.muted
+			? 0
+			: Math.max(0, Math.min(2, playback.current.volume));
+		source.connect(gain).connect(output);
+		audio.srcObject = output.stream;
+		audio.muted = false;
+		void audio.play().catch(() => undefined);
 		void context.resume().catch(() => undefined);
-		void applyAudioOutput(audio, readMediaDevicePreferences().audioOutputDeviceId);
-		const updateOutput = () => void applyAudioOutput(audio, readMediaDevicePreferences().audioOutputDeviceId);
+		void applyAudioOutput(
+			audio,
+			readMediaDevicePreferences().audioOutputDeviceId,
+		);
+		const updateOutput = () =>
+			void applyAudioOutput(
+				audio,
+				readMediaDevicePreferences().audioOutputDeviceId,
+			);
 		window.addEventListener("huddle-audio-output-change", updateOutput);
-		return () => { window.removeEventListener("huddle-audio-output-change", updateOutput); audio.srcObject = null; gain.disconnect(); source.disconnect(); gainRef.current = null; void context.close(); };
+		return () => {
+			window.removeEventListener(
+				"huddle-audio-output-change",
+				updateOutput,
+			);
+			audio.srcObject = null;
+			gain.disconnect();
+			source.disconnect();
+			gainRef.current = null;
+			void context.close();
+		};
 	}, [stream]);
 	useEffect(() => {
-		if (gainRef.current) gainRef.current.gain.value = muted ? 0 : Math.max(0, Math.min(2, volume));
+		if (gainRef.current)
+			gainRef.current.gain.value = muted
+				? 0
+				: Math.max(0, Math.min(2, volume));
 	}, [muted, volume]);
 	useEffect(() => {
 		if (!stream || !speakingRef.current) return;
@@ -71,17 +134,43 @@ export function AudioOutput({ stream, volume = 1, muted = false, onSpeaking }: {
 		};
 		void context.resume();
 		sample();
-		return () => { cancelAnimationFrame(frame); source.disconnect(); analyser.disconnect(); void context.close(); };
+		return () => {
+			cancelAnimationFrame(frame);
+			source.disconnect();
+			analyser.disconnect();
+			void context.close();
+		};
 	}, [stream]);
 	return <audio ref={ref} autoPlay />;
 }
 
-export function CallAudioSession({ peers, enabled }: { peers: RealtimePeer[]; enabled: boolean }) {
+export function CallAudioSession({
+	peers,
+	enabled,
+}: {
+	peers: RealtimePeer[];
+	enabled: boolean;
+}) {
 	if (!enabled) return null;
-	return <div aria-hidden="true" className="pointer-events-none fixed size-0 overflow-hidden opacity-0">
-		{peers.map((peer) => <div key={peer.user.id}>
-			<AudioOutput stream={peer.audioStream} volume={1} muted={peer.muted} />
-			<AudioOutput stream={peer.screenAudioStream} volume={1} muted={false} />
-		</div>)}
-	</div>;
+	return (
+		<div
+			aria-hidden="true"
+			className="pointer-events-none fixed size-0 overflow-hidden opacity-0"
+		>
+			{peers.map((peer) => (
+				<div key={peer.user.id}>
+					<AudioOutput
+						stream={peer.audioStream}
+						volume={1}
+						muted={peer.muted}
+					/>
+					<AudioOutput
+						stream={peer.screenAudioStream}
+						volume={1}
+						muted={false}
+					/>
+				</div>
+			))}
+		</div>
+	);
 }

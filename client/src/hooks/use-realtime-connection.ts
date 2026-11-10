@@ -1,6 +1,18 @@
 import { useChatStore } from "@/stores/chat-store";
-import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import { api, websocketUrl, type ChatMessage, type HuddleChannel, type User } from "@/lib/api";
+import {
+	useEffect,
+	useRef,
+	type Dispatch,
+	type MutableRefObject,
+	type SetStateAction,
+} from "react";
+import {
+	api,
+	websocketUrl,
+	type ChatMessage,
+	type HuddleChannel,
+	type User,
+} from "@/lib/api";
 import type {
 	CallLifecycle,
 	RealtimePeer,
@@ -10,11 +22,15 @@ import { playCallSound } from "@/lib/call-sounds";
 
 type Options = {
 	scope: "channel" | "direct";
-	token: string; channelId: string; channelType: HuddleChannel["type"]; currentUserId: string; currentUserDisplayName: string;
+	token: string;
+	channelId: string;
+	channelType: HuddleChannel["type"];
+	currentUserId: string;
+	currentUserDisplayName: string;
 	socketRef: MutableRefObject<WebSocket | null>;
 	peerUsers: MutableRefObject<Map<string, User>>;
 	displayStream: MutableRefObject<MediaStream | null>;
-	remoteSharing: MutableRefObject<Set<string>>;
+	remoteSharing: MutableRefObject<Map<string, string>>;
 	connections: MutableRefObject<Map<string, RTCPeerConnection>>;
 	pendingCandidates: MutableRefObject<Map<string, RTCIceCandidateInit[]>>;
 	callLifecycle: MutableRefObject<CallLifecycle>;
@@ -40,21 +56,46 @@ export function useRealtimeConnection(options: Options) {
 	subscribedHandlerRef.current = options.onChannelSubscribed;
 	const callLeftHandlerRef = useRef(options.onCallLeft);
 	callLeftHandlerRef.current = options.onCallLeft;
-	const { token, channelId, channelType, scope, currentUserId, currentUserDisplayName, socketRef, peerUsers, displayStream, remoteSharing, connections, pendingCandidates,
+	const {
+		token,
+		channelId,
+		channelType,
+		scope,
+		currentUserId,
+		currentUserDisplayName,
+		socketRef,
+		peerUsers,
+		displayStream,
+		remoteSharing,
+		connections,
+		pendingCandidates,
 		callLifecycle,
-		closeCall, createPeer, flushCandidates, makeOffer, send, updatePeer,
-		setMessages, setConnected, setError, setPeers, setJoining, setInCall, setServerMuted } = options;
+		closeCall,
+		createPeer,
+		flushCandidates,
+		makeOffer,
+		send,
+		updatePeer,
+		setMessages,
+		setConnected,
+		setError,
+		setPeers,
+		setJoining,
+		setInCall,
+		setServerMuted,
+	} = options;
 	useEffect(() => {
 		setConnected(false);
 		if (!channelId) return;
 		let alive = true;
-		const messagesRequest = channelType === "voice"
-			? Promise.resolve({ messages: [] as ChatMessage[] })
-			: api<{ messages: ChatMessage[] }>(
-				`/messages?channelId=${encodeURIComponent(channelId)}&limit=100`,
-				{},
-				token,
-			);
+		const messagesRequest =
+			channelType === "voice"
+				? Promise.resolve({ messages: [] as ChatMessage[] })
+				: api<{ messages: ChatMessage[] }>(
+						`/messages?channelId=${encodeURIComponent(channelId)}&limit=100`,
+						{},
+						token,
+					);
 		messagesRequest
 			.then(({ messages }) => alive && setMessages(messages))
 			.catch(
@@ -133,8 +174,14 @@ export function useRealtimeConnection(options: Options) {
 						);
 					}
 					if (event.type === "server_notification") {
-						const notificationChannelId = typeof event.channelId === "string" ? event.channelId : "";
-						const notificationServerId = typeof event.serverId === "string" ? event.serverId : "";
+						const notificationChannelId =
+							typeof event.channelId === "string"
+								? event.channelId
+								: "";
+						const notificationServerId =
+							typeof event.serverId === "string"
+								? event.serverId
+								: "";
 						const message = event.message as ChatMessage;
 						if (
 							notificationChannelId &&
@@ -142,22 +189,47 @@ export function useRealtimeConnection(options: Options) {
 							message.author?.id !== currentUserId &&
 							notificationChannelId !== channelId
 						) {
-							const mentionedUserIds = Array.isArray(event.mentionedUserIds) ? event.mentionedUserIds : [];
-							const mentioned = mentionedUserIds.includes(currentUserId) || (
-								currentUserDisplayName.length > 0 &&
-								message.content.toLocaleLowerCase().includes(`@${currentUserDisplayName.toLocaleLowerCase()}`)
-							);
-							useChatStore.getState().markChannelUnread(message.id, notificationChannelId, notificationServerId, mentioned);
+							const mentionedUserIds = Array.isArray(
+								event.mentionedUserIds,
+							)
+								? event.mentionedUserIds
+								: [];
+							const mentioned =
+								mentionedUserIds.includes(currentUserId) ||
+								(currentUserDisplayName.length > 0 &&
+									message.content
+										.toLocaleLowerCase()
+										.includes(
+											`@${currentUserDisplayName.toLocaleLowerCase()}`,
+										));
+							useChatStore
+								.getState()
+								.markChannelUnread(
+									message.id,
+									notificationChannelId,
+									notificationServerId,
+									mentioned,
+								);
 						}
 					}
-					if (event.type === "server_data_changed" && typeof event.serverId === "string") {
-						const resources = Array.isArray(event.resources) ? event.resources : [];
+					if (
+						event.type === "server_data_changed" &&
+						typeof event.serverId === "string"
+					) {
+						const resources = Array.isArray(event.resources)
+							? event.resources
+							: [];
 						const store = useChatStore.getState();
-						void (resources.includes("servers") ? store.loadServers() : Promise.resolve());
+						void (resources.includes("servers")
+							? store.loadServers()
+							: Promise.resolve());
 						if (store.serverId === event.serverId) {
-							if (resources.includes("channels")) void store.loadChannels();
-							if (resources.includes("members")) void store.loadMembers();
-							if (resources.includes("roles")) void store.loadRoles();
+							if (resources.includes("channels"))
+								void store.loadChannels();
+							if (resources.includes("members"))
+								void store.loadMembers();
+							if (resources.includes("roles"))
+								void store.loadRoles();
 						}
 					}
 					if (event.type === "channel_subscribed") {
@@ -166,12 +238,41 @@ export function useRealtimeConnection(options: Options) {
 							subscribedHandlerRef.current?.();
 						}
 					}
-					if (event.type === "voice_presence" && typeof event.channelId === "string")
-						useChatStore.getState().setVoiceUsers(event.channelId, (event.users as User[]) ?? [], typeof event.revision === "number" ? event.revision : 0);
-					if (event.type === "presence" && typeof event.userId === "string")
-						useChatStore.getState().setPresence(event.userId, event.status === "online");
-					if (event.type === "presence_snapshot" && Array.isArray(event.userIds))
-						useChatStore.getState().setPresenceSnapshot(event.userIds.filter((userId): userId is string => typeof userId === "string"));
+					if (
+						event.type === "voice_presence" &&
+						typeof event.channelId === "string"
+					)
+						useChatStore
+							.getState()
+							.setVoiceUsers(
+								event.channelId,
+								(event.users as User[]) ?? [],
+								typeof event.revision === "number"
+									? event.revision
+									: 0,
+							);
+					if (
+						event.type === "presence" &&
+						typeof event.userId === "string"
+					)
+						useChatStore
+							.getState()
+							.setPresence(
+								event.userId,
+								event.status === "online",
+							);
+					if (
+						event.type === "presence_snapshot" &&
+						Array.isArray(event.userIds)
+					)
+						useChatStore
+							.getState()
+							.setPresenceSnapshot(
+								event.userIds.filter(
+									(userId): userId is string =>
+										typeof userId === "string",
+								),
+							);
 					if (event.type === "call_left") {
 						callLeftHandlerRef.current?.();
 					}
@@ -193,21 +294,38 @@ export function useRealtimeConnection(options: Options) {
 						if (callLifecycle.current !== "joining") return;
 						setJoining(false);
 						setInCall(true);
-						const snapshots = (event.peers as Array<{ user: User; muted?: boolean; serverMuted?: boolean }>) ?? [];
-						const users = Array.from(new Map(snapshots.map(({ user }) => [user.id, user])).values());
-						users.forEach((user) => peerUsers.current.set(user.id, user));
+						const snapshots =
+							(event.peers as Array<{
+								user: User;
+								muted?: boolean;
+								serverMuted?: boolean;
+							}>) ?? [];
+						const users = Array.from(
+							new Map(
+								snapshots.map(({ user }) => [user.id, user]),
+							).values(),
+						);
+						users.forEach((user) =>
+							peerUsers.current.set(user.id, user),
+						);
 						setPeers(
-							snapshots.map(({ user, muted = false, serverMuted = false }) => ({
-								user,
-								audioStream: null,
-								cameraStream: null,
-								screenStream: null,
-								screenAudioStream: null,
-								sharing: false,
-								muted,
-								serverMuted,
-								speaking: false,
-							})),
+							snapshots.map(
+								({
+									user,
+									muted = false,
+									serverMuted = false,
+								}) => ({
+									user,
+									audioStream: null,
+									cameraStream: null,
+									screenStream: null,
+									screenAudioStream: null,
+									sharing: false,
+									muted,
+									serverMuted,
+									speaking: false,
+								}),
+							),
 						);
 						callLifecycle.current = "active";
 					}
@@ -215,16 +333,23 @@ export function useRealtimeConnection(options: Options) {
 						if (callLifecycle.current !== "active") return;
 						const user = event.user as User;
 						playCallSound("join");
-						if (!user?.id || user.id === peerUsers.current.get(user.id)?.id)
+						if (
+							!user?.id ||
+							user.id === peerUsers.current.get(user.id)?.id
+						)
 							return;
 						peerUsers.current.set(user.id, user);
-						updatePeer(user.id, { muted: event.muted === true, serverMuted: event.serverMuted === true });
+						updatePeer(user.id, {
+							muted: event.muted === true,
+							serverMuted: event.serverMuted === true,
+						});
 						const pc = createPeer(user.id);
 						if (displayStream.current)
 							send({
 								type: "screen_share",
 								targetUserId: user.id,
 								active: true,
+								streamId: displayStream.current.id,
 							});
 						await makeOffer(user.id, pc);
 					}
@@ -239,6 +364,7 @@ export function useRealtimeConnection(options: Options) {
 								type: "screen_share",
 								targetUserId: userId,
 								active: true,
+								streamId: displayStream.current.id,
 							});
 						await pc.setRemoteDescription(
 							event.sdp as RTCSessionDescriptionInit,
@@ -283,20 +409,31 @@ export function useRealtimeConnection(options: Options) {
 						if (callLifecycle.current !== "active") return;
 						const userId = event.fromUserId as string;
 						if (event.active === true)
-							remoteSharing.current.add(userId);
+							remoteSharing.current.set(
+								userId,
+								String(event.streamId ?? ""),
+							);
 						else remoteSharing.current.delete(userId);
 						updatePeer(
 							userId,
 							event.active === true
 								? { sharing: true }
-								: { sharing: false, screenStream: null },
+								: {
+										sharing: false,
+										screenStream: null,
+										screenAudioStream: null,
+									},
 						);
 					}
 					if (event.type === "participant_state") {
 						const userId = event.userId as string;
 						if (userId) {
-							updatePeer(userId, { muted: event.muted === true, serverMuted: event.serverMuted === true });
-							if (userId === currentUserId) setServerMuted(event.serverMuted === true);
+							updatePeer(userId, {
+								muted: event.muted === true,
+								serverMuted: event.serverMuted === true,
+							});
+							if (userId === currentUserId)
+								setServerMuted(event.serverMuted === true);
 						}
 					}
 					if (event.type === "peer_left") {
@@ -326,7 +463,8 @@ export function useRealtimeConnection(options: Options) {
 					}
 					if (event.type === "access_revoked") {
 						useChatStore.setState((state) => {
-							if (state.channelId !== event.channelId) return state;
+							if (state.channelId !== event.channelId)
+								return state;
 							return { channelId: "", replyTo: null };
 						});
 						setMessages([]);
@@ -344,9 +482,14 @@ export function useRealtimeConnection(options: Options) {
 			const subscribe = () =>
 				socket?.readyState === WebSocket.OPEN &&
 				socket.send(
-					JSON.stringify(scope === "direct"
-						? { type: "subscribe_direct_call", callId: channelId }
-						: { type: "subscribe_channel", channelId }),
+					JSON.stringify(
+						scope === "direct"
+							? {
+									type: "subscribe_direct_call",
+									callId: channelId,
+								}
+							: { type: "subscribe_channel", channelId },
+					),
 				);
 			socket.addEventListener("open", subscribe);
 		};
@@ -356,7 +499,7 @@ export function useRealtimeConnection(options: Options) {
 					cause instanceof Error
 						? cause.message
 						: "Não foi possível abrir a conexão em tempo real.",
-					);
+				);
 				scheduleReconnect();
 			}
 		});

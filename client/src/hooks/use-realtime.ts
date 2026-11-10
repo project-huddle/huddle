@@ -1,3 +1,6 @@
+import { useCallDevices } from "@/hooks/use-call-devices";
+import { useScreenSharing } from "@/hooks/use-screen-sharing";
+import { receivePeerTrack } from "@/lib/peer-media";
 import { useCallback, useRef, useState } from "react";
 
 import {
@@ -7,25 +10,48 @@ import {
 	type HuddleChannel,
 } from "@/lib/api";
 import { useCallState } from "@/hooks/use-call-state";
-import type {
-	CallLifecycle,
-	RealtimePeer as Peer,
-} from "@/types/realtime";
+import type { CallLifecycle, RealtimePeer as Peer } from "@/types/realtime";
 import { useRealtimeConnection } from "@/hooks/use-realtime-connection";
 import { mediaErrorMessage, rtcConfig } from "@/lib/realtime";
 import { useAuthStore } from "@/stores/auth-store";
-import { readMediaDevicePreferences, writeMediaDevicePreferences } from "@/lib/media-devices";
+import {
+	readMediaDevicePreferences,
+	writeMediaDevicePreferences,
+} from "@/lib/media-devices";
 import { unlockCallSounds } from "@/lib/call-sounds";
 
-
-export function useRealtime(token: string, channelId: string, channelType: HuddleChannel["type"] = "text", scope: "channel" | "direct" = "channel") {
+export function useRealtime(
+	token: string,
+	channelId: string,
+	channelType: HuddleChannel["type"] = "text",
+	scope: "channel" | "direct" = "channel",
+) {
 	const currentUserId = useAuthStore((state) => state.user?.id ?? "");
-	const currentUserDisplayName = useAuthStore((state) => state.user?.displayName ?? "");
+	const currentUserDisplayName = useAuthStore(
+		(state) => state.user?.displayName ?? "",
+	);
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [connected, setConnected] = useState(false);
-	const { joining, inCall, muted, cameraOff, sharing, localMediaStream,
-		localDisplayStream, peers, setJoining, setInCall, setMuted, setCameraOff,
-		setSharing, setLocalMediaStream, setLocalDisplayStream, setPeers, serverMuted, setServerMuted } = useCallState();
+	const {
+		joining,
+		inCall,
+		muted,
+		cameraOff,
+		sharing,
+		localMediaStream,
+		localDisplayStream,
+		peers,
+		setJoining,
+		setInCall,
+		setMuted,
+		setCameraOff,
+		setSharing,
+		setLocalMediaStream,
+		setLocalDisplayStream,
+		setPeers,
+		serverMuted,
+		setServerMuted,
+	} = useCallState();
 	const [error, setError] = useState<string | null>(null);
 	const socketRef = useRef<WebSocket | null>(null);
 	const connections = useRef(new Map<string, RTCPeerConnection>());
@@ -33,10 +59,11 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 	const peerUsers = useRef(new Map<string, User>());
 	const localStream = useRef<MediaStream | null>(null);
 	const displayStream = useRef<MediaStream | null>(null);
-	const displaySenders = useRef(new Map<string, RTCRtpSender>());
 	const recoveryAttempts = useRef(new Map<string, number>());
-	const recoveryTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
-	const remoteSharing = useRef(new Set<string>());
+	const recoveryTimers = useRef(
+		new Map<string, ReturnType<typeof setTimeout>>(),
+	);
+	const remoteSharing = useRef(new Map<string, string>());
 	const callLifecycle = useRef<CallLifecycle>("idle");
 	const callAttempt = useRef(0);
 	const pendingLeave = useRef<Promise<void> | null>(null);
@@ -54,34 +81,37 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 		return true;
 	}, []);
 
-	const updatePeer = useCallback((userId: string, changes: Partial<Peer>) => {
-		const user = peerUsers.current.get(userId);
-		if (!user) return;
-		setPeers((items) => {
-			const found = items.some((item) => item.user.id === userId);
-			return found
-				? items.map((item) =>
-						item.user.id === userId
-							? { ...item, ...changes }
-							: item,
-					)
-				: [
-						...items,
-						{
-							user,
-							audioStream: null,
-							cameraStream: null,
-							screenStream: null,
-							screenAudioStream: null,
-							sharing: false,
-							muted: false,
-							serverMuted: false,
-							speaking: false,
-							...changes,
-						},
-					];
-		});
-	}, [setPeers]);
+	const updatePeer = useCallback(
+		(userId: string, changes: Partial<Peer>) => {
+			const user = peerUsers.current.get(userId);
+			if (!user) return;
+			setPeers((items) => {
+				const found = items.some((item) => item.user.id === userId);
+				return found
+					? items.map((item) =>
+							item.user.id === userId
+								? { ...item, ...changes }
+								: item,
+						)
+					: [
+							...items,
+							{
+								user,
+								audioStream: null,
+								cameraStream: null,
+								screenStream: null,
+								screenAudioStream: null,
+								sharing: false,
+								muted: false,
+								serverMuted: false,
+								speaking: false,
+								...changes,
+							},
+						];
+			});
+		},
+		[setPeers],
+	);
 
 	const flushCandidates = useCallback(
 		async (userId: string, pc: RTCPeerConnection) => {
@@ -112,12 +142,12 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 			localStream.current
 				?.getVideoTracks()
 				.forEach((track) => pc.addTrack(track, localStream.current!));
-			displayStream.current?.getVideoTracks().forEach((track) => {
-				displaySenders.current.set(
-					userId,
-					pc.addTrack(track, displayStream.current!),
-				);
-			});
+			const screen = displayStream.current;
+			if (screen) {
+				for (const track of screen.getTracks())
+					pc.addTrack(track, screen);
+			}
+
 			pc.onicecandidate = ({ candidate }) => {
 				if (candidate)
 					send({
@@ -126,33 +156,13 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 						candidate: candidate.toJSON(),
 					});
 			};
-			pc.ontrack = ({ track, streams }) => {
-				const stream = streams[0] ?? new MediaStream([track]);
-				if (track.kind === "audio")
-					updatePeer(userId, remoteSharing.current.has(userId) ? { screenAudioStream: stream } : { audioStream: stream });
-				if (track.kind === "video") {
-					const screen = remoteSharing.current.has(userId);
-					updatePeer(
-						userId,
-						screen
-							? { screenStream: stream, sharing: true }
-							: { cameraStream: stream },
-					);
-				}
-				track.onended = () => {
-					if (track.kind === "audio")
-						updatePeer(userId, remoteSharing.current.has(userId) ? { screenAudioStream: null } : { audioStream: null });
-					if (track.kind === "video") {
-						const screen = remoteSharing.current.has(userId);
-						updatePeer(
-							userId,
-							screen
-								? { screenStream: null, sharing: false }
-								: { cameraStream: null },
-						);
-					}
-				};
-			};
+			pc.ontrack = (event) =>
+				receivePeerTrack(
+					event,
+					remoteSharing.current.get(userId),
+					(changes) => updatePeer(userId, changes),
+				);
+
 			pc.onconnectionstatechange = () => {
 				if (pc.connectionState === "connected") {
 					const recoveryTimer = recoveryTimers.current.get(userId);
@@ -166,23 +176,44 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 					if (recoveryTimers.current.has(userId)) return;
 					const attempt = recoveryAttempts.current.get(userId) ?? 0;
 					if (attempt >= 3) {
-						setError("A conexão de mídia falhou. Verifique a rede ou configure um servidor TURN.");
+						setError(
+							"A conexão de mídia falhou. Verifique a rede ou configure um servidor TURN.",
+						);
 						return;
 					}
 					recoveryAttempts.current.set(userId, attempt + 1);
 					const delay = 1_000 * 2 ** attempt;
-					recoveryTimers.current.set(userId, setTimeout(async () => {
-						recoveryTimers.current.delete(userId);
-						if (callLifecycle.current !== "active" || connections.current.get(userId) !== pc) return;
-						try {
-							pc.restartIce();
-							await pc.setLocalDescription(await pc.createOffer({ iceRestart: true }));
-							if (callLifecycle.current === "active" && pc.localDescription)
-								send({ type: "webrtc_offer", targetUserId: userId, sdp: pc.localDescription });
-						} catch (cause) {
-							console.warn("Unable to restart media connection", cause);
-						}
-					}, delay));
+					recoveryTimers.current.set(
+						userId,
+						setTimeout(async () => {
+							recoveryTimers.current.delete(userId);
+							if (
+								callLifecycle.current !== "active" ||
+								connections.current.get(userId) !== pc
+							)
+								return;
+							try {
+								pc.restartIce();
+								await pc.setLocalDescription(
+									await pc.createOffer({ iceRestart: true }),
+								);
+								if (
+									callLifecycle.current === "active" &&
+									pc.localDescription
+								)
+									send({
+										type: "webrtc_offer",
+										targetUserId: userId,
+										sdp: pc.localDescription,
+									});
+							} catch (cause) {
+								console.warn(
+									"Unable to restart media connection",
+									cause,
+								);
+							}
+						}, delay),
+					);
 				}
 				if (["failed", "closed"].includes(pc.connectionState)) {
 					updatePeer(userId, {
@@ -232,7 +263,6 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 			localStream.current = null;
 			displayStream.current?.getTracks().forEach((track) => track.stop());
 			displayStream.current = null;
-			displaySenders.current.clear();
 			setLocalMediaStream(null);
 			setLocalDisplayStream(null);
 			setPeers([]);
@@ -244,11 +274,27 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 			setCameraOff(true);
 			remoteSharing.current.clear();
 		},
-		[send, setCameraOff, setInCall, setJoining, setLocalDisplayStream, setLocalMediaStream, setMuted, setPeers, setServerMuted, setSharing],
+		[
+			send,
+			setCameraOff,
+			setInCall,
+			setJoining,
+			setLocalDisplayStream,
+			setLocalMediaStream,
+			setMuted,
+			setPeers,
+			setServerMuted,
+			setSharing,
+		],
 	);
 
 	const joinCall = useCallback(async () => {
-		if (joiningRef.current || inCallRef.current || callLifecycle.current !== "idle") return;
+		if (
+			joiningRef.current ||
+			inCallRef.current ||
+			callLifecycle.current !== "idle"
+		)
+			return;
 		unlockCallSounds();
 		setError(null);
 		setCameraOff(true);
@@ -273,16 +319,36 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 			let stream: MediaStream;
 			try {
 				stream = await navigator.mediaDevices.getUserMedia({
-					audio: preferences.audioInputDeviceId ? { ...audio, deviceId: { exact: preferences.audioInputDeviceId } } : audio,
+					audio: preferences.audioInputDeviceId
+						? {
+								...audio,
+								deviceId: {
+									exact: preferences.audioInputDeviceId,
+								},
+							}
+						: audio,
 					video: false,
 				});
 			} catch (cause) {
-				if (preferences.audioInputDeviceId && cause instanceof DOMException && cause.name === "OverconstrainedError") {
-					writeMediaDevicePreferences({ ...preferences, audioInputDeviceId: null });
-					stream = await navigator.mediaDevices.getUserMedia({ audio, video: false });
+				if (
+					preferences.audioInputDeviceId &&
+					cause instanceof DOMException &&
+					cause.name === "OverconstrainedError"
+				) {
+					writeMediaDevicePreferences({
+						...preferences,
+						audioInputDeviceId: null,
+					});
+					stream = await navigator.mediaDevices.getUserMedia({
+						audio,
+						video: false,
+					});
 				} else throw cause;
 			}
-			if (callAttempt.current !== attempt || callLifecycle.current !== "joining") {
+			if (
+				callAttempt.current !== attempt ||
+				callLifecycle.current !== "joining"
+			) {
 				stream.getTracks().forEach((track) => track.stop());
 				return;
 			}
@@ -297,7 +363,9 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 			joinTimeout.current = setTimeout(() => {
 				if (callLifecycle.current !== "joining") return;
 				closeCall(false);
-				setError("A chamada demorou para responder. Tente entrar novamente.");
+				setError(
+					"A chamada demorou para responder. Tente entrar novamente.",
+				);
 			}, 10_000);
 		} catch (cause) {
 			if (callAttempt.current !== attempt) return;
@@ -306,17 +374,45 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 			setJoining(false);
 			setError(mediaErrorMessage(cause, "microphone"));
 		}
-	}, [channelId, closeCall, send, setCameraOff, setError, setJoining, setLocalMediaStream, setMuted]);
+	}, [
+		channelId,
+		closeCall,
+		send,
+		setCameraOff,
+		setError,
+		setJoining,
+		setLocalMediaStream,
+		setMuted,
+	]);
 
 	useRealtimeConnection({
-		token, channelId, channelType, scope, currentUserDisplayName, socketRef, peerUsers, displayStream, remoteSharing,
-		connections, pendingCandidates,
+		token,
+		channelId,
+		channelType,
+		scope,
+		currentUserDisplayName,
+		socketRef,
+		peerUsers,
+		displayStream,
+		remoteSharing,
+		connections,
+		pendingCandidates,
 		callLifecycle,
-		closeCall, createPeer, flushCandidates, makeOffer, send, updatePeer,
-		setMessages, setConnected, onChannelSubscribed: channelType === "voice" ? joinCall : undefined,
+		closeCall,
+		createPeer,
+		flushCandidates,
+		makeOffer,
+		send,
+		updatePeer,
+		setMessages,
+		setConnected,
+		onChannelSubscribed: channelType === "voice" ? joinCall : undefined,
 		onCallLeft: () => resolvePendingLeave.current?.(),
 		currentUserId,
-		setError, setPeers, setJoining, setInCall,
+		setError,
+		setPeers,
+		setJoining,
+		setInCall,
 		setServerMuted,
 	});
 
@@ -353,136 +449,30 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 		setMuted(next);
 		send({ type: "participant_state", muted: next });
 	};
-	const muteParticipant = (userId: string, muted: boolean) => send({ type: "participant_mute", targetUserId: userId, muted });
-	const changeDevice = async (kind: "audioInputDeviceId" | "videoInputDeviceId" | "audioOutputDeviceId", deviceId: string | null) => {
-		const preferences = { ...readMediaDevicePreferences(), [kind]: deviceId };
-		writeMediaDevicePreferences(preferences);
-		if (kind === "audioOutputDeviceId") return;
-		const stream = localStream.current;
-		if (!stream || (kind === "videoInputDeviceId" && cameraOff)) return;
-		const next = await navigator.mediaDevices.getUserMedia(kind === "audioInputDeviceId" ? { audio: { deviceId: deviceId ? { exact: deviceId } : undefined }, video: false } : { audio: false, video: { deviceId: deviceId ? { exact: deviceId } : undefined } });
-		const nextTrack = kind === "audioInputDeviceId" ? next.getAudioTracks()[0] : next.getVideoTracks()[0];
-		if (!nextTrack) return;
-		const oldTracks = kind === "audioInputDeviceId" ? stream.getAudioTracks() : stream.getVideoTracks();
-		for (const pc of connections.current.values()) {
-			const sender = pc.getSenders().find((item) => item.track && oldTracks.includes(item.track));
-			if (sender) await sender.replaceTrack(nextTrack);
-		}
-		oldTracks.forEach((track) => { stream.removeTrack(track); track.stop(); });
-		stream.addTrack(nextTrack);
-		setLocalMediaStream(new MediaStream(stream.getTracks()));
-	};
+	const muteParticipant = (userId: string, muted: boolean) =>
+		send({ type: "participant_mute", targetUserId: userId, muted });
+	const { changeDevice, toggleCamera } = useCallDevices({
+		cameraOff,
+		localStream,
+		connections,
+		makeOffer,
+		setLocalMediaStream,
+		setCameraOff,
+		setError,
+	});
 
-	const toggleCamera = async () => {
-		const stream = localStream.current;
-		if (!stream) return;
-
-		if (!cameraOff) {
-			const videoTracks = stream.getVideoTracks();
-			for (const [userId, pc] of connections.current) {
-				for (const sender of pc.getSenders()) {
-					if (sender.track && videoTracks.includes(sender.track)) pc.removeTrack(sender);
-				}
-				await makeOffer(userId, pc);
-			}
-			videoTracks.forEach((track) => {
-				stream.removeTrack(track);
-				track.stop();
-			});
-			setLocalMediaStream(new MediaStream(stream.getTracks()));
-			setCameraOff(true);
-			return;
-		}
-
-		setError(null);
-		try {
-			const videoDeviceId = readMediaDevicePreferences().videoInputDeviceId;
-			const cameraConstraints = { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user", ...(videoDeviceId ? { deviceId: { exact: videoDeviceId } } : {}) };
-			let cameraStream: MediaStream;
-			try {
-				cameraStream = await navigator.mediaDevices.getUserMedia({ video: cameraConstraints, audio: false });
-			} catch (cause) {
-				if (videoDeviceId && cause instanceof DOMException && cause.name === "OverconstrainedError") {
-					writeMediaDevicePreferences({ ...readMediaDevicePreferences(), videoInputDeviceId: null });
-					cameraStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }, audio: false });
-				} else throw cause;
-			}
-			const track = cameraStream.getVideoTracks()[0];
-			if (!track) throw new DOMException("No camera track", "NotFoundError");
-			stream.addTrack(track);
-			for (const [userId, pc] of connections.current) {
-				pc.addTrack(track, stream);
-				await makeOffer(userId, pc);
-			}
-			setLocalMediaStream(new MediaStream(stream.getTracks()));
-			setCameraOff(false);
-		} catch (cause) {
-			setError(mediaErrorMessage(cause, "camera"));
-		}
-	};
-
-	const stopSharing = useCallback(async () => {
-		const stream = displayStream.current;
-		displayStream.current = null;
-		if (!stream) return;
-		stream.getTracks().forEach((track) => {
-			track.onended = null;
-			track.stop();
-		});
-		for (const [userId, pc] of connections.current) {
-			const sender = displaySenders.current.get(userId);
-			if (sender) pc.removeTrack(sender);
-			displaySenders.current.delete(userId);
-			send({ type: "screen_share", targetUserId: userId, active: false });
-			await makeOffer(userId, pc).catch(() =>
-				setError(
-					"Não foi possível atualizar o compartilhamento de tela.",
-				),
-			);
-		}
-		setSharing(false);
-		setLocalDisplayStream(null);
-	}, [makeOffer, send, setLocalDisplayStream, setSharing]);
-
-	const toggleShare = async () => {
-		if (sharing) return stopSharing();
-		setError(null);
-		try {
-			if (!navigator.mediaDevices?.getDisplayMedia)
-				throw new DOMException(
-					"Display media unavailable",
-					"NotSupportedError",
-				);
-			const stream = await navigator.mediaDevices.getDisplayMedia({
-				video: true,
-				audio: true,
-			});
-			displayStream.current = stream;
-			setLocalDisplayStream(stream);
-			const track = stream.getVideoTracks()[0];
-			if (!track)
-				throw new DOMException("No display track", "NotFoundError");
-			track.onended = () => {
-				void stopSharing();
-			};
-			for (const [userId, pc] of connections.current) {
-				displaySenders.current.set(userId, pc.addTrack(track, stream));
-				send({
-					type: "screen_share",
-					targetUserId: userId,
-					active: true,
-				});
-				await makeOffer(userId, pc);
-			}
-			setSharing(true);
-		} catch (cause) {
-			displayStream.current?.getTracks().forEach((track) => track.stop());
-			displayStream.current = null;
-			setLocalDisplayStream(null);
-			setSharing(false);
-			setError(mediaErrorMessage(cause, "screen"));
-		}
-	};
+	const { toggleShare } = useScreenSharing({
+		sharing,
+		displayStream,
+		connections,
+		callLifecycle,
+		callAttempt,
+		send,
+		makeOffer,
+		setSharing,
+		setLocalDisplayStream,
+		setError,
+	});
 
 	return {
 		messages,
