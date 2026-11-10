@@ -27,6 +27,7 @@ import { listMediaDevices, deviceLabel, readMediaDevicePreferences, writeMediaDe
 export type CallPeer = RealtimePeer;
 
 type CallRoomProps = {
+	title?: string;
 	cameraOff: boolean;
 	connected: boolean;
 	error: string | null;
@@ -133,7 +134,7 @@ export function CallRoom(props: CallRoomProps) {
 		<div className="flex min-h-full flex-col gap-4">
 			<header className="flex flex-wrap items-center gap-3">
 				<div>
-					<h1 className="text-xl font-black">Chamada do canal</h1>
+					<h1 className="text-xl font-black">{props.title ?? "Chamada do canal"}</h1>
 					<p className="text-sm text-(--muted-text)">
 						{props.inCall
 							? `${peers.length + 1} ${peers.length ? "pessoas conectadas" : "pessoa conectada"}`

@@ -4,7 +4,7 @@ const apiOrigin = "http://127.0.0.1:3000";
 
 async function account(request: APIRequestContext, name: string) {
 	const response = await request.post(`${apiOrigin}/auth/register`, {
-		data: { email: `${name}-${crypto.randomUUID()}@example.com`, displayName: name, password: "secure-password" },
+		data: { email: `${name.toLowerCase().replaceAll(" ", "-")}-${crypto.randomUUID()}@example.com`, displayName: name, password: "secure-password" },
 	});
 	expect(response.status()).toBe(201);
 	return response.json() as Promise<{ user: { id: string; displayName: string }; session: { token: string } }>;
@@ -17,6 +17,8 @@ async function signIn(page: Page, session: Awaited<ReturnType<typeof account>>) 
 	await page.goto("/");
 	await page.getByRole("button", { name: "Amigos e mensagens privadas", exact: true }).click();
 }
+
+test.use({ launchOptions: { args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] } });
 
 test("opens private conversations from Huddle and receives messages live", async ({ page, browser, request }) => {
 	const alice = await account(request, "Private Alice");
@@ -40,4 +42,34 @@ test("opens private conversations from Huddle and receives messages live", async
 	} finally {
 		await bobContext.close();
 	}
+});
+
+
+test("accepts and ends private calls between friends", async ({ page, browser, request }) => {
+    const alice = await account(request, "Caller Alice");
+    const bob = await account(request, "Callee Bob");
+    await request.post(`${apiOrigin}/friends`, { headers: { Authorization: `Bearer ${alice.session.token}` }, data: { identifier: bob.user.id } });
+    await request.patch(`${apiOrigin}/friends/${alice.user.id}`, { headers: { Authorization: `Bearer ${bob.session.token}` } });
+    const bobContext = await browser.newContext({ permissions: ["microphone", "camera"] });
+    const bobPage = await bobContext.newPage();
+    try {
+        await signIn(page, alice);
+        await signIn(bobPage, bob);
+        await page.getByRole("button", { name: "Callee Bob", exact: true }).click();
+        await page.getByRole("button", { name: "Ligar para Callee Bob" }).click();
+        await bobPage.getByRole("button", { name: "Recusar chamada" }).click();
+        await expect(page.getByText("Chamando Callee Bob...")).toHaveCount(0);
+        await page.getByRole("button", { name: "Ligar para Callee Bob" }).click();
+        await bobPage.getByRole("button", { name: "Aceitar chamada" }).click();
+        await expect(page.getByRole("heading", { name: "Chamada privada", exact: true })).toBeVisible();
+        await expect(bobPage.getByRole("heading", { name: "Chamada privada", exact: true })).toBeVisible();
+        await expect(page.getByText("2 pessoas conectadas", { exact: true })).toBeVisible();
+        await expect(bobPage.getByText("2 pessoas conectadas", { exact: true })).toBeVisible();
+        await page.getByRole("button", { name: "Silenciar", exact: true }).click();
+        await expect(page.getByRole("button", { name: "Ativar microfone", exact: true })).toBeVisible();
+        await page.getByRole("button", { name: "Sair da chamada", exact: true }).click();
+        await expect(bobPage.getByRole("heading", { name: "Chamada privada", exact: true })).toHaveCount(0);
+    } finally {
+        await bobContext.close();
+    }
 });

@@ -9,6 +9,7 @@ import type {
 import { playCallSound } from "@/lib/call-sounds";
 
 type Options = {
+	scope: "channel" | "direct";
 	token: string; channelId: string; channelType: HuddleChannel["type"]; currentUserId: string; currentUserDisplayName: string;
 	socketRef: MutableRefObject<WebSocket | null>;
 	peerUsers: MutableRefObject<Map<string, User>>;
@@ -39,7 +40,7 @@ export function useRealtimeConnection(options: Options) {
 	subscribedHandlerRef.current = options.onChannelSubscribed;
 	const callLeftHandlerRef = useRef(options.onCallLeft);
 	callLeftHandlerRef.current = options.onCallLeft;
-	const { token, channelId, channelType, currentUserId, currentUserDisplayName, socketRef, peerUsers, displayStream, remoteSharing, connections, pendingCandidates,
+	const { token, channelId, channelType, scope, currentUserId, currentUserDisplayName, socketRef, peerUsers, displayStream, remoteSharing, connections, pendingCandidates,
 		callLifecycle,
 		closeCall, createPeer, flushCandidates, makeOffer, send, updatePeer,
 		setMessages, setConnected, setError, setPeers, setJoining, setInCall, setServerMuted } = options;
@@ -343,7 +344,9 @@ export function useRealtimeConnection(options: Options) {
 			const subscribe = () =>
 				socket?.readyState === WebSocket.OPEN &&
 				socket.send(
-					JSON.stringify({ type: "subscribe_channel", channelId }),
+					JSON.stringify(scope === "direct"
+						? { type: "subscribe_direct_call", callId: channelId }
+						: { type: "subscribe_channel", channelId }),
 				);
 			socket.addEventListener("open", subscribe);
 		};
@@ -368,6 +371,7 @@ export function useRealtimeConnection(options: Options) {
 		};
 	}, [
 		channelId,
+		scope,
 		channelType,
 		currentUserId,
 		currentUserDisplayName,

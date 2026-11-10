@@ -1,3 +1,4 @@
+import { disconnectDirectCall, handleDirectCallEvent } from "./direct-call-gateway";
 import type { ElysiaWS } from "elysia/ws";
 import {
   channelForUser,
@@ -291,6 +292,7 @@ export const realtimeWebSocket = {
         message: "Message must be valid JSON.",
       });
     }
+    if (await handleDirectCallEvent(ws, session(ws).user, event, notifyUser)) return;
     if (event.type === "chat_message") {
       const channelId =
         (typeof event.channelId === "string" && event.channelId) ||
@@ -565,6 +567,7 @@ export const realtimeWebSocket = {
   close(ws: RealtimeSocket) {
     const current = sessions.get(ws.raw);
     if (!current) return;
+    disconnectDirectCall(ws, notifyUser);
     leaveCallAndBroadcast(ws);
     const sockets = socketsByUser.get(session(ws).user.id);
     sockets?.delete(ws);

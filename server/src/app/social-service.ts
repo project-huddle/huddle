@@ -116,7 +116,7 @@ export async function deleteFriendship(
   });
 }
 
-async function areFriends(userId: string, peerId: string): Promise<boolean> {
+export async function areFriends(userId: string, peerId: string): Promise<boolean> {
   return Boolean(
     await db.friendship.findFirst({
       where: {

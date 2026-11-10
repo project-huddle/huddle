@@ -18,7 +18,7 @@ import { readMediaDevicePreferences, writeMediaDevicePreferences } from "@/lib/m
 import { unlockCallSounds } from "@/lib/call-sounds";
 
 
-export function useRealtime(token: string, channelId: string, channelType: HuddleChannel["type"] = "text") {
+export function useRealtime(token: string, channelId: string, channelType: HuddleChannel["type"] = "text", scope: "channel" | "direct" = "channel") {
 	const currentUserId = useAuthStore((state) => state.user?.id ?? "");
 	const currentUserDisplayName = useAuthStore((state) => state.user?.displayName ?? "");
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -309,7 +309,7 @@ export function useRealtime(token: string, channelId: string, channelType: Huddl
 	}, [channelId, closeCall, send, setCameraOff, setError, setJoining, setLocalMediaStream, setMuted]);
 
 	useRealtimeConnection({
-		token, channelId, channelType, currentUserDisplayName, socketRef, peerUsers, displayStream, remoteSharing,
+		token, channelId, channelType, scope, currentUserDisplayName, socketRef, peerUsers, displayStream, remoteSharing,
 		connections, pendingCandidates,
 		callLifecycle,
 		closeCall, createPeer, flushCandidates, makeOffer, send, updatePeer,

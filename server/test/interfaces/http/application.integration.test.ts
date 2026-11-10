@@ -798,6 +798,53 @@ describe("huddle API", () => {
     expect(hiddenChannels.status).toBe(403);
   });
 
+  test("authorizes private call invitations, acceptance and media signaling", async () => {
+    const alice = await register("call-alice@example.com", "Call Alice");
+    const bob = await register("call-bob@example.com", "Call Bob");
+    const outsider = await register("call-outsider@example.com", "Call Outsider");
+    const headers = (token: string) => ({ authorization: `Bearer ${token}`, "content-type": "application/json" });
+    const invite = () => fetch(`${baseUrl}/direct-calls`, {
+      method: "POST", headers: headers(alice.session.token),
+      body: JSON.stringify({ recipientId: bob.user.id }),
+    });
+    expect((await invite()).status).toBe(403);
+    const { db } = await import("../../../src/infra/database/client");
+    await db.friendship.create({ data: { requesterId: alice.user.id, addresseeId: bob.user.id, status: "accepted" } });
+    const aliceSocket = await connect(alice.session.token);
+    const bobSocket = await connect(bob.session.token);
+    const outsiderSocket = await connect(outsider.session.token);
+    try {
+      const ringing = nextEvent(bobSocket, "direct_call_ringing");
+      const invitation = await invite();
+      expect(invitation.status).toBe(201);
+      const { call } = await invitation.json() as { call: { id: string } };
+      expect((await ringing).call.id).toBe(call.id);
+      expect((await invite()).status).toBe(409);
+      const subscription = { type: "subscribe_direct_call", callId: call.id };
+      expect((await sendAndWait(aliceSocket, "error", subscription)).message).toContain("acesso");
+      const accept = (token: string) => fetch(`${baseUrl}/direct-calls/${call.id}/accept`, { method: "POST", headers: headers(token) });
+      expect((await accept(alice.session.token)).status).toBe(403);
+      expect((await accept(outsider.session.token)).status).toBe(403);
+      expect((await accept(bob.session.token)).status).toBe(200);
+      await sendAndWait(aliceSocket, "channel_subscribed", subscription);
+      await sendAndWait(bobSocket, "channel_subscribed", subscription);
+      await sendAndWait(outsiderSocket, "error", subscription);
+      await sendAndWait(aliceSocket, "call_joined", { type: "join_call" });
+      await sendAndWait(bobSocket, "call_joined", { type: "join_call" });
+      const offer = nextEvent(bobSocket, "webrtc_offer");
+      aliceSocket.send(JSON.stringify({ type: "webrtc_offer", targetUserId: bob.user.id, sdp: { type: "offer", sdp: "private media" } }));
+      expect((await offer).fromUserId).toBe(alice.user.id);
+      const ended = nextEvent(bobSocket, "direct_call_ended");
+      await fetch(`${baseUrl}/direct-calls/${call.id}`, { method: "DELETE", headers: headers(alice.session.token) });
+      expect((await ended).call.id).toBe(call.id);
+      await sendAndWait(aliceSocket, "error", subscription);
+    } finally {
+      aliceSocket.close();
+      bobSocket.close();
+      outsiderSocket.close();
+    }
+  });
+
   test("renames profiles without a country and persists server names", async () => {
     const owner = await register("settings-owner@example.com", "Settings Owner");
     const headers = {

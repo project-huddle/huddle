@@ -1,5 +1,7 @@
+import { useDirectCalls } from "@/hooks/use-direct-calls";
+import { DirectCallPanel } from "@/components/direct/direct-call-panel";
 import { useEffect, useRef, useState } from "react";
-import { Mic, MicOff, PhoneOff, Volume2 } from "lucide-react";
+import { Mic, MicOff, Phone, PhoneOff, Volume2 } from "lucide-react";
 
 import { useRealtime } from "@/hooks/use-realtime";
 import { PrivateWorkspace } from "@/components/direct/private-workspace";
@@ -60,6 +62,8 @@ export default function ChatPage() {
 		})();
 	};
 
+	const directCalls = useDirectCalls(token, leaveActiveCall);
+
 	useEffect(() => {
 		if (previousChannelId.current === channelId) return;
 		previousChannelId.current = channelId;
@@ -70,6 +74,7 @@ export default function ChatPage() {
 		if (callChannelId === nextCallChannelId) return;
 		const requestId = ++callSwitchRequest.current;
 		void (async () => {
+			if (directCalls.call?.status === "accepted") await directCalls.end();
 			if (callChannelId) {
 				await leaveCall();
 				await new Promise((resolve) =>
@@ -112,6 +117,7 @@ export default function ChatPage() {
 					currentUser={user}
 					token={token}
 					open={socialOpen}
+					callAction={(peer) => <button type="button" disabled={directCalls.busy || Boolean(directCalls.call)} onClick={() => void directCalls.start(peer)} aria-label={`Ligar para ${peer.displayName}`} className="rounded-xl bg-(--brand) p-3 disabled:opacity-50"><Phone className="size-5" /></button>}
 				/>
 			</div>
 			<CallAudioSession
@@ -169,6 +175,7 @@ export default function ChatPage() {
 					</button>
 				</div>
 			)}
+			<DirectCallPanel calls={directCalls} user={user} />
 			<ProfileSettings
 				token={token}
 				open={settingsOpen}

@@ -12,6 +12,7 @@ import { accountSecurityRoutes } from "./routes/account-security";
 import { accountRoutes } from "./routes/account";
 import { authRoutes } from "./routes/auth";
 import { channelRoutes } from "./routes/channels";
+import { directCallRoutes } from "./routes/direct-calls";
 import { directMessageRoutes } from "./routes/direct-messages";
 import { friendRoutes } from "./routes/friends";
 import { gifRoutes } from "./routes/gifs";
@@ -46,6 +47,7 @@ export function createHttpApplication(dependencies: {
     .use(messageRoutes)
     .use(friendRoutes)
     .use(directMessageRoutes)
+    .use(directCallRoutes)
     .use(reportRoutes)
     .ws("/ws", {
       query: t.Object({ ticket: t.Optional(t.String({ minLength: 1 })) }),
