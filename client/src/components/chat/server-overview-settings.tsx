@@ -1,3 +1,4 @@
+import { resolveMediaUrl } from "@/lib/api";
 import type { useServerSettings } from "@/hooks/use-server-settings";
 
 export function ServerOverviewSettings({
@@ -14,7 +15,6 @@ export function ServerOverviewSettings({
 		newOwnerId,
 		setNewOwnerId,
 		saving,
-		serverStatus,
 		setServerStatus,
 		saveServer,
 		uploadIcon,
@@ -24,10 +24,17 @@ export function ServerOverviewSettings({
 	} = settings;
 	return (
 		<section className="space-y-5">
-			<div className="space-y-4">
+			<form
+				onSubmit={(event) => {
+					event.preventDefault();
+					void saveServer();
+				}}
+				className="space-y-4 rounded-2xl border border-(--line) p-5"
+			>
 				<label className="block text-sm font-bold">
 					Nome do servidor
 					<input
+						required
 						minLength={2}
 						maxLength={40}
 						value={name}
@@ -51,34 +58,19 @@ export function ServerOverviewSettings({
 				</label>
 				{iconUrl && (
 					<img
-						src={new URL(
-							iconUrl,
-							window.location.origin,
-						).toString()}
+						src={resolveMediaUrl(iconUrl)}
 						alt="Ícone do servidor"
 						className="size-16 rounded-2xl object-cover"
 					/>
 				)}
 				<button
-					type="button"
+					type="submit"
 					disabled={saving}
-					onClick={() => void saveServer()}
 					className="rounded-xl bg-(--solid) px-4 py-2 text-sm font-bold text-(--on-solid) disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					{saving ? "Salvando..." : "Salvar servidor"}
 				</button>
-				{serverStatus && (
-					<p
-						role={
-							serverStatus.type === "error" ? "alert" : "status"
-						}
-						aria-live="polite"
-						className={`text-sm ${serverStatus.type === "success" ? "text-green-700" : "text-red-600"}`}
-					>
-						{serverStatus.message}
-					</p>
-				)}
-			</div>
+			</form>
 			{isOwner && (
 				<div className="space-y-3 border-t border-(--line) pt-5">
 					<div>

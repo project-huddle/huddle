@@ -1,4 +1,5 @@
 import { Elysia, t } from "elysia";
+import { notifyProfileUpdated } from "@/interfaces/realtime/realtime-gateway";
 import {
   getProfile,
   updateProfile,
@@ -57,6 +58,7 @@ export const accountRoutes = new Elysia({ name: "account-routes" })
     async ({ currentUser, body }) => {
       const result = await updateProfile(currentUser.id, body);
       if (result.type !== "success") return profileError(result);
+      await notifyProfileUpdated(result.profile);
       return json({ user: result.profile });
     },
     { body: profileBody },

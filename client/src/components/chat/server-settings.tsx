@@ -1,3 +1,4 @@
+import { useChatStore } from "@/stores/chat-store";
 import { Modal } from "@/components/ui/modal";
 import {
 	useServerSettings,
@@ -16,10 +17,13 @@ export function ServerSettings({
 	onClose: () => void;
 }) {
 	const settings = useServerSettings(open, onClose);
+	const storeError = useChatStore((state) => state.error);
 	const { server, tab, setTab, serverStatus, channelAccessStatus } = settings;
 	let feedback = null;
 	if (tab === "overview") feedback = serverStatus;
 	if (tab === "channels") feedback = channelAccessStatus;
+	if (!feedback && storeError)
+		feedback = { type: "error" as const, message: storeError };
 
 	return (
 		<Modal
@@ -39,7 +43,10 @@ export function ServerSettings({
 				</div>
 			)}
 			<div className="grid gap-5 md:grid-cols-[150px_minmax(0,1fr)]">
-				<nav className="flex gap-1 overflow-x-auto md:block md:space-y-1">
+				<nav
+					aria-label="Seções das configurações do servidor"
+					className="flex gap-2 overflow-x-auto border-b border-(--line) pb-3 md:flex-col md:border-b-0 md:border-r md:pr-4"
+				>
 					{(
 						[
 							"overview",
@@ -52,7 +59,8 @@ export function ServerSettings({
 							key={item}
 							type="button"
 							onClick={() => setTab(item)}
-							className={`w-full rounded-xl px-3 py-2 text-left text-sm font-bold ${tab === item ? "bg-(--brand)/20" : "hover:bg-(--surface)"}`}
+							aria-current={tab === item ? "page" : undefined}
+							className={`shrink-0 rounded-xl px-3 py-2 text-left text-sm font-bold ${tab === item ? "bg-(--brand)/20" : "hover:bg-(--surface)"}`}
 						>
 							{
 								(

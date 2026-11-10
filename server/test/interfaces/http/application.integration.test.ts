@@ -853,12 +853,16 @@ describe("huddle API", () => {
       authorization: `Bearer ${owner.session.token}`,
       "content-type": "application/json",
     };
+    const profileSocket = await connect(owner.session.token);
+    const profileUpdated = nextEvent(profileSocket, "profile_updated");
     const renamedProfile = await fetch(`${baseUrl}/profile`, {
       method: "PATCH",
       headers,
       body: JSON.stringify({ displayName: "New Profile Name", countryCode: null }),
     });
     expect(renamedProfile.status).toBe(200);
+    expect(await profileUpdated).toMatchObject({ user: { displayName: "New Profile Name", countryCode: null } });
+    profileSocket.close();
     const persistedProfile = await fetch(`${baseUrl}/profile`, { headers });
     expect(await persistedProfile.json()).toMatchObject({
       user: { displayName: "New Profile Name", countryCode: null },

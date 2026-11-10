@@ -79,6 +79,7 @@ export default function MobileNavigation() {
 	};
 
 	const handleSelectChannel = (id: string) => {
+		useChatStore.getState().setSocialOpen(false);
 		selectChannel(id);
 		handleClose();
 	};
@@ -181,6 +182,20 @@ export default function MobileNavigation() {
 							<strong className="min-w-0 flex-1 truncate">
 								{activeServer?.name ?? "Servidor"}
 							</strong>
+
+							{activeServer?.ownerId === user?.id && (
+								<NavButton
+									label="Configurações do servidor"
+									onClick={() => {
+										useChatStore
+											.getState()
+											.setServerSettingsOpen(true);
+										handleClose();
+									}}
+								>
+									<Settings />
+								</NavButton>
+							)}
 
 							<NavButton
 								label="Criar convite"

@@ -7,6 +7,7 @@ import ServerButton from "./server-button";
 
 export function ServerRail() {
 	const {
+		socialOpen,
 		servers,
 		serverId,
 		creating,
@@ -16,6 +17,7 @@ export function ServerRail() {
 		unreadByServer,
 	} = useChatStore(
 		useShallow((state) => ({
+			socialOpen: state.socialOpen,
 			servers: state.servers,
 			serverId: state.serverId,
 			creating: state.creating,
@@ -40,6 +42,7 @@ export function ServerRail() {
 				type="button"
 				onClick={handleOpenSocial}
 				className="grid size-11 place-items-center rounded-[15px] bg-(--surface)/10 text-(--on-solid) hover:bg-(--brand) hover:text-(--ink)"
+				aria-pressed={socialOpen}
 				aria-label="Amigos e mensagens privadas"
 			>
 				<BrandMark className="size-11" />
@@ -50,7 +53,7 @@ export function ServerRail() {
 					key={server.id}
 					id={server.id}
 					name={server.name}
-					active={server.id === serverId}
+					active={!socialOpen && server.id === serverId}
 					onSelect={selectServer}
 					unread={unreadByServer[server.id]}
 				/>

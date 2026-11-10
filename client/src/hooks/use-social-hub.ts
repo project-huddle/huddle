@@ -1,3 +1,4 @@
+import { useAuthStore } from "@/stores/auth-store";
 import {
 	useCallback,
 	useEffect,
@@ -102,8 +103,16 @@ export function useSocialHub(token: string, open: boolean) {
 		);
 	}, [sendFriendRequest]);
 	const accept = async (userId: string) => {
-		await api(`/friends/${userId}`, { method: "PATCH" }, token);
-		await loadFriends();
+		try {
+			await api(`/friends/${userId}`, { method: "PATCH" }, token);
+			await loadFriends();
+		} catch (cause) {
+			setStatus(
+				cause instanceof Error
+					? cause.message
+					: "Não foi possível aceitar a amizade.",
+			);
+		}
 	};
 	const openConversation = async (friend: User) => {
 		selectedId.current = friend.id;
@@ -162,10 +171,19 @@ export function useSocialHub(token: string, open: boolean) {
 		}
 	};
 	useSocialEvents(token, (event) => {
+		if (event.type === "profile_updated") {
+			const user = event.user as User;
+			setSelected((current) =>
+				current?.id === user.id ? user : current,
+			);
+			if (user.id === useAuthStore.getState().user?.id)
+				useAuthStore.getState().updateUser(user);
+		}
 		if (
 			event.type === "ready" ||
 			event.type === "friend_request" ||
-			event.type === "friendship_changed"
+			event.type === "friendship_changed" ||
+			event.type === "profile_updated"
 		) {
 			void loadFriends().catch(() =>
 				setStatus("Falha ao atualizar amizades."),
@@ -192,16 +210,25 @@ export function useSocialHub(token: string, open: boolean) {
 	});
 
 	const copyFriendLink = async () => {
-		const { link } = await api<{ link: string }>(
-			"/friends/link",
-			{},
-			token,
-		);
-		await navigator.clipboard.writeText(
-			new URL(link, window.location.origin).toString(),
-		);
-		setStatus("Link de amizade copiado.");
+		try {
+			const { link } = await api<{ link: string }>(
+				"/friends/link",
+				{},
+				token,
+			);
+			await navigator.clipboard.writeText(
+				new URL(link, window.location.origin).toString(),
+			);
+			setStatus("Link de amizade copiado.");
+		} catch (cause) {
+			setStatus(
+				cause instanceof Error
+					? cause.message
+					: "Não foi possível copiar o link.",
+			);
+		}
 	};
+
 	return {
 		sending,
 		loading,

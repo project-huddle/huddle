@@ -10,7 +10,6 @@ type Props = {
 	currentUser: User;
 	token: string;
 	open: boolean;
-	onStartCall?: (user: User) => void;
 	callAction?: (user: User) => ReactNode;
 };
 
@@ -44,7 +43,7 @@ export function PrivateWorkspace({
 
 	return (
 		<div
-			className={`${open ? "flex" : "hidden"} col-span-2 min-h-0 min-w-0`}
+			className={`${open ? "flex" : "hidden"} min-h-0 min-w-0 lg:col-span-2`}
 		>
 			<aside
 				className={`${showContacts || !selected ? "flex" : "hidden"} w-full shrink-0 flex-col border-r border-(--line) bg-(--panel) md:flex md:w-72`}

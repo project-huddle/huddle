@@ -63,6 +63,8 @@ export default function ChatPage() {
 	};
 
 	const directCalls = useDirectCalls(token, leaveActiveCall);
+	const hasPrivateCall = directCalls.call?.status === "accepted";
+	const endDirectCall = directCalls.end;
 
 	useEffect(() => {
 		if (previousChannelId.current === channelId) return;
@@ -74,7 +76,7 @@ export default function ChatPage() {
 		if (callChannelId === nextCallChannelId) return;
 		const requestId = ++callSwitchRequest.current;
 		void (async () => {
-			if (directCalls.call?.status === "accepted") await directCalls.end();
+			if (hasPrivateCall) await endDirectCall();
 			if (callChannelId) {
 				await leaveCall();
 				await new Promise((resolve) =>
@@ -84,7 +86,14 @@ export default function ChatPage() {
 			if (requestId !== callSwitchRequest.current) return;
 			setCallChannelId(nextCallChannelId);
 		})();
-	}, [activeChannel?.type, callChannelId, channelId, leaveCall]);
+	}, [
+		activeChannel?.type,
+		callChannelId,
+		channelId,
+		leaveCall,
+		hasPrivateCall,
+		endDirectCall,
+	]);
 
 	useEffect(() => {
 		void loadServers();
@@ -117,64 +126,83 @@ export default function ChatPage() {
 					currentUser={user}
 					token={token}
 					open={socialOpen}
-					callAction={(peer) => <button type="button" disabled={directCalls.busy || Boolean(directCalls.call)} onClick={() => void directCalls.start(peer)} aria-label={`Ligar para ${peer.displayName}`} className="rounded-xl bg-(--brand) p-3 disabled:opacity-50"><Phone className="size-5" /></button>}
+					callAction={(peer) => (
+						<button
+							type="button"
+							disabled={
+								directCalls.busy || Boolean(directCalls.call)
+							}
+							onClick={() => void directCalls.start(peer)}
+							aria-label={`Ligar para ${peer.displayName}`}
+							className="rounded-xl bg-(--brand) p-3 disabled:opacity-50"
+						>
+							<Phone className="size-5" />
+						</button>
+					)}
 				/>
 			</div>
 			<CallAudioSession
 				peers={callRealtime.peers}
-				enabled={callRealtime.inCall && activeChannel?.type !== "voice"}
+				enabled={
+					callRealtime.inCall &&
+					(socialOpen || activeChannel?.type !== "voice")
+				}
 			/>
 
 			<MobileNavigation />
-			{callRealtime.inCall && activeChannel?.id !== callChannelId && (
-				<div className="fixed bottom-4 right-4 z-40 flex items-center gap-3 rounded-2xl border border-(--line) bg-(--solid) p-3 text-(--on-solid) shadow-2xl">
-					<button
-						type="button"
-						onClick={() => setChannelId(callChannelId)}
-						className="flex min-w-0 items-center gap-3 text-left"
-					>
-						<span className="grid size-10 place-items-center rounded-xl bg-(--brand) text-(--ink)">
-							<Volume2 className="size-5" />
-						</span>
-						<span className="min-w-0">
-							<strong className="block text-sm">
-								Chamada ativa
-							</strong>
-							<span className="block text-xs text-(--on-solid)/55">
-								{callRealtime.peers.length + 1} conectados
+			{callRealtime.inCall &&
+				(socialOpen || activeChannel?.id !== callChannelId) && (
+					<div className="fixed bottom-4 right-4 z-40 flex items-center gap-3 rounded-2xl border border-(--line) bg-(--solid) p-3 text-(--on-solid) shadow-2xl">
+						<button
+							type="button"
+							onClick={() => {
+								useChatStore.getState().setSocialOpen(false);
+								setChannelId(callChannelId);
+							}}
+							className="flex min-w-0 items-center gap-3 text-left"
+						>
+							<span className="grid size-10 place-items-center rounded-xl bg-(--brand) text-(--ink)">
+								<Volume2 className="size-5" />
 							</span>
-						</span>
-					</button>
-					<button
-						type="button"
-						onClick={callRealtime.toggleMute}
-						className={`grid size-9 place-items-center rounded-xl ${callRealtime.muted ? "bg-[#d75a4a]" : "bg-white/10"}`}
-						aria-label={
-							callRealtime.muted
-								? "Ativar microfone"
-								: "Silenciar"
-						}
-					>
-						{callRealtime.muted ? (
-							<MicOff className="size-4" />
-						) : (
-							<Mic className="size-4" />
-						)}
-					</button>
-					<button
-						type="button"
-						onClick={() => {
-							void callRealtime
-								.leaveCall()
-								.then(() => setCallChannelId(""));
-						}}
-						className="grid size-9 place-items-center rounded-xl bg-[#d75a4a]"
-						aria-label="Sair da chamada"
-					>
-						<PhoneOff className="size-4" />
-					</button>
-				</div>
-			)}
+							<span className="min-w-0">
+								<strong className="block text-sm">
+									Chamada ativa
+								</strong>
+								<span className="block text-xs text-(--on-solid)/55">
+									{callRealtime.peers.length + 1} conectados
+								</span>
+							</span>
+						</button>
+						<button
+							type="button"
+							onClick={callRealtime.toggleMute}
+							className={`grid size-9 place-items-center rounded-xl ${callRealtime.muted ? "bg-[#d75a4a]" : "bg-white/10"}`}
+							aria-label={
+								callRealtime.muted
+									? "Ativar microfone"
+									: "Silenciar"
+							}
+						>
+							{callRealtime.muted ? (
+								<MicOff className="size-4" />
+							) : (
+								<Mic className="size-4" />
+							)}
+						</button>
+						<button
+							type="button"
+							onClick={() => {
+								void callRealtime
+									.leaveCall()
+									.then(() => setCallChannelId(""));
+							}}
+							className="grid size-9 place-items-center rounded-xl bg-[#d75a4a]"
+							aria-label="Sair da chamada"
+						>
+							<PhoneOff className="size-4" />
+						</button>
+					</div>
+				)}
 			<DirectCallPanel calls={directCalls} user={user} />
 			<ProfileSettings
 				token={token}

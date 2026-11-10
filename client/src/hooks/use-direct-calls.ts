@@ -63,7 +63,11 @@ export function useDirectCalls(token: string, onAccepted: () => void) {
 				},
 				token,
 			);
-			setCall(result.call);
+			setCall((current) =>
+				current?.id === result.call.id && current.status === "accepted"
+					? current
+					: result.call,
+			);
 		} catch (cause) {
 			setError(
 				cause instanceof Error
@@ -84,7 +88,11 @@ export function useDirectCalls(token: string, onAccepted: () => void) {
 				{ method: "POST" },
 				token,
 			);
-			setCall(result.call);
+			setCall((current) =>
+				current?.id === result.call.id && current.status === "accepted"
+					? current
+					: result.call,
+			);
 		} catch (cause) {
 			setError(
 				cause instanceof Error

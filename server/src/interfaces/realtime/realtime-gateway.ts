@@ -1,3 +1,4 @@
+import { listFriendships } from "@/app/social-service";
 import { disconnectDirectCall, handleDirectCallEvent } from "./direct-call-gateway";
 import type { ElysiaWS } from "elysia/ws";
 import {
@@ -121,6 +122,21 @@ function broadcastVoicePresence(channelId: string, serverId: string, users: Real
 
 export function notifyUser(userId: string, value: unknown): void {
   for (const socket of socketsByUser.get(userId) ?? []) send(socket, value);
+}
+
+export async function notifyProfileUpdated(user: User): Promise<void> {
+  for (const socket of socketsByUser.get(user.id) ?? []) {
+    session(socket).user = user;
+  }
+  notifyUser(user.id, { type: "profile_updated", user });
+  for (const friendship of await listFriendships(user.id)) {
+    if (friendship.status === "accepted") {
+      notifyUser(friendship.user.id, { type: "profile_updated", user });
+    }
+  }
+  for (const serverId of await serverIdsForUser(user.id)) {
+    await notifyServerDataChanged(serverId, ["members"]);
+  }
 }
 
 export type ServerDataResource = "servers" | "channels" | "members" | "roles";

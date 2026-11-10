@@ -22,18 +22,20 @@ export function Modal({
 	const titleId = useId();
 	const descriptionId = useId();
 	const panelRef = useRef<HTMLDivElement>(null);
+	const closeHandler = useRef(onClose);
+	closeHandler.current = onClose;
 
 	useEffect(() => {
 		if (!open) return;
 		const previousFocus = document.activeElement as HTMLElement | null;
 		const onKeyDown = (event: KeyboardEvent) => {
-			if (event.key === "Escape") onClose();
+			if (event.key === "Escape") closeHandler.current();
 			if (event.key !== "Tab" || !panelRef.current) return;
 			const focusable = [
 				...panelRef.current.querySelectorAll<HTMLElement>(
 					'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
 				),
-			].filter((element) => !element.hasAttribute("hidden"));
+			].filter((element) => element.getClientRects().length > 0);
 			if (!focusable.length) {
 				event.preventDefault();
 				panelRef.current.focus();
@@ -50,14 +52,18 @@ export function Modal({
 			}
 		};
 		document.addEventListener("keydown", onKeyDown);
+		const previousOverflow = document.body.style.overflow;
 		document.body.style.overflow = "hidden";
-		requestAnimationFrame(() => panelRef.current?.focus());
+		const focusFrame = requestAnimationFrame(() =>
+			panelRef.current?.focus(),
+		);
 		return () => {
 			document.removeEventListener("keydown", onKeyDown);
-			document.body.style.overflow = "";
+			cancelAnimationFrame(focusFrame);
+			document.body.style.overflow = previousOverflow;
 			previousFocus?.focus();
 		};
-	}, [onClose, open]);
+	}, [open]);
 
 	if (!open) return null;
 

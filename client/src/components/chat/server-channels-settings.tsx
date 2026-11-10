@@ -12,7 +12,6 @@ export function ServerChannelsSettings({
 		channelRoles,
 		setChannelRoles,
 		saving,
-		channelAccessStatus,
 		setChannelAccessStatus,
 		selectChannel,
 		saveChannelAccess,
@@ -65,19 +64,6 @@ export function ServerChannelsSettings({
 					>
 						{saving ? "Salvando..." : "Salvar acesso"}
 					</button>
-					{channelAccessStatus && (
-						<p
-							role={
-								channelAccessStatus.type === "error"
-									? "alert"
-									: "status"
-							}
-							aria-live="polite"
-							className={`text-sm ${channelAccessStatus.type === "success" ? "text-green-700" : "text-red-600"}`}
-						>
-							{channelAccessStatus.message}
-						</p>
-					)}
 				</>
 			)}
 		</section>

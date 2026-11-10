@@ -67,12 +67,18 @@ export function useServerSettings(open: boolean, onClose: () => void) {
 	} | null>(null);
 
 	useEffect(() => {
-		if (open) void loadRoles();
+		if (open) {
+			useChatStore.getState().clearError();
+			setServerStatus(null);
+			setChannelAccessStatus(null);
+			void loadRoles();
+		}
 	}, [open, loadRoles]);
 	useEffect(() => {
+		if (!open) return;
 		setName(server?.name ?? "");
 		setIconUrl(server?.iconUrl ?? null);
-	}, [server?.id, server?.name, server?.iconUrl]);
+	}, [open, server?.id, server?.name, server?.iconUrl]);
 	useEffect(() => {
 		setNewOwnerId("");
 	}, [server?.id]);
@@ -192,19 +198,33 @@ export function useServerSettings(open: boolean, onClose: () => void) {
 				permissions: rolePermissions,
 			});
 		setSaving(false);
-		selectRole(null);
+		if (!useChatStore.getState().error) selectRole(null);
 	};
 	const uploadIcon = async (file?: File) => {
-		if (!file) return;
-		const { token } = requireCredentials();
-		const form = new FormData();
-		form.append("file", file);
-		const result = await api<{ media: { url: string } }>(
-			"/uploads",
-			{ method: "POST", body: form },
-			token,
-		);
-		setIconUrl(result.media.url);
+		if (!file || saving) return;
+		setSaving(true);
+		setServerStatus(null);
+		try {
+			const { token } = requireCredentials();
+			const form = new FormData();
+			form.append("file", file);
+			const result = await api<{ media: { url: string } }>(
+				"/uploads",
+				{ method: "POST", body: form },
+				token,
+			);
+			setIconUrl(result.media.url);
+		} catch (cause) {
+			setServerStatus({
+				type: "error",
+				message:
+					cause instanceof Error
+						? cause.message
+						: "Não foi possível enviar o ícone.",
+			});
+		} finally {
+			setSaving(false);
+		}
 	};
 
 	const isOwner = server?.ownerId === user?.id;

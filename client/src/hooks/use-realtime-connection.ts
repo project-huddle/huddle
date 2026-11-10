@@ -52,6 +52,8 @@ type Options = {
 };
 
 export function useRealtimeConnection(options: Options) {
+	const displayNameRef = useRef(options.currentUserDisplayName);
+	displayNameRef.current = options.currentUserDisplayName;
 	const subscribedHandlerRef = useRef(options.onChannelSubscribed);
 	subscribedHandlerRef.current = options.onChannelSubscribed;
 	const callLeftHandlerRef = useRef(options.onCallLeft);
@@ -62,7 +64,6 @@ export function useRealtimeConnection(options: Options) {
 		channelType,
 		scope,
 		currentUserId,
-		currentUserDisplayName,
 		socketRef,
 		peerUsers,
 		displayStream,
@@ -196,11 +197,11 @@ export function useRealtimeConnection(options: Options) {
 								: [];
 							const mentioned =
 								mentionedUserIds.includes(currentUserId) ||
-								(currentUserDisplayName.length > 0 &&
+								(displayNameRef.current.length > 0 &&
 									message.content
 										.toLocaleLowerCase()
 										.includes(
-											`@${currentUserDisplayName.toLocaleLowerCase()}`,
+											`@${displayNameRef.current.toLocaleLowerCase()}`,
 										));
 							useChatStore
 								.getState()
@@ -517,7 +518,6 @@ export function useRealtimeConnection(options: Options) {
 		scope,
 		channelType,
 		currentUserId,
-		currentUserDisplayName,
 		closeCall,
 		createPeer,
 		flushCandidates,
