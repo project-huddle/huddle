@@ -22,7 +22,7 @@ export type ProfileView = ReturnType<typeof profileView>;
 export type UpdateProfileInput = {
   displayName?: string;
   avatarUrl?: string | null;
-  countryCode?: string;
+  countryCode?: string | null;
   audioInputDeviceId?: string | null;
   audioOutputDeviceId?: string | null;
   videoInputDeviceId?: string | null;
@@ -68,12 +68,28 @@ export async function updateProfile(
   )
     return { type: "invalid-avatar" };
 
-  const countryCode = input.countryCode?.trim().toUpperCase();
-  if (countryCode !== undefined && !/^[A-Z]{2}$/.test(countryCode))
+  const countryCode =
+    input.countryCode === null ? null : input.countryCode?.trim().toUpperCase();
+  if (
+    countryCode !== undefined &&
+    countryCode !== null &&
+    !/^[A-Z]{2}$/.test(countryCode)
+  )
     return { type: "invalid-country" };
 
-  const deviceIds = [input.audioInputDeviceId, input.audioOutputDeviceId, input.videoInputDeviceId];
-  if (deviceIds.some((value) => value !== undefined && value !== null && (typeof value !== "string" || value.length > 512)))
+  const deviceIds = [
+    input.audioInputDeviceId,
+    input.audioOutputDeviceId,
+    input.videoInputDeviceId,
+  ];
+  if (
+    deviceIds.some(
+      (value) =>
+        value !== undefined &&
+        value !== null &&
+        (typeof value !== "string" || value.length > 512),
+    )
+  )
     return { type: "conflict" };
 
   const profile = await db.user

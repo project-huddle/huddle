@@ -798,6 +798,35 @@ describe("huddle API", () => {
     expect(hiddenChannels.status).toBe(403);
   });
 
+  test("renames profiles without a country and persists server names", async () => {
+    const owner = await register("settings-owner@example.com", "Settings Owner");
+    const headers = {
+      authorization: `Bearer ${owner.session.token}`,
+      "content-type": "application/json",
+    };
+    const renamedProfile = await fetch(`${baseUrl}/profile`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ displayName: "New Profile Name", countryCode: null }),
+    });
+    expect(renamedProfile.status).toBe(200);
+    const persistedProfile = await fetch(`${baseUrl}/profile`, { headers });
+    expect(await persistedProfile.json()).toMatchObject({
+      user: { displayName: "New Profile Name", countryCode: null },
+    });
+    const created = await fetch(`${baseUrl}/servers`, {
+      method: "POST", headers, body: JSON.stringify({ name: "Original Server" }),
+    });
+    const { server: community } = await created.json() as { server: { id: string } };
+    const renamedServer = await fetch(`${baseUrl}/servers/${community.id}`, {
+      method: "PATCH", headers,
+      body: JSON.stringify({ name: "Renamed Server", iconUrl: null }),
+    });
+    expect(renamedServer.status).toBe(200);
+    const persistedServer = await fetch(`${baseUrl}/servers/${community.id}`, { headers });
+    expect(await persistedServer.json()).toMatchObject({ server: { name: "Renamed Server" } });
+  });
+
   test("updates protected profiles, manages friendships and exchanges private messages", async () => {
     const alice = await register("social-alice@example.com", "Social Alice");
     const bob = await register("social-bob@example.com", "Social Bob");

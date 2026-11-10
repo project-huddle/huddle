@@ -1,7 +1,11 @@
 import { z } from "zod";
 
 export const profileSchema = z.object({
-	displayName: z.string().trim().min(2).max(60),
+	displayName: z
+		.string()
+		.trim()
+		.min(2, "O nome deve ter entre 2 e 32 caracteres.")
+		.max(32, "O nome deve ter entre 2 e 32 caracteres."),
 	countryCode: z.string().length(2).nullable(),
 });
 

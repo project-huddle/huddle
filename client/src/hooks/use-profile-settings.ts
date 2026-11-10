@@ -5,7 +5,11 @@ import {
 	passwordChangeSchema,
 	profileSchema,
 } from "@/schemas/profile-schema";
-import { listMediaDevices, type MediaDevicePreferences, writeMediaDevicePreferences } from "@/lib/media-devices";
+import {
+	listMediaDevices,
+	type MediaDevicePreferences,
+	writeMediaDevicePreferences,
+} from "@/lib/media-devices";
 
 export function useProfileSettings({
 	token,
@@ -16,6 +20,7 @@ export function useProfileSettings({
 	open: boolean;
 	onUpdated: (user: UserProfile) => void;
 }) {
+	const [saving, setSaving] = useState(false);
 	const [profile, setProfile] = useState<UserProfile | null>(null);
 	const [code, setCode] = useState("");
 	const [message, setMessage] = useState<string | null>(null);
@@ -23,22 +28,48 @@ export function useProfileSettings({
 	const [newPassword, setNewPassword] = useState("");
 	const avatarRef = useRef<HTMLInputElement>(null);
 	const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-	const [devicePreferences, setDevicePreferences] = useState<MediaDevicePreferences>({ audioInputDeviceId: null, audioOutputDeviceId: null, videoInputDeviceId: null });
+	const [devicePreferences, setDevicePreferences] =
+		useState<MediaDevicePreferences>({
+			audioInputDeviceId: null,
+			audioOutputDeviceId: null,
+			videoInputDeviceId: null,
+		});
 	useEffect(() => {
 		if (open) {
+			setMessage(null);
 			void listMediaDevices().then(setDevices);
-			void api<{ user: UserProfile }>("/profile", {}, token).then(
-				({ user }) => { setProfile(user); setDevicePreferences({ audioInputDeviceId: user.audioInputDeviceId, audioOutputDeviceId: user.audioOutputDeviceId, videoInputDeviceId: user.videoInputDeviceId }); },
-			);
+			void api<{ user: UserProfile }>("/profile", {}, token)
+				.then(({ user }) => {
+					setProfile(user);
+					setDevicePreferences({
+						audioInputDeviceId: user.audioInputDeviceId,
+						audioOutputDeviceId: user.audioOutputDeviceId,
+						videoInputDeviceId: user.videoInputDeviceId,
+					});
+				})
+				.catch((cause: unknown) =>
+					setMessage(
+						cause instanceof Error
+							? cause.message
+							: "Não foi possível carregar o perfil.",
+					),
+				);
 		}
 	}, [open, token]);
 	const save = async (event: FormEvent) => {
 		event.preventDefault();
-		if (!profile) return;
-		const input = profileSchema.parse({
+		if (!profile || saving) return;
+		const validation = profileSchema.safeParse({
 			displayName: profile.displayName,
 			countryCode: profile.countryCode,
 		});
+		if (!validation.success) {
+			setMessage(validation.error.issues[0].message);
+			return;
+		}
+		const input = validation.data;
+		setSaving(true);
+		setMessage(null);
 		try {
 			const result = await api<{ user: UserProfile }>(
 				"/profile",
@@ -48,9 +79,12 @@ export function useProfileSettings({
 						displayName: input.displayName,
 						avatarUrl: profile.avatarUrl,
 						countryCode: input.countryCode,
-						audioInputDeviceId: devicePreferences.audioInputDeviceId,
-						audioOutputDeviceId: devicePreferences.audioOutputDeviceId,
-						videoInputDeviceId: devicePreferences.videoInputDeviceId,
+						audioInputDeviceId:
+							devicePreferences.audioInputDeviceId,
+						audioOutputDeviceId:
+							devicePreferences.audioOutputDeviceId,
+						videoInputDeviceId:
+							devicePreferences.videoInputDeviceId,
 					}),
 				},
 				token,
@@ -65,6 +99,8 @@ export function useProfileSettings({
 					? cause.message
 					: "Não foi possível atualizar.",
 			);
+		} finally {
+			setSaving(false);
 		}
 	};
 	const uploadAvatar = async (file?: File) => {
@@ -125,6 +161,7 @@ export function useProfileSettings({
 		setMessage("Senha alterada. Entre novamente com a nova senha.");
 	};
 	return {
+		saving,
 		profile,
 		setProfile,
 		devices,
