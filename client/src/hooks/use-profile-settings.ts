@@ -138,21 +138,19 @@ export function useProfileSettings({
 		}
 	};
 
-	const uploadAvatar = async (file?: File) => {
-		return performAction(async () => {
-			if (!file) return;
-			const form = new FormData();
-			form.append("file", file);
-			const { media } = await api<{ media: MessageMedia }>(
-				"/uploads",
-				{ method: "POST", body: form },
-				token,
-			);
-			setProfile((value) =>
-				value ? { ...value, avatarUrl: media.url } : value,
-			);
-		});
+	const uploadAvatar = async (file: File) => {
+		const form = new FormData();
+		form.append("file", file);
+		const { media } = await api<{ media: MessageMedia }>(
+			"/uploads",
+			{ method: "POST", body: form },
+			token,
+		);
+		setProfile((current) =>
+			current ? { ...current, avatarUrl: media.url } : current,
+		);
 	};
+
 	const sendCode = async () => {
 		return performAction(async () => {
 			await api("/profile/email-code", { method: "POST" }, token);

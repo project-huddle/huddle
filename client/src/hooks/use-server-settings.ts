@@ -200,31 +200,16 @@ export function useServerSettings(open: boolean, onClose: () => void) {
 		setSaving(false);
 		if (!useChatStore.getState().error) selectRole(null);
 	};
-	const uploadIcon = async (file?: File) => {
-		if (!file || saving) return;
-		setSaving(true);
-		setServerStatus(null);
-		try {
-			const { token } = requireCredentials();
-			const form = new FormData();
-			form.append("file", file);
-			const result = await api<{ media: { url: string } }>(
-				"/uploads",
-				{ method: "POST", body: form },
-				token,
-			);
-			setIconUrl(result.media.url);
-		} catch (cause) {
-			setServerStatus({
-				type: "error",
-				message:
-					cause instanceof Error
-						? cause.message
-						: "Não foi possível enviar o ícone.",
-			});
-		} finally {
-			setSaving(false);
-		}
+	const uploadIcon = async (file: File) => {
+		const { token } = requireCredentials();
+		const form = new FormData();
+		form.append("file", file);
+		const result = await api<{ media: { url: string } }>(
+			"/uploads",
+			{ method: "POST", body: form },
+			token,
+		);
+		setIconUrl(result.media.url);
 	};
 
 	const isOwner = server?.ownerId === user?.id;

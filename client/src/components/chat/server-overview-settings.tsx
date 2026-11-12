@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { ImageCropDialog } from "@/components/image-crop-dialog";
 import { resolveMediaUrl } from "@/lib/api";
 import type { useServerSettings } from "@/hooks/use-server-settings";
 
@@ -6,6 +8,7 @@ export function ServerOverviewSettings({
 }: {
 	settings: ReturnType<typeof useServerSettings>;
 }) {
+	const [pendingImage, setPendingImage] = useState<File | null>(null);
 	const {
 		server,
 		members,
@@ -24,6 +27,11 @@ export function ServerOverviewSettings({
 	} = settings;
 	return (
 		<section className="space-y-5">
+			<ImageCropDialog
+				file={pendingImage}
+				onClose={() => setPendingImage(null)}
+				onConfirm={uploadIcon}
+			/>
 			<form
 				onSubmit={(event) => {
 					event.preventDefault();
@@ -50,9 +58,10 @@ export function ServerOverviewSettings({
 					<input
 						type="file"
 						accept="image/png,image/jpeg,image/webp"
-						onChange={(event) =>
-							void uploadIcon(event.target.files?.[0])
-						}
+						onChange={(event) => {
+							setPendingImage(event.target.files?.[0] ?? null);
+							event.target.value = "";
+						}}
 						className="mt-2 block w-full text-sm font-normal"
 					/>
 				</label>

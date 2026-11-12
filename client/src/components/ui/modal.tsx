@@ -29,6 +29,10 @@ export function Modal({
 		if (!open) return;
 		const previousFocus = document.activeElement as HTMLElement | null;
 		const onKeyDown = (event: KeyboardEvent) => {
+			const dialogs = document.querySelectorAll(
+				'[role="dialog"][aria-modal="true"]',
+			);
+			if (dialogs.item(dialogs.length - 1) !== panelRef.current) return;
 			if (event.key === "Escape") closeHandler.current();
 			if (event.key !== "Tab" || !panelRef.current) return;
 			const focusable = [

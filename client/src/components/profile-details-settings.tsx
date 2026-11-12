@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { ImageCropDialog } from "./image-crop-dialog";
 import { UserRound } from "lucide-react";
 import { SettingsSection, DeviceSelect } from "./profile-settings-fields";
 import { UserAvatar } from "./user-avatar";
@@ -8,6 +10,7 @@ export function ProfileDetailsSettings({
 }: {
 	settings: ReturnType<typeof useProfileSettings>;
 }) {
+	const [pendingImage, setPendingImage] = useState<File | null>(null);
 	const {
 		profile,
 		setProfile,
@@ -22,6 +25,12 @@ export function ProfileDetailsSettings({
 	if (!profile) return null;
 	return (
 		<div className="space-y-5">
+			<ImageCropDialog
+				file={pendingImage}
+				onClose={() => setPendingImage(null)}
+				onConfirm={uploadAvatar}
+				round
+			/>
 			<section className="flex flex-col gap-4 rounded-3xl bg-(--solid) p-5 text-(--on-solid) sm:flex-row sm:items-center">
 				<UserAvatar user={profile} className="size-16 rounded-2xl" />
 				<div className="min-w-0 flex-1">
@@ -35,11 +44,12 @@ export function ProfileDetailsSettings({
 				<input
 					ref={avatarRef}
 					type="file"
-					accept="image/*"
+					accept="image/png,image/jpeg,image/webp"
 					hidden
-					onChange={(event) =>
-						void uploadAvatar(event.target.files?.[0])
-					}
+					onChange={(event) => {
+						setPendingImage(event.target.files?.[0] ?? null);
+						event.target.value = "";
+					}}
 				/>
 				<button
 					type="button"
@@ -56,7 +66,7 @@ export function ProfileDetailsSettings({
 			>
 				<form onSubmit={save} className="space-y-4">
 					<label className="block text-sm font-bold">
-						Nome de usuário
+						Nome de exibição
 						<input
 							required
 							minLength={2}
@@ -71,6 +81,27 @@ export function ProfileDetailsSettings({
 							className="mt-1.5 h-11 w-full rounded-xl border border-(--line) bg-(--canvas) px-3 outline-none focus:ring-2 focus:ring-(--brand)"
 						/>
 					</label>
+					<label className="block text-sm font-bold">
+						Nome de usuário único
+						<input
+							value={profile.username}
+							onChange={(event) =>
+								setProfile({
+									...profile,
+									username: event.target.value,
+								})
+							}
+							minLength={3}
+							maxLength={40}
+							required
+							className="mt-1.5 h-11 w-full rounded-xl border border-(--line) bg-(--canvas) px-3"
+						/>
+						<span className="mt-1 block text-xs font-normal text-(--muted-text)">
+							Seus amigos podem adicionar você usando @
+							{profile.username}.
+						</span>
+					</label>
+
 					<DeviceSelect
 						label="Microfone"
 						kind="audioinput"
