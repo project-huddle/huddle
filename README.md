@@ -57,7 +57,7 @@ A implementação atual inclui:
 - chat em tempo real por WebSocket, histórico persistente e presença online;
 - respostas, edição, exclusão e reações em mensagens;
 - envio de JPEG, PNG, GIF e WebP de até 8 MB;
-- busca opcional de GIFs pelo Tenor, para quem já possui uma chave compatível;
+- busca de GIFs pelo GIPHY, compartilhada pelos chats de servidor e privados;
 - chamadas entre participantes com áudio, câmera e compartilhamento de tela via WebRTC;
 - interface responsiva e temas claro e escuro;
 - controles básicos de moderação para alterar papéis e remover membros.
@@ -168,8 +168,7 @@ Use [`.env.example`](.env.example) com Docker Compose. Para executar apenas a AP
 | `TURN_URL`          | Não            | URL do servidor TURN usada pelo cliente                                |
 | `TURN_USERNAME`     | Não            | Usuário TURN                                                           |
 | `TURN_CREDENTIAL`   | Não            | Credencial TURN                                                        |
-| `TENOR_API_KEY`     | Não            | Chave existente da API do Tenor para busca de GIFs                     |
-| `TENOR_CLIENT_KEY`  | Não            | Identificador de cliente enviado ao Tenor; padrão `huddle`             |
+| `GIPHY_API_KEY`     | Não            | Chave pública de integração do GIPHY para busca de GIFs                     |
 
 ### API
 
@@ -183,8 +182,7 @@ Use [`.env.example`](.env.example) com Docker Compose. Para executar apenas a AP
 | `MAX_JSON_BYTES`           | Não        | Limite dos corpos JSON; padrão `16384`             |
 | `AUTH_ATTEMPTS_PER_MINUTE` | Não        | Limite por IP para login e cadastro; padrão `20`   |
 | `REQUESTS_PER_MINUTE`      | Não        | Limite geral de requisições por IP; padrão `300`   |
-| `TENOR_API_KEY`            | Não        | Habilita a busca integrada de GIFs                 |
-| `TENOR_CLIENT_KEY`         | Não        | Identificador usado nas requisições ao Tenor       |
+| `GIPHY_API_KEY`            | Não        | Habilita a busca integrada de GIFs                 |
 
 No cliente, `VITE_API_URL` define a origem da API. `VITE_TURN_URL`, `VITE_TURN_USERNAME` e `VITE_TURN_CREDENTIAL` são incorporadas ao build e, portanto, chegam ao navegador. Em produção, prefira credenciais TURN temporárias.
 
@@ -310,3 +308,18 @@ Consulte o arquivo ``LICENSE`` para os termos completos da licença.
 O projeto é independente e financiado coletivamente. Se você acredita em uma comunicação mais humana, aberta e segura, pode [apoiar o Huddle no Ko-fi](https://ko-fi.com/huddlesocial).
 
 Feito com cuidado, código aberto e café no Brasil.
+
+### Identidade, imagens e GIFs
+
+Cada conta possui um `@username` único, editável nas configurações do perfil.
+Contas anteriores recebem um identificador inicial `user_...`; o nome de exibição permanece independente.
+Adicione amigos pelo username completo ou pelo link de amizade.
+
+Configure `GIPHY_API_KEY` no `.env` do ambiente. A busca é realizada pelo navegador,
+conforme o contrato do GIPHY, e essa chave pública fica disponível ao cliente autenticado.
+Não versione o `.env`. Os seletores de GIF exibem a atribuição Powered by GIPHY.
+
+As migrações `20261110000000_direct_message_media` e `20261110010000_unique_usernames`
+devem ser aplicadas antes de iniciar a nova versão do backend.
+Imagens de perfil e servidor são pré-visualizadas e recortadas antes do upload;
+a alteração só é persistida ao salvar o perfil ou o servidor.
