@@ -1,3 +1,4 @@
+import { LogOut } from "lucide-react";
 import { useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { useProfileSettings } from "@/hooks/use-profile-settings";
@@ -72,19 +73,22 @@ export function ProfileSettings({
 								{item.label}
 							</button>
 						))}
+						<button
+							type="button"
+							onClick={handleLogout}
+							className="mt-auto flex shrink-0 items-center gap-2 rounded-xl px-3 py-3 text-sm font-bold text-red-600 hover:bg-red-600/10"
+						>
+							<LogOut className="size-4" />
+							Sair da conta
+						</button>
 					</nav>
 					<div className="min-w-0">
 						{tab === "profile" && (
 							<ProfileDetailsSettings settings={settings} />
 						)}
-						{tab === "appearance" && (
-							<ProfileAppearanceSettings />
-						)}
+						{tab === "appearance" && <ProfileAppearanceSettings />}
 						{tab === "security" && (
-							<ProfileSecuritySettings
-								settings={settings}
-								handleLogout={handleLogout}
-							/>
+							<ProfileSecuritySettings settings={settings} />
 						)}
 					</div>
 				</div>

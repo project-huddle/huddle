@@ -1,3 +1,4 @@
+import { AccountControls } from "./account-controls";
 import { useChatStore } from "@/stores/chat-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useShallow } from "zustand/react/shallow";
@@ -35,7 +36,6 @@ export default function MobileNavigation() {
 		selectChannel,
 		openDialog,
 		createInvite,
-		setSettingsOpen,
 		unreadByServer,
 		unreadByChannel,
 		mentionedChannels,
@@ -52,7 +52,6 @@ export default function MobileNavigation() {
 			selectChannel: state.setChannelId,
 			openDialog: state.openDialog,
 			createInvite: state.createInvite,
-			setSettingsOpen: state.setSettingsOpen,
 			unreadByServer: state.unreadByServer,
 			unreadByChannel: state.unreadByChannel,
 			mentionedChannels: state.mentionedChannels,
@@ -160,6 +159,7 @@ export default function MobileNavigation() {
 								key={server.id}
 								id={server.id}
 								name={server.name}
+								iconUrl={server.iconUrl}
 								active={server.id === serverId}
 								onSelect={handleSelectServer}
 								size="small"
@@ -286,32 +286,7 @@ export default function MobileNavigation() {
 					</div>
 				</div>
 
-				{user && (
-					<button
-						type="button"
-						onClick={() => {
-							setSettingsOpen(true);
-							handleClose();
-						}}
-						className="m-3 flex items-center gap-3 rounded-2xl border border-(--ink)/10 bg-(--surface) p-3 text-left"
-						aria-label="Abrir configurações do perfil"
-						title="Abrir configurações do perfil"
-					>
-						<UserAvatar
-							user={user}
-							className="size-10 rounded-xl"
-						/>
-						<span className="min-w-0 flex-1">
-							<strong className="block truncate text-sm">
-								{user.displayName}
-							</strong>
-							<span className="block truncate text-[11px] text-(--muted-text)">
-								{user.email}
-							</span>
-						</span>
-						<Settings className="size-4 text-(--muted-text)" />
-					</button>
-				)}
+				<AccountControls onSettingsOpened={handleClose} />
 			</aside>
 		</div>
 	);

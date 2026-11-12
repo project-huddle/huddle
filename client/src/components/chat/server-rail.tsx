@@ -53,6 +53,7 @@ export function ServerRail() {
 					key={server.id}
 					id={server.id}
 					name={server.name}
+					iconUrl={server.iconUrl}
 					active={!socialOpen && server.id === serverId}
 					onSelect={selectServer}
 					unread={unreadByServer[server.id]}

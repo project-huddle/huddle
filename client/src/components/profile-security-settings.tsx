@@ -1,13 +1,11 @@
-import { ShieldCheck, KeyRound, LogOut } from "lucide-react";
+import { ShieldCheck, KeyRound } from "lucide-react";
 import { SettingsSection } from "./profile-settings-fields";
 import type { useProfileSettings } from "@/hooks/use-profile-settings";
 
 export function ProfileSecuritySettings({
 	settings,
-	handleLogout,
 }: {
 	settings: ReturnType<typeof useProfileSettings>;
-	handleLogout: () => void;
 }) {
 	const {
 		profile,
@@ -120,13 +118,6 @@ export function ProfileSecuritySettings({
 							Atualizar senha
 						</button>
 					</form>
-					<button
-						type="button"
-						onClick={handleLogout}
-						className="flex items-center justify-center gap-2 rounded-xl bg-[#d76b5b] px-4 py-3 text-sm font-bold text-white"
-					>
-						<LogOut className="size-4" /> Sair da conta
-					</button>
 				</div>
 			</SettingsSection>
 		</div>

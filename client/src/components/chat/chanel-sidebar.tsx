@@ -1,159 +1,151 @@
+import { AccountControls } from "./account-controls";
 import { useChatStore } from "@/stores/chat-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useShallow } from "zustand/react/shallow";
 import NavButton from "./nav-button";
-import { LogOut, Plus, Settings, UserPlus, SlidersHorizontal } from "lucide-react";
+import { LogOut, Plus, UserPlus, SlidersHorizontal } from "lucide-react";
 import ChannelButton from "./channel-button";
-import { UserAvatar } from "@/components/user-avatar";
 
 export function ChannelSidebar() {
-    const user = useAuthStore((state) => state.user);
-    const {
-        servers,
-        serverId,
-        channels,
-        channelId,
-        selectChannel,
-        openDialog,
-        createInvite,
-        leaveServer,
-        setSettingsOpen,
-        setServerSettingsOpen,
-        voiceUsers,
-        unreadByChannel,
-        mentionedChannels,
-    } = useChatStore(
-        useShallow((state) => ({
-            servers: state.servers,
-            serverId: state.serverId,
-            channels: state.channels,
-            channelId: state.channelId,
-            selectChannel: state.setChannelId,
-            openDialog: state.openDialog,
-            createInvite: state.createInvite,
-            leaveServer: state.leaveServer,
-            setSettingsOpen: state.setSettingsOpen,
-            setServerSettingsOpen: state.setServerSettingsOpen,
-            voiceUsers: state.voiceUsers,
-            unreadByChannel: state.unreadByChannel,
-            mentionedChannels: state.mentionedChannels,
-        })),
-    );
+	const user = useAuthStore((state) => state.user);
+	const {
+		servers,
+		serverId,
+		channels,
+		channelId,
+		selectChannel,
+		openDialog,
+		createInvite,
+		leaveServer,
+		setServerSettingsOpen,
+		voiceUsers,
+		unreadByChannel,
+		mentionedChannels,
+	} = useChatStore(
+		useShallow((state) => ({
+			servers: state.servers,
+			serverId: state.serverId,
+			channels: state.channels,
+			channelId: state.channelId,
+			selectChannel: state.setChannelId,
+			openDialog: state.openDialog,
+			createInvite: state.createInvite,
+			leaveServer: state.leaveServer,
+			setServerSettingsOpen: state.setServerSettingsOpen,
+			voiceUsers: state.voiceUsers,
+			unreadByChannel: state.unreadByChannel,
+			mentionedChannels: state.mentionedChannels,
+		})),
+	);
 
-    const activeServer = servers.find((server) => server.id === serverId);
-    const createInviteAction = () => {
-        if (activeServer?.ownerId === user?.id) openDialog("create-invite");
-        else void createInvite();
-    };
-    const textChannels = channels.filter((channel) => channel.type === "text");
-    const voiceChannels = channels.filter((channel) => channel.type === "voice");
+	const activeServer = servers.find((server) => server.id === serverId);
+	const createInviteAction = () => {
+		if (activeServer?.ownerId === user?.id) openDialog("create-invite");
+		else void createInvite();
+	};
+	const textChannels = channels.filter((channel) => channel.type === "text");
+	const voiceChannels = channels.filter(
+		(channel) => channel.type === "voice",
+	);
 
-    const handleCreateChannel = () => {
-        openDialog("create-channel");
-    };
+	const handleCreateChannel = () => {
+		openDialog("create-channel");
+	};
 
-    const handleLeaveServer = () => {
-        const serverName = activeServer?.name ?? "este servidor";
-        const confirmed = window.confirm(`Sair de ${serverName}?`);
+	const handleLeaveServer = () => {
+		const serverName = activeServer?.name ?? "este servidor";
+		const confirmed = window.confirm(`Sair de ${serverName}?`);
 
-        if (confirmed) {
-            void leaveServer();
-        }
-    };
+		if (confirmed) {
+			void leaveServer();
+		}
+	};
 
-    return (
-        <aside className="hidden min-h-0 flex-col border-r border-(--ink)/10 bg-(--panel) lg:flex">
-            <header className="flex h-19 items-center border-b border-(--ink)/10 px-4">
-                <strong className="truncate text-sm">
-                    {activeServer?.name ?? "Servidores"}
-                </strong>
+	return (
+		<aside className="hidden min-h-0 flex-col border-r border-(--ink)/10 bg-(--panel) lg:flex">
+			<header className="flex h-19 items-center border-b border-(--ink)/10 px-4">
+				<strong className="truncate text-sm">
+					{activeServer?.name ?? "Servidores"}
+				</strong>
 
-                <div className="ml-auto flex gap-1">
-                    <NavButton label="Criar convite" onClick={createInviteAction}>
-                        <UserPlus />
-                    </NavButton>
+				<div className="ml-auto flex gap-1">
+					<NavButton
+						label="Criar convite"
+						onClick={createInviteAction}
+					>
+						<UserPlus />
+					</NavButton>
 
-                    {activeServer?.ownerId === user?.id && <NavButton label="Configurações do servidor" onClick={() => setServerSettingsOpen(true)}><SlidersHorizontal /></NavButton>}
+					{activeServer?.ownerId === user?.id && (
+						<NavButton
+							label="Configurações do servidor"
+							onClick={() => setServerSettingsOpen(true)}
+						>
+							<SlidersHorizontal />
+						</NavButton>
+					)}
 
-                    <NavButton label="Sair do servidor" onClick={handleLeaveServer}>
-                        <LogOut />
-                    </NavButton>
+					<NavButton
+						label="Sair do servidor"
+						onClick={handleLeaveServer}
+					>
+						<LogOut />
+					</NavButton>
+				</div>
+			</header>
 
-                </div>
-            </header>
+			<div className="min-h-0 flex-1 overflow-y-auto p-3">
+				<div className="flex items-center px-2 pb-2">
+					<p className="text-[10px] font-black uppercase tracking-[0.16em] text-(--muted-text)">
+						Canais de texto
+					</p>
 
-            <div className="min-h-0 flex-1 overflow-y-auto p-3">
-                <div className="flex items-center px-2 pb-2">
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-(--muted-text)">
-                        Canais de texto
-                    </p>
+					<button
+						type="button"
+						onClick={handleCreateChannel}
+						className="ml-auto text-(--muted-text) hover:text-(--ink)"
+						aria-label="Criar canal"
+						title="Criar canal"
+					>
+						<Plus className="size-3.5" />
+					</button>
+				</div>
 
-                    <button
-                        type="button"
-                        onClick={handleCreateChannel}
-                        className="ml-auto text-(--muted-text) hover:text-(--ink)"
-                        aria-label="Criar canal"
-                        title="Criar canal"
-                    >
-                        <Plus className="size-3.5" />
-                    </button>
-                </div>
+				{textChannels.map((channel) => (
+					<ChannelButton
+						key={channel.id}
+						id={channel.id}
+						name={channel.name}
+						active={channel.id === channelId}
+						type={channel.type}
+						onSelect={selectChannel}
+						unread={unreadByChannel[channel.id]}
+						mentioned={mentionedChannels[channel.id]}
+					/>
+				))}
 
-                {textChannels.map((channel) => (
-                    <ChannelButton
-                        key={channel.id}
-                        id={channel.id}
-                        name={channel.name}
-                        active={channel.id === channelId}
-                        type={channel.type}
-                        onSelect={selectChannel}
-                        unread={unreadByChannel[channel.id]}
-                        mentioned={mentionedChannels[channel.id]}
-                    />
-                ))}
+				<div className="flex items-center px-2 pb-2 pt-5">
+					<p className="text-[10px] font-black uppercase tracking-[0.16em] text-(--muted-text)">
+						Canais de voz
+					</p>
+				</div>
 
-                <div className="flex items-center px-2 pb-2 pt-5">
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-(--muted-text)">
-                        Canais de voz
-                    </p>
+				{voiceChannels.map((channel) => (
+					<ChannelButton
+						key={channel.id}
+						id={channel.id}
+						name={channel.name}
+						active={channel.id === channelId}
+						type={channel.type}
+						onSelect={selectChannel}
+						voiceUsers={voiceUsers[channel.id]}
+						unread={unreadByChannel[channel.id]}
+						mentioned={mentionedChannels[channel.id]}
+					/>
+				))}
+			</div>
 
-                </div>
-
-                {voiceChannels.map((channel) => (
-                    <ChannelButton
-                        key={channel.id}
-                        id={channel.id}
-                        name={channel.name}
-                        active={channel.id === channelId}
-                        type={channel.type}
-                        onSelect={selectChannel}
-                        voiceUsers={voiceUsers[channel.id]}
-                        unread={unreadByChannel[channel.id]}
-                        mentioned={mentionedChannels[channel.id]}
-                    />
-                ))}
-            </div>
-
-            {user && (
-                <button
-                    type="button"
-                    onClick={() => setSettingsOpen(true)}
-                    className="m-3 flex items-center gap-3 rounded-2xl border border-(--ink)/10 bg-(--surface) p-3 text-left transition hover:border-(--brand)"
-                    aria-label="Abrir configurações do perfil"
-                    title="Abrir configurações do perfil"
-                >
-                    <UserAvatar user={user} className="size-10 rounded-xl" />
-                    <span className="min-w-0 flex-1">
-                        <strong className="block truncate text-sm">
-                            {user.displayName}
-                        </strong>
-                        <span className="block truncate text-[11px] text-(--muted-text)">
-                            {user.email}
-                        </span>
-                    </span>
-                    <Settings className="size-4 shrink-0 text-(--muted-text)" />
-                </button>
-            )}
-        </aside>
-    );
+			<AccountControls />
+		</aside>
+	);
 }

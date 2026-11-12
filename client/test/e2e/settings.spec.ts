@@ -13,17 +13,17 @@ test("persists profile and server names through the organized settings menus", a
 	expect(response.status()).toBe(201);
 	await signIn(page, owner);
 	await page
-		.getByRole("button", { name: "Configurações de perfil", exact: true })
+		.getByRole("button", { name: "Abrir configurações do perfil", exact: true })
 		.click();
 	const profile = page.getByRole("dialog", {
 		name: "Configurações",
 		exact: true,
 	});
-	await profile.getByLabel("Nome de usuário").fill("");
+	await profile.getByLabel("Nome de exibição", { exact: true }).fill("");
 	await profile
-		.getByLabel("Nome de usuário")
+		.getByLabel("Nome de exibição", { exact: true })
 		.pressSequentially("Renamed Owner", { delay: 20 });
-	await expect(profile.getByLabel("Nome de usuário")).toBeFocused();
+	await expect(profile.getByLabel("Nome de exibição", { exact: true })).toBeFocused();
 	await profile
 		.getByRole("button", { name: "Salvar perfil", exact: true })
 		.click();
@@ -116,13 +116,13 @@ test("keeps contacts, conversations and settings within the mobile viewport", as
 		.getByRole("button", { name: "Voltar aos contatos", exact: true })
 		.click();
 	await page
-		.getByRole("button", { name: "Configurações de perfil", exact: true })
+		.getByRole("button", { name: "Abrir configurações do perfil", exact: true })
 		.click();
 	const dialog = page.getByRole("dialog", {
 		name: "Configurações",
 		exact: true,
 	});
-	await expect(dialog.getByLabel("Nome de usuário")).toBeVisible();
+	await expect(dialog.getByLabel("Nome de exibição", { exact: true })).toBeVisible();
 	await dialog
 		.getByRole("button", { name: "Segurança e sessão", exact: true })
 		.click();
