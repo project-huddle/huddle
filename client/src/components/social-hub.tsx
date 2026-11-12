@@ -61,7 +61,7 @@ export function SocialHub({
 						{friendships.map((friendship) => (
 							<div
 								key={friendship.user.id}
-								className="flex items-center gap-2 rounded-xl p-2 hover:bg-(--surface)"
+								className="flex items-center gap-2 rounded-xl py-2 px-4 hover:bg-(--surface)"
 							>
 								<UserAvatar
 									user={friendship.user}

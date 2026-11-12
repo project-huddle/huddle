@@ -72,7 +72,7 @@ export function RoomSidebar() {
 				{members.map((member) => (
 					<div
 						key={member.id}
-						className="group flex items-center gap-3 rounded-2xl p-2 hover:bg-(--surface)/70"
+						className="group flex items-center gap-3 rounded-2xl py-2 px-4 hover:bg-(--surface)/70"
 					>
 						<UserAvatar user={member} className="size-9 rounded-xl" />
 						<div className="min-w-0 flex-1">

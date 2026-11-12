@@ -22,7 +22,7 @@ export function UserAvatar({
 		<div
 			aria-hidden="true"
 			className={cn(
-				"grid size-10 shrink-0 place-items-center rounded-[14px] text-xs font-bold text-[#172019] shadow-sm",
+				"grid size-10 shrink-0 place-items-center rounded-full text-xs font-bold text-[#172019] shadow-sm",
 				avatarColors[colorIndex],
 				className,
 			)}
