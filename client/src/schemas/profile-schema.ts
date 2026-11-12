@@ -1,6 +1,19 @@
 import { z } from "zod";
 
 export const profileSchema = z.object({
+	username: z
+		.string()
+		.trim()
+		.toLowerCase()
+		.transform((value) => value.replace(/^@/, ""))
+		.pipe(
+			z
+				.string()
+				.regex(
+					/^[a-z0-9_]{3,40}$/,
+					"Use de 3 a 40 letras, números ou sublinhados.",
+				),
+		),
 	displayName: z
 		.string()
 		.trim()

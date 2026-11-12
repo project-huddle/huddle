@@ -801,6 +801,19 @@ describe("huddle API", () => {
     expect(hiddenChannels.status).toBe(403);
   });
 
+  test("adds friends by unique username and prevents case-insensitive duplicates", async () => {
+    const alice = await register("username-alice@example.com", "Same Display");
+    const bob = await register("username-bob@example.com", "Same Display");
+    const headers = (token: string) => ({ authorization: `Bearer ${token}`, "content-type": "application/json" });
+    const update = (token: string, username: string) => fetch(`${baseUrl}/profile`, { method: "PATCH", headers: headers(token), body: JSON.stringify({ username }) });
+    expect((await update(bob.session.token, "Friendly_Bob")).status).toBe(200);
+    expect((await update(alice.session.token, "FRIENDLY_BOB")).status).toBe(409);
+    expect((await update(alice.session.token, "invalid name")).status).toBe(400);
+    const request = await fetch(`${baseUrl}/friends`, { method: "POST", headers: headers(alice.session.token), body: JSON.stringify({ identifier: "@FRIENDLY_BOB" }) });
+    expect(request.status).toBe(201);
+    expect(await request.json()).toMatchObject({ user: { id: bob.user.id, username: "friendly_bob" } });
+  });
+
   test("persists image-only and GIF-only private messages and rejects untrusted media", async () => {
     const alice = await register("media-alice@example.com", "Media Alice");
     const bob = await register("media-bob@example.com", "Media Bob");

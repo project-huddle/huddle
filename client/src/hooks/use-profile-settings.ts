@@ -75,6 +75,7 @@ export function useProfileSettings({
 		if (!profile || saving) return;
 		const validation = profileSchema.safeParse({
 			displayName: profile.displayName,
+			username: profile.username,
 			countryCode: profile.countryCode,
 		});
 		if (!validation.success) {
@@ -91,6 +92,7 @@ export function useProfileSettings({
 					method: "PATCH",
 					body: JSON.stringify({
 						displayName: input.displayName,
+						username: input.username,
 						avatarUrl: profile.avatarUrl,
 						countryCode: input.countryCode,
 						audioInputDeviceId:

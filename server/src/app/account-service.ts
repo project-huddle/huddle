@@ -1,3 +1,4 @@
+import { normalizeUsername, isValidUsername } from "@/core/identity/username";
 import { Prisma } from "@prisma/client";
 import { db } from "../infra/database/client";
 
@@ -5,6 +6,7 @@ const publicUserSelect = {
   id: true,
   email: true,
   displayName: true,
+  username: true,
   avatarUrl: true,
   createdAt: true,
   emailVerifiedAt: true,
@@ -20,6 +22,7 @@ type PublicProfileRow = Prisma.UserGetPayload<{
 }>;
 export type ProfileView = ReturnType<typeof profileView>;
 export type UpdateProfileInput = {
+  username?: string;
   displayName?: string;
   avatarUrl?: string | null;
   countryCode?: string | null;
@@ -29,6 +32,7 @@ export type UpdateProfileInput = {
 };
 export type UpdateProfileResult =
   | { type: "success"; profile: ProfileView }
+  | { type: "invalid-username" }
   | { type: "invalid-name" }
   | { type: "invalid-avatar" }
   | { type: "invalid-country" }
@@ -54,6 +58,12 @@ export async function updateProfile(
   userId: string,
   input: UpdateProfileInput,
 ): Promise<UpdateProfileResult> {
+  const username =
+    input.username === undefined
+      ? undefined
+      : normalizeUsername(input.username);
+  if (username !== undefined && !isValidUsername(username))
+    return { type: "invalid-username" };
   const displayName = input.displayName?.trim();
   if (
     displayName !== undefined &&
@@ -96,6 +106,7 @@ export async function updateProfile(
     .update({
       where: { id: userId },
       data: {
+        username,
         displayName,
         avatarUrl,
         countryCode,

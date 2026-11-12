@@ -11,10 +11,15 @@ import { ThemeToggle } from "@/components/theme";
 import { TwoFactorChallenge } from "@/components/auth/two-factor-challenge";
 import { LoginHero } from "@/components/auth/login-hero";
 
-export default function LoginPage({ initialRegistering = false }: { initialRegistering?: boolean }) {
+export default function LoginPage({
+	initialRegistering = false,
+}: {
+	initialRegistering?: boolean;
+}) {
 	const [showPassword, setShowPassword] = useState(false);
 	const [isRegistering, setIsRegistering] = useState(initialRegistering);
 	const [displayName, setDisplayName] = useState("");
+	const [username, setUsername] = useState("");
 	const {
 		login,
 		register: createAccount,
@@ -23,15 +28,17 @@ export default function LoginPage({ initialRegistering = false }: { initialRegis
 		isLoading,
 		error,
 		clearError,
-	} = useAuthStore(useShallow((state) => ({
-		login: state.login,
-		register: state.register,
-		verifyTwoFactor: state.verifyTwoFactor,
-		twoFactorChallenge: state.twoFactorChallenge,
-		isLoading: state.isLoading,
-		error: state.error,
-		clearError: state.clearError,
-	})));
+	} = useAuthStore(
+		useShallow((state) => ({
+			login: state.login,
+			register: state.register,
+			verifyTwoFactor: state.verifyTwoFactor,
+			twoFactorChallenge: state.twoFactorChallenge,
+			isLoading: state.isLoading,
+			error: state.error,
+			clearError: state.clearError,
+		})),
+	);
 	const {
 		register: registerField,
 		handleSubmit,
@@ -44,7 +51,12 @@ export default function LoginPage({ initialRegistering = false }: { initialRegis
 	const onSubmit = async (data: LoginFormData) => {
 		try {
 			if (isRegistering)
-				await createAccount(data.email, displayName, data.password);
+				await createAccount(
+					data.email,
+					displayName,
+					data.password,
+					username,
+				);
 			else await login(data.email, data.password, data.remember);
 		} catch {
 			/* A store exibe o erro. */
@@ -55,7 +67,13 @@ export default function LoginPage({ initialRegistering = false }: { initialRegis
 		"h-12 w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 text-[var(--ink)] outline-none transition placeholder:text-[var(--muted-text)] focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--brand-soft)]";
 
 	if (twoFactorChallenge) {
-		return <TwoFactorChallenge error={error} loading={isLoading} onVerify={verifyTwoFactor} />;
+		return (
+			<TwoFactorChallenge
+				error={error}
+				loading={isLoading}
+				onVerify={verifyTwoFactor}
+			/>
+		);
 	}
 
 	return (
@@ -110,6 +128,33 @@ export default function LoginPage({ initialRegistering = false }: { initialRegis
 										)}
 								</label>
 							)}
+							{isRegistering && (
+								<label className="block">
+									<span className="mb-2 block text-xs font-bold">
+										Nome de usuário único
+									</span>
+									<input
+										value={username}
+										onChange={(event) =>
+											setUsername(
+												event.target.value.toLowerCase(),
+											)
+										}
+										required
+										minLength={3}
+										maxLength={40}
+										autoComplete="username"
+										placeholder="seu_nome"
+										className={inputClass}
+									/>
+									<span className="mt-1 block text-xs text-(--muted-text)">
+										De 3 a 40 letras, números ou
+										sublinhados. Seus amigos usarão @
+										{username || "seu_nome"}.
+									</span>
+								</label>
+							)}
+
 							<label className="block">
 								<span className="mb-2 block text-xs font-bold">
 									E-mail

@@ -20,10 +20,11 @@ export async function createUser(
   email: string,
   displayName: string,
   passwordHash: string,
+  username?: string,
 ): Promise<User | null> {
   try {
     const created = await db.user.create({
-      data: { email, displayName, passwordHash },
+      data: { email, displayName, passwordHash, username },
       select: userSelect,
     });
     return userView(created);

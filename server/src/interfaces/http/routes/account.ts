@@ -9,6 +9,7 @@ import { error, json } from "@/interfaces/http/responses";
 import { authenticatedRoutes } from "../plugins/auth";
 
 const profileBody = t.Object({
+  username: t.Optional(t.String({ minLength: 3, maxLength: 41 })),
   displayName: t.Optional(t.String()),
   avatarUrl: t.Optional(t.Union([t.String(), t.Null()])),
   countryCode: t.Optional(t.Union([t.String(), t.Null()])),
@@ -21,6 +22,12 @@ function profileError(
   result: Exclude<UpdateProfileResult, { type: "success" }>,
 ): Response {
   switch (result.type) {
+    case "invalid-username":
+      return error(
+        400,
+        "INVALID_USERNAME",
+        "Use de 3 a 40 letras, números ou sublinhados no nome de usuário.",
+      );
     case "invalid-name":
       return error(
         400,
@@ -43,7 +50,7 @@ function profileError(
       return error(
         409,
         "PROFILE_CONFLICT",
-        "Não foi possível atualizar o perfil.",
+        "Este nome de usuário já está em uso.",
       );
   }
 }

@@ -8,6 +8,7 @@ datasource db {
 }
 
 model User {
+  username String @unique @default(dbgenerated("('user_' || replace(gen_random_uuid()::text, '-', ''))")) @db.VarChar(40)
   id                     String             @id @default(uuid()) @db.Uuid
   email                  String             @unique @db.VarChar(254)
   displayName            String             @map("display_name") @db.VarChar(32)

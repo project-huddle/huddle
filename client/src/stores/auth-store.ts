@@ -32,6 +32,7 @@ type AuthState = {
 		email: string,
 		displayName: string,
 		password: string,
+		username?: string,
 	) => Promise<void>;
 	verifyTwoFactor: (code: string) => Promise<void>;
 	logout: () => void;
@@ -126,7 +127,7 @@ export const useAuthStore = create<AuthState>()(
 					throw error;
 				}
 			},
-			register: async (email, displayName, password) => {
+			register: async (email, displayName, password, username) => {
 				sessionOperationVersion += 1;
 				set({ isLoading: true, error: null });
 				try {
@@ -135,7 +136,12 @@ export const useAuthStore = create<AuthState>()(
 						session: { token: string };
 					}>("/auth/register", {
 						method: "POST",
-						body: JSON.stringify({ email, displayName, password }),
+						body: JSON.stringify({
+							email,
+							displayName,
+							password,
+							username,
+						}),
 					});
 					set({
 						user: result.user,
@@ -173,13 +179,21 @@ export const useAuthStore = create<AuthState>()(
 				}
 
 				try {
-					const { user } = await api<{ user: User }>("/auth/me", {}, token);
+					const { user } = await api<{ user: User }>(
+						"/auth/me",
+						{},
+						token,
+					);
 					if (
 						operationVersion !== sessionOperationVersion ||
 						useAuthStore.getState().token !== token
 					)
 						return;
-					set({ user, isAuthenticated: true, isSessionValidated: true });
+					set({
+						user,
+						isAuthenticated: true,
+						isSessionValidated: true,
+					});
 				} catch {
 					if (
 						operationVersion !== sessionOperationVersion ||

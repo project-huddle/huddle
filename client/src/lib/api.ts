@@ -10,6 +10,7 @@ export const API_URL = new URL(
 	.replace(/\/$/, "");
 
 export type User = {
+	username: string;
 	id: string;
 	email: string;
 	displayName: string;

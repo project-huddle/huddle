@@ -5,6 +5,7 @@ export type User = {
   id: string;
   email: string;
   displayName: string;
+  username: string;
   avatarUrl: string | null;
   createdAt: string;
 };
@@ -58,6 +59,7 @@ export const userSelect = {
   id: true,
   email: true,
   displayName: true,
+  username: true,
   avatarUrl: true,
   createdAt: true,
 } satisfies Prisma.UserSelect;
@@ -66,6 +68,7 @@ export const messageInclude = {
   reactionEntries: { select: { emoji: true } },
 } satisfies Prisma.MessageInclude;
 export const userView = (user: {
+  username: string;
   id: string;
   email: string;
   displayName: string;

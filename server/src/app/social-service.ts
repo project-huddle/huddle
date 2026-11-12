@@ -1,3 +1,4 @@
+import { isValidUsername, normalizeUsername } from "@/core/identity/username";
 import { Prisma } from "@prisma/client";
 import type { User } from "../infra/database/identity-repository";
 import { db } from "../infra/database/client";
@@ -7,6 +8,7 @@ const publicUserSelect = {
   id: true,
   email: true,
   displayName: true,
+  username: true,
   avatarUrl: true,
   createdAt: true,
   emailVerifiedAt: true,
@@ -55,14 +57,16 @@ export async function requestFriend(
   const value = rawIdentifier.trim();
   const friendId = extractFriendId(value);
   if (friendId === user.id) return { type: "invalid" };
-  const target = friendId
-    ? await db.user.findUnique({ where: { id: friendId }, select: publicUserSelect })
-    : await db.user.findUnique({
-        where: { email: value.toLowerCase() },
-        select: publicUserSelect,
-      });
-  if (!friendId && (!validEmail(value.toLowerCase()) || value.toLowerCase() === user.email))
+  const username = normalizeUsername(value);
+  const isEmail = validEmail(value.toLowerCase());
+  if (!friendId && !isEmail && !isValidUsername(username))
     return { type: "invalid" };
+  let where: Prisma.UserWhereUniqueInput;
+  if (friendId) where = { id: friendId };
+  else if (isEmail) where = { email: value.toLowerCase() };
+  else where = { username };
+  const target = await db.user.findUnique({ where, select: publicUserSelect });
+  if (target?.id === user.id) return { type: "invalid" };
   if (!target) return { type: "not-found" };
   const reverse = await db.friendship.findUnique({
     where: {
@@ -81,7 +85,8 @@ export async function requestFriend(
 }
 
 function extractFriendId(value: string): string | null {
-  const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
+  const uuid =
+    /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
   if (uuid.test(value)) return value;
   try {
     const candidate = new URL(value).searchParams.get("friend");
@@ -116,7 +121,10 @@ export async function deleteFriendship(
   });
 }
 
-export async function areFriends(userId: string, peerId: string): Promise<boolean> {
+export async function areFriends(
+  userId: string,
+  peerId: string,
+): Promise<boolean> {
   return Boolean(
     await db.friendship.findFirst({
       where: {

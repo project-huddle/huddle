@@ -15,6 +15,7 @@ import { issueWebSocketTicket } from "@/interfaces/realtime/realtime-gateway";
 import { authenticatedRoutes } from "../plugins/auth";
 
 const registrationBody = t.Object({
+  username: t.Optional(t.String({ minLength: 3, maxLength: 40, pattern: "^[a-zA-Z0-9_]+$" })),
   email: t.String(),
   displayName: t.String(),
   password: t.String(),
@@ -48,18 +49,19 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
         return error(
           409,
           "EMAIL_IN_USE",
-          "An account already exists for this email.",
+          "Este e-mail ou nome de usuário já está em uso.",
         );
       const user = await createUser(
         email,
         displayName,
         await Bun.password.hash(password, { algorithm: "argon2id" }),
+        input.username?.toLowerCase(),
       );
       if (!user)
         return error(
           409,
           "EMAIL_IN_USE",
-          "An account already exists for this email.",
+          "Este e-mail ou nome de usuário já está em uso.",
         );
       void sendIdentityCode(user, "email_verification").catch((cause) =>
         console.error("Could not send registration verification email", cause),
@@ -107,6 +109,7 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
           id: true,
           email: true,
           displayName: true,
+  username: true,
           avatarUrl: true,
           createdAt: true,
         },
