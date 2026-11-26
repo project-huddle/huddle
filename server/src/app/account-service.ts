@@ -1,3 +1,5 @@
+import { canPublishMedia } from "./media-access";
+import { revokeUserSessionAccess } from "./session-revocation";
 import { normalizeUsername, isValidUsername } from "@/core/identity/username";
 import { Prisma } from "@prisma/client";
 import { db } from "../infra/database/client";
@@ -78,6 +80,8 @@ export async function updateProfile(
   )
     return { type: "invalid-avatar" };
 
+  if (typeof avatarUrl === "string" && !(await canPublishMedia(avatarUrl, userId))) return {type:"invalid-avatar"};
+
   const countryCode =
     input.countryCode === null ? null : input.countryCode?.trim().toUpperCase();
   if (
@@ -149,6 +153,7 @@ export async function changePassword(
     db.user.update({ where: { id: userId }, data: { passwordHash } }),
     db.session.deleteMany({ where: { userId } }),
   ]);
+  revokeUserSessionAccess(userId);
   return "success";
 }
 

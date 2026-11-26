@@ -1,9 +1,11 @@
+import { MediaImage } from "@/components/media-image";
 import { Flag, Pencil, Reply, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { UserAvatar } from "@/components/user-avatar";
-import { resolveMediaUrl, type ChatMessage, type HuddleMember } from "@/lib/api";
+import { type ChatMessage, type HuddleMember } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { parseMentions } from "@/lib/mentions";
 import { useMessageDialog } from "@/hooks/use-message-dialog";
 import { MessageAction } from "@/components/messages/message-action";
 import { MessageDialogs } from "@/components/messages/message-dialogs";
@@ -58,23 +60,17 @@ export function MessageList({
 		setReporting(null);
 		setReportReason("");
 	};
-	const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-	const mentionPattern = members.length
-		? new RegExp("(^|\\s)(" + [...members].sort((a, b) => b.displayName.length - a.displayName.length).map(({ displayName }) => "@" + escapeRegExp(displayName)).join("|") + ")(?=\\s|$|[.,!?])", "giu")
-		: null;
 	const renderContent = (content: string) => {
-		if (!mentionPattern) return content;
 		const parts: ReactNode[] = [];
 		let lastIndex = 0;
-		for (const match of content.matchAll(mentionPattern)) {
-			const index = match.index ?? 0;
-			parts.push(content.slice(lastIndex, index + (match[1]?.length ?? 0)));
+		for (const match of parseMentions(content, members)) {
+			parts.push(content.slice(lastIndex, match.start));
 			parts.push(
-				<span key={index + "-" + match[2]} className="rounded bg-(--brand)/25 px-1 font-bold text-(--brand)">
-					{match[2]}
+				<span key={match.start} className="rounded bg-(--brand)/25 px-1 font-bold text-(--brand)">
+					{match.text}
 				</span>,
 			);
-			lastIndex = index + match[0].length;
+			lastIndex = match.end;
 		}
 		parts.push(content.slice(lastIndex));
 		return parts;
@@ -182,8 +178,8 @@ export function MessageList({
 									)
 								)}
 								{message.media && (
-									<img
-										src={resolveMediaUrl(message.media.url)}
+									<MediaImage
+										src={message.media.url}
 										alt={message.media.alt}
 										loading="lazy"
 										className={cn(

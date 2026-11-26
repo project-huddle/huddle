@@ -6,14 +6,10 @@ import { validEmail } from "./validation";
 
 const publicUserSelect = {
   id: true,
-  email: true,
   displayName: true,
   username: true,
   avatarUrl: true,
   createdAt: true,
-  emailVerifiedAt: true,
-  countryCode: true,
-  twoFactorEnabled: true,
 } satisfies Prisma.UserSelect;
 type PublicUserRow = Prisma.UserGetPayload<{ select: typeof publicUserSelect }>;
 
@@ -21,7 +17,6 @@ function publicUser(row: PublicUserRow) {
   return {
     ...row,
     createdAt: row.createdAt.toISOString(),
-    emailVerifiedAt: row.emailVerifiedAt?.toISOString() ?? null,
   };
 }
 

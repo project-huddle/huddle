@@ -1,3 +1,4 @@
+import { publicProfile } from "@/core/identity/public-profile";
 import { Elysia } from "elysia";
 import {
   acceptFriend,
@@ -36,7 +37,7 @@ export const friendRoutes = new Elysia({ name: "friend-routes" })
           "REQUEST_EXISTS",
           "Já existe uma solicitação entre estas contas.",
         );
-      notifyUser(result.user.id, { type: "friend_request", user: currentUser });
+      notifyUser(result.user.id, { type: "friend_request", user: publicProfile(currentUser) });
       return json({ user: result.user, status: "pending" }, 201);
     },
     { body: friendBody },

@@ -3,7 +3,7 @@ import { DirectCallPanel } from "@/components/direct/direct-call-panel";
 import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Phone, PhoneOff, Volume2 } from "lucide-react";
 
-import { useRealtime } from "@/hooks/use-realtime";
+import { useRealtime } from "@/features/realtime";
 import { PrivateWorkspace } from "@/components/direct/private-workspace";
 import { ProfileSettings } from "@/components/profile-settings";
 import { ServerSettings } from "@/components/chat/server-settings";

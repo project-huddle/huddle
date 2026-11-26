@@ -26,7 +26,6 @@ import {
 	listMediaDevices,
 	deviceLabel,
 	readMediaDevicePreferences,
-	writeMediaDevicePreferences,
 } from "@/lib/media-devices";
 
 export type CallPeer = RealtimePeer;
@@ -52,7 +51,7 @@ type CallRoomProps = {
 		kind:
 			"audioInputDeviceId" | "videoInputDeviceId" | "audioOutputDeviceId",
 		id: string | null,
-	) => void;
+	) => void | Promise<void>;
 	peers: CallPeer[];
 	sharing: boolean;
 	user: User;
@@ -77,18 +76,23 @@ export function CallRoom(props: CallRoomProps) {
 	const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
 	const [devicePrefs, setDevicePrefs] = useState(readMediaDevicePreferences);
 	const [devicesOpen, setDevicesOpen] = useState(false);
+	const [changingDevice, setChangingDevice] = useState(false);
 	useEffect(() => {
 		void listMediaDevices().then(setDevices);
 	}, []);
-	const updateDevice = (
+	const updateDevice = async (
 		kind:
 			"audioInputDeviceId" | "videoInputDeviceId" | "audioOutputDeviceId",
 		id: string | null,
 	) => {
-		const next = { ...devicePrefs, [kind]: id };
-		setDevicePrefs(next);
-		writeMediaDevicePreferences(next);
-		props.onChangeDevice?.(kind, id);
+		if (changingDevice || !props.onChangeDevice) return;
+		setChangingDevice(true);
+		try {
+			await props.onChangeDevice(kind, id);
+		} finally {
+			setDevicePrefs(readMediaDevicePreferences());
+			setChangingDevice(false);
+		}
 	};
 	const screenPanelRef = useRef<HTMLElement>(null);
 	const peers = useMemo(
@@ -462,8 +466,9 @@ export function CallRoom(props: CallRoomProps) {
 						kind="audioinput"
 						devices={devices}
 						value={devicePrefs.audioInputDeviceId}
+						disabled={changingDevice || !props.onChangeDevice}
 						onChange={(id) =>
-							updateDevice("audioInputDeviceId", id)
+							void updateDevice("audioInputDeviceId", id)
 						}
 					/>
 					<DeviceSelect
@@ -471,8 +476,9 @@ export function CallRoom(props: CallRoomProps) {
 						kind="videoinput"
 						devices={devices}
 						value={devicePrefs.videoInputDeviceId}
+						disabled={changingDevice || !props.onChangeDevice}
 						onChange={(id) =>
-							updateDevice("videoInputDeviceId", id)
+							void updateDevice("videoInputDeviceId", id)
 						}
 					/>
 					<DeviceSelect
@@ -480,8 +486,9 @@ export function CallRoom(props: CallRoomProps) {
 						kind="audiooutput"
 						devices={devices}
 						value={devicePrefs.audioOutputDeviceId}
+						disabled={changingDevice || !props.onChangeDevice}
 						onChange={(id) =>
-							updateDevice("audioOutputDeviceId", id)
+							void updateDevice("audioOutputDeviceId", id)
 						}
 					/>
 				</div>
@@ -495,12 +502,14 @@ function DeviceSelect({
 	kind,
 	devices,
 	value,
+	disabled,
 	onChange,
 }: {
 	label: string;
 	kind: MediaDeviceKind;
 	devices: MediaDeviceInfo[];
 	value: string | null;
+	disabled: boolean;
 	onChange: (value: string | null) => void;
 }) {
 	return (
@@ -509,6 +518,7 @@ function DeviceSelect({
 			<select
 				aria-label={label}
 				value={value ?? ""}
+				disabled={disabled}
 				onChange={(event) => onChange(event.target.value || null)}
 				className="mt-1.5 h-11 w-full rounded-xl border border-(--line) bg-(--canvas) px-3"
 			>

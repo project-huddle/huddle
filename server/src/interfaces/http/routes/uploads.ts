@@ -1,3 +1,4 @@
+import { db } from "@/infra/database/client";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { Elysia, t } from "elysia";
@@ -18,7 +19,7 @@ function detectedImageType(bytes: Uint8Array): ImageType | null {
   if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff)
     return "image/jpeg";
   const pngSignature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-  if (bytes.slice(0, 8).every((value, index) => value === pngSignature[index]))
+  if (bytes.length >= 8 && bytes.slice(0, 8).every((value, index) => value === pngSignature[index]))
     return "image/png";
   const header = new TextDecoder().decode(bytes.slice(0, 12));
   if (header.startsWith("GIF87a") || header.startsWith("GIF89a"))
@@ -32,7 +33,7 @@ export const uploadRoutes = new Elysia({ name: "upload-routes" })
   .use(authenticatedRoutes("authenticated-upload-routes"))
   .post(
     "/uploads",
-    async ({ request, body }) => {
+    async ({ request, body, currentUser }) => {
       const declaredLength = Number(request.headers.get("content-length"));
       if (
         Number.isFinite(declaredLength) &&
@@ -60,6 +61,7 @@ export const uploadRoutes = new Elysia({ name: "upload-routes" })
         );
       const filename = `${crypto.randomUUID()}.${imageExtensions[imageType]}`;
       await Bun.write(join(config.uploadsPath, filename), bytes);
+      await db.uploadedMedia.create({data:{filename,ownerId:currentUser.id,contentType:imageType}});
       const mediaType = imageType === "image/gif" ? "gif" : "image";
       return json(
         {

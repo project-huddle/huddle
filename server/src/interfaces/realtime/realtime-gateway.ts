@@ -1,3 +1,8 @@
+import { parseMentions } from "@/core/mentions";
+import { canAccessMedia } from "@/app/media-access";
+import { publicProfile } from "@/core/identity/public-profile";
+import { observeSession } from "@/app/session-revocation";
+import { sessionForTokenHash } from "@/infra/database/identity-repository";
 import { listFriendships } from "@/app/social-service";
 import { disconnectDirectCall, handleDirectCallEvent } from "./direct-call-gateway";
 import type { ElysiaWS } from "elysia/ws";
@@ -21,6 +26,11 @@ import { messageContent, messageMedia } from "@/app/validation";
 type RealtimeSocket = ElysiaWS<any, any>;
 type SocketSession = {
   user: User;
+  tokenHash: string;
+  expiresAt: number;
+  revoked: boolean;
+  disposeSession: () => void;
+  expiryTimer: ReturnType<typeof setTimeout> | null;
   callId: string | null;
   channelId: string | null;
   limiter: FixedWindowRateLimiter;
@@ -33,7 +43,7 @@ type WsMessage = Record<string, unknown> & { type?: unknown };
 const socketsByUser = new Map<string, Set<RealtimeSocket>>();
 const calls = new Map<string, Set<RealtimeSocket>>();
 const voicePresenceRevisions = new Map<string, number>();
-const websocketTickets = new Map<string, { expiresAt: number; user: User }>();
+const websocketTickets = new Map<string, { expiresAt: number; user: User; tokenHash: string; dispose: () => void }>();
 const sessions = new WeakMap<object, SocketSession>();
 const CALL_REPLACED_CLOSE_CODE = 4001;
 
@@ -44,6 +54,8 @@ function session(ws: RealtimeSocket): SocketSession {
 }
 
 function send(ws: RealtimeSocket, value: unknown): void {
+  const current = sessions.get(ws.raw);
+  if (!current || current.revoked || current.expiresAt <= Date.now()) return;
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(value));
 }
 
@@ -72,13 +84,8 @@ async function mentionedUserIds(serverId: string, content: string): Promise<stri
 		where: { serverId },
 		select: { userId: true, user: { select: { displayName: true } } },
 	});
-	return members
-		.filter(({ user }) => {
-			const escapedName = user.displayName.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&");
-			const mentionPattern = new RegExp(`(^|\\s)@${escapedName}(?=\\s|$|[.,!?])`, "iu");
-			return mentionPattern.test(content);
-		})
-		.map(({ userId }) => userId);
+  const matches = parseMentions(content, members.map(({userId, user}) => ({id:userId, displayName:user.displayName})));
+  return [...new Set(matches.flatMap(({userIds}) => userIds))];
 }
 
 async function serverIdsForUser(userId: string): Promise<string[]> {
@@ -117,7 +124,7 @@ async function sendPresenceSnapshot(
 function broadcastVoicePresence(channelId: string, serverId: string, users: RealtimeSocket[]): void {
   const revision = (voicePresenceRevisions.get(channelId) ?? 0) + 1;
   voicePresenceRevisions.set(channelId, revision);
-  broadcastServer(serverId, { type: "voice_presence", channelId, revision, users: users.map((peer) => session(peer).user) });
+  broadcastServer(serverId, { type: "voice_presence", channelId, revision, users: users.map((peer) => publicProfile(session(peer).user)) });
 }
 
 export function notifyUser(userId: string, value: unknown): void {
@@ -128,10 +135,10 @@ export async function notifyProfileUpdated(user: User): Promise<void> {
   for (const socket of socketsByUser.get(user.id) ?? []) {
     session(socket).user = user;
   }
-  notifyUser(user.id, { type: "profile_updated", user });
+  notifyUser(user.id, { type: "profile_updated", user: publicProfile(user) });
   for (const friendship of await listFriendships(user.id)) {
     if (friendship.status === "accepted") {
-      notifyUser(friendship.user.id, { type: "profile_updated", user });
+      notifyUser(friendship.user.id, { type: "profile_updated", user: publicProfile(user) });
     }
   }
   for (const serverId of await serverIdsForUser(user.id)) {
@@ -212,29 +219,50 @@ function leaveOtherCalls(userId: string, current: RealtimeSocket): void {
   }
 }
 
-export function issueWebSocketTicket(user: User): string {
+export function issueWebSocketTicket(user: User, tokenHash: string): string {
   const ticket = crypto.randomUUID();
   const now = Date.now();
-  websocketTickets.set(ticket, { user, expiresAt: now + 30_000 });
-  for (const [key, value] of websocketTickets) {
-    if (value.expiresAt <= now) websocketTickets.delete(key);
+  const dispose = observeSession(tokenHash, user.id, () => websocketTickets.delete(ticket));
+  websocketTickets.set(ticket, { user, tokenHash, dispose, expiresAt: now + 30_000 });
+  for (const [key, entry] of websocketTickets) {
+    if (entry.expiresAt <= now) { entry.dispose(); websocketTickets.delete(key); }
   }
   return ticket;
 }
 
-export function consumeWebSocketTicket(ticket: string | null): User | null {
+export async function consumeWebSocketTicket(ticket: string | null) {
   if (!ticket) return null;
   const entry = websocketTickets.get(ticket);
   websocketTickets.delete(ticket);
-  return entry && entry.expiresAt > Date.now() ? entry.user : null;
+  entry?.dispose();
+  if (!entry || entry.expiresAt <= Date.now()) return null;
+  return sessionForTokenHash(entry.tokenHash);
 }
 
-export function hasValidWebSocketTicket(
-  ticket: string | null | undefined,
-): boolean {
-  if (!ticket) return false;
-  const entry = websocketTickets.get(ticket);
+export function hasValidWebSocketTicket(ticket: string | null | undefined): boolean {
+  const entry = ticket ? websocketTickets.get(ticket) : null;
   return Boolean(entry && entry.expiresAt > Date.now());
+}
+
+function invalidateSocket(ws: RealtimeSocket) {
+  const current = sessions.get(ws.raw);
+  if (!current || current.revoked) return;
+  current.revoked = true;
+  current.disposeSession();
+  if (current.expiryTimer) clearTimeout(current.expiryTimer);
+  disconnectDirectCall(ws, notifyUser, true);
+  leaveCallAndBroadcast(ws, true);
+  socketsByUser.get(current.user.id)?.delete(ws);
+  ws.close(1008, "Session revoked");
+}
+
+function scheduleSessionExpiry(ws: RealtimeSocket) {
+  const current = session(ws);
+  current.expiryTimer = setTimeout(() => {
+    if (current.expiresAt <= Date.now()) invalidateSocket(ws);
+    else scheduleSessionExpiry(ws);
+  }, Math.min(current.expiresAt - Date.now(), 2_147_483_647));
+  current.expiryTimer.unref();
 }
 
 export async function revokeUnauthorizedSocketAccess(
@@ -263,10 +291,11 @@ export function revokeChannelSocketAccess(channelId: string): void {
 export const realtimeWebSocket = {
   async open(ws: RealtimeSocket) {
     const ticket = String(ws.data.query?.ticket ?? "");
-    const user = consumeWebSocketTicket(ticket);
-    if (!user) return ws.close(1008, "Unauthorized");
+    const authenticated = await consumeWebSocketTicket(ticket);
+    if (!authenticated) return ws.close(1008, "Unauthorized");
+    const { user, tokenHash, expiresAt } = authenticated;
     const current: SocketSession = {
-      user,
+      user, tokenHash, expiresAt, revoked:false, disposeSession: () => {}, expiryTimer:null,
       callId: null,
       channelId: null,
       limiter: new FixedWindowRateLimiter(120),
@@ -275,17 +304,21 @@ export const realtimeWebSocket = {
       serverId: null,
     };
     sessions.set(ws.raw, current);
+    current.disposeSession = observeSession(tokenHash, user.id, () => invalidateSocket(ws));
+    scheduleSessionExpiry(ws);
     const firstChannel = await firstChannelForUser(user.id);
+    if (current.revoked) return;
     current.channelId = firstChannel?.id ?? null;
     current.serverId = firstChannel?.serverId ?? null;
     const sockets = socketsByUser.get(session(ws).user.id) ?? new Set();
     const wasOffline = sockets.size === 0;
     sockets.add(ws);
     socketsByUser.set(session(ws).user.id, sockets);
-    send(ws, { type: "ready", user: session(ws).user });
+    send(ws, { type: "ready", user: publicProfile(session(ws).user) });
     if (wasOffline) void broadcastPresenceForUser(session(ws).user.id, "online");
   },
   async message(ws: RealtimeSocket, raw: unknown) {
+    if (session(ws).revoked || session(ws).expiresAt <= Date.now()) return invalidateSocket(ws);
     if (!session(ws).limiter.consume(session(ws).user.id))
       return send(ws, {
         type: "error",
@@ -308,7 +341,7 @@ export const realtimeWebSocket = {
         message: "Message must be valid JSON.",
       });
     }
-    if (await handleDirectCallEvent(ws, session(ws).user, event, notifyUser)) return;
+    if (await handleDirectCallEvent(ws, publicProfile(session(ws).user), event, notifyUser)) return;
     if (event.type === "chat_message") {
       const channelId =
         (typeof event.channelId === "string" && event.channelId) ||
@@ -338,6 +371,7 @@ export const realtimeWebSocket = {
           code: "INVALID_MESSAGE",
           message: `Message must contain text or valid media.`,
         });
+      if (media?.url.startsWith("/media/") && !(await canAccessMedia(media.url, session(ws).user.id))) return send(ws, {type:"error",code:"FORBIDDEN",message:"Você não possui acesso a esta imagem."});
       const reply =
         typeof event.replyToId === "string"
           ? await messageForUser(session(ws).user.id, event.replyToId)
@@ -433,7 +467,7 @@ export const realtimeWebSocket = {
           type: "voice_presence",
           channelId: activeChannelId,
           revision: voicePresenceRevisions.get(activeChannelId) ?? 0,
-          users: active.map((peer) => session(peer).user),
+          users: active.map((peer) => publicProfile(session(peer).user)),
         });
       }
       return send(ws, { type: "channel_subscribed", channelId });
@@ -463,7 +497,7 @@ export const realtimeWebSocket = {
           callId,
       peers: [...(calls.get(key) ?? [])]
             .filter((peer) => session(peer).user.id !== session(ws).user.id)
-            .map((peer) => ({ user: session(peer).user, muted: session(peer).muted || session(peer).serverMuted, serverMuted: session(peer).serverMuted })),
+            .map((peer) => ({ user: publicProfile(session(peer).user), muted: session(peer).muted || session(peer).serverMuted, serverMuted: session(peer).serverMuted })),
         });
       leaveCall(ws);
       leaveOtherCalls(session(ws).user.id, ws);
@@ -476,11 +510,11 @@ export const realtimeWebSocket = {
         callId,
         peers: [...peers]
           .filter((peer) => session(peer).user.id !== session(ws).user.id)
-          .map((peer) => ({ user: session(peer).user, muted: session(peer).muted || session(peer).serverMuted, serverMuted: session(peer).serverMuted })),
+          .map((peer) => ({ user: publicProfile(session(peer).user), muted: session(peer).muted || session(peer).serverMuted, serverMuted: session(peer).serverMuted })),
       });
       for (const peer of peers)
         if (peer !== ws)
-          send(peer, { type: "peer_joined", callId, user: session(ws).user, muted: session(ws).muted || session(ws).serverMuted, serverMuted: session(ws).serverMuted });
+          send(peer, { type: "peer_joined", callId, user: publicProfile(session(ws).user), muted: session(ws).muted || session(ws).serverMuted, serverMuted: session(ws).serverMuted });
       broadcastVoicePresence(session(ws).channelId!, session(ws).serverId!, [...peers]);
       return;
     }
@@ -585,6 +619,8 @@ export const realtimeWebSocket = {
   close(ws: RealtimeSocket) {
     const current = sessions.get(ws.raw);
     if (!current) return;
+    current.disposeSession();
+    if (current.expiryTimer) clearTimeout(current.expiryTimer);
     disconnectDirectCall(ws, notifyUser);
     leaveCallAndBroadcast(ws);
     const sockets = socketsByUser.get(session(ws).user.id);

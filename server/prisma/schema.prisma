@@ -21,6 +21,7 @@ model User {
   audioOutputDeviceId    String?            @map("audio_output_device_id") @db.VarChar(512)
   videoInputDeviceId     String?            @map("video_input_device_id") @db.VarChar(512)
   createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  uploads                UploadedMedia[]
   sessions               Session[]
   ownedServers           Server[]           @relation("ServerOwner")
   memberships            ServerMember[]
@@ -283,4 +284,14 @@ model MessageReaction {
   @@id([messageId, userId, emoji])
   @@index([userId], map: "message_reactions_user_idx")
   @@map("message_reactions")
+}
+
+model UploadedMedia {
+  filename String @id @db.VarChar(80)
+  ownerId String @map("owner_id") @db.Uuid
+  contentType String @map("content_type") @db.VarChar(32)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  @@index([ownerId], map: "uploaded_media_owner_idx")
+  @@map("uploaded_media")
 }

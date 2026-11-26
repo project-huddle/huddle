@@ -21,18 +21,49 @@ function directMessageView(row: DirectMessage) {
   };
 }
 
-export async function listDirectMessages(userId: string, peerId: string) {
+export async function listDirectMessages(
+  userId: string,
+  peerId: string,
+  options: { limit: number; before: { id: string; createdAt: Date } | null },
+) {
+  const participants = {
+    OR: [
+      { senderId: userId, recipientId: peerId },
+      { senderId: peerId, recipientId: userId },
+    ],
+  };
+  const { before } = options;
+  const limit = Math.min(options.limit, 100);
+  if (before) {
+    const anchor = await db.directMessage.findFirst({
+      where: { ...participants, id: before.id, createdAt: before.createdAt },
+      select: { id: true },
+    });
+    if (!anchor) return { type: "invalid-cursor" as const };
+  }
   const messages = await db.directMessage.findMany({
     where: {
-      OR: [
-        { senderId: userId, recipientId: peerId },
-        { senderId: peerId, recipientId: userId },
-      ],
+      ...participants,
+      ...(before && {
+        AND: [
+          {
+            OR: [
+              { createdAt: { lt: before.createdAt } },
+              { createdAt: before.createdAt, id: { lt: before.id } },
+            ],
+          },
+        ],
+      }),
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    take: 100,
+    take: limit + 1,
   });
-  return messages.reverse().map(directMessageView);
+  const hasMore = messages.length > limit;
+  return {
+    type: "success" as const,
+    messages: messages.slice(0, limit).reverse().map(directMessageView),
+    hasMore,
+  };
 }
 
 export async function createDirectMessage(

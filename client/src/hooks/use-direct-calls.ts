@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type User } from "@/lib/api";
-import { useRealtime } from "@/hooks/use-realtime";
+import { useRealtime } from "@/features/realtime";
 import { useSocialEvents } from "@/hooks/use-social-events";
 
 type DirectCall = {
@@ -17,6 +17,25 @@ export function useDirectCalls(token: string, onAccepted: () => void) {
 	const acceptedHandler = useRef(onAccepted);
 	acceptedHandler.current = onAccepted;
 	const acceptedCallId = useRef<string | null>(null);
+	const endedCallIds = useRef(new Set<string>());
+	const currentToken = useRef(token);
+	currentToken.current = token;
+
+	const rememberEnded = useCallback((callId: string) => {
+		endedCallIds.current.add(callId);
+		if (endedCallIds.current.size > 100) {
+			const oldest = endedCallIds.current.values().next().value;
+			if (oldest) endedCallIds.current.delete(oldest);
+		}
+	}, []);
+
+	useEffect(() => {
+		setCall(null);
+		setError(null);
+		setBusy(false);
+		acceptedCallId.current = null;
+		endedCallIds.current.clear();
+	}, [token]);
 	const realtime = useRealtime(
 		token,
 		call?.status === "accepted" ? call.id : "",
@@ -36,6 +55,7 @@ export function useDirectCalls(token: string, onAccepted: () => void) {
 		const incoming = event.call as DirectCall;
 		if (!incoming?.id) return;
 		if (event.type === "direct_call_ended") {
+			rememberEnded(incoming.id);
 			setCall((current) =>
 				current?.id === incoming.id ? null : current,
 			);
@@ -45,8 +65,13 @@ export function useDirectCalls(token: string, onAccepted: () => void) {
 			event.type === "direct_call_ringing" ||
 			event.type === "direct_call_accepted"
 		) {
+			if (endedCallIds.current.has(incoming.id)) return;
 			setError(null);
-			setCall(incoming);
+			setCall((current) =>
+				current?.id === incoming.id && current.status === "accepted"
+					? current
+					: incoming,
+			);
 		}
 	});
 
@@ -63,19 +88,24 @@ export function useDirectCalls(token: string, onAccepted: () => void) {
 				},
 				token,
 			);
+			if (
+				currentToken.current !== token ||
+				endedCallIds.current.has(result.call.id)
+			) return;
 			setCall((current) =>
 				current?.id === result.call.id && current.status === "accepted"
 					? current
 					: result.call,
 			);
 		} catch (cause) {
+			if (currentToken.current !== token) return;
 			setError(
 				cause instanceof Error
 					? cause.message
 					: "Não foi possível iniciar a chamada.",
 			);
 		} finally {
-			setBusy(false);
+			if (currentToken.current === token) setBusy(false);
 		}
 	};
 	const accept = async () => {
@@ -88,35 +118,45 @@ export function useDirectCalls(token: string, onAccepted: () => void) {
 				{ method: "POST" },
 				token,
 			);
+			if (
+				currentToken.current !== token ||
+				endedCallIds.current.has(result.call.id)
+			) return;
 			setCall((current) =>
 				current?.id === result.call.id && current.status === "accepted"
 					? current
 					: result.call,
 			);
 		} catch (cause) {
+			if (currentToken.current !== token) return;
 			setError(
 				cause instanceof Error
 					? cause.message
 					: "Não foi possível aceitar a chamada.",
 			);
 		} finally {
-			setBusy(false);
+			if (currentToken.current === token) setBusy(false);
 		}
 	};
 	const end = useCallback(async () => {
 		if (!call) return;
+		rememberEnded(call.id);
 		try {
 			await api(`/direct-calls/${call.id}`, { method: "DELETE" }, token);
 		} catch (cause) {
+			if (currentToken.current !== token) return;
 			setError(
 				cause instanceof Error
 					? cause.message
 					: "Não foi possível encerrar a chamada.",
 			);
 		} finally {
-			setCall(null);
+			if (currentToken.current === token)
+				setCall((current) =>
+					current?.id === call.id ? null : current,
+				);
 		}
-	}, [call, token]);
+	}, [call, token, rememberEnded]);
 
 	return { call, error, busy, start, accept, end, realtime };
 }

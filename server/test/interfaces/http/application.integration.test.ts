@@ -123,6 +123,45 @@ async function connect(token: string): Promise<WebSocket> {
 }
 
 describe("huddle API", () => {
+  test("revokes session-bound sockets and pending tickets on logout and password change", async () => {
+    const owner = await register("socket-revocation@example.com", "Session Owner");
+    const login = await fetch(`${baseUrl}/auth/login`, { method: "POST", headers: {"content-type":"application/json"}, body: JSON.stringify({email:"socket-revocation@example.com", password:"secure-password"}) });
+    const second = await login.json() as {session:{token:string}};
+    const firstSocket = await connect(owner.session.token);
+    const secondSocket = await connect(second.session.token);
+    const ticketResponse = await fetch(`${baseUrl}/auth/ws-ticket`, {method:"POST", headers:{authorization:`Bearer ${owner.session.token}`}});
+    const {ticket} = await ticketResponse.json() as {ticket:string};
+    const firstClosed = new Promise<number>((resolve) => firstSocket.addEventListener("close", (event) => resolve(event.code), {once:true}));
+    expect((await fetch(`${baseUrl}/auth/logout`, {method:"POST", headers:{authorization:`Bearer ${owner.session.token}`}})).status).toBe(204);
+    expect(await Promise.race([firstClosed, Bun.sleep(1000).then(() => -1)])).toBe(1008);
+    expect(secondSocket.readyState).toBe(WebSocket.OPEN);
+    expect((await fetch(`${baseUrl}/auth/ws-ticket`, {method:"POST", headers:{authorization:`Bearer ${owner.session.token}`}})).status).toBe(401);
+    expect((await fetch(`${baseUrl}/ws?ticket=${ticket}`, {headers:{upgrade:"websocket"}})).status).toBe(401);
+    const secondClosed = new Promise<number>((resolve) => secondSocket.addEventListener("close", (event) => resolve(event.code), {once:true}));
+    expect((await fetch(`${baseUrl}/profile/password`, {method:"POST", headers:{authorization:`Bearer ${second.session.token}`,"content-type":"application/json"}, body:JSON.stringify({currentPassword:"secure-password",newPassword:"changed-password"})})).status).toBe(204);
+    expect(await Promise.race([secondClosed, Bun.sleep(1000).then(() => -1)])).toBe(1008);
+    expect((await fetch(`${baseUrl}/auth/ws-ticket`, {method:"POST",headers:{authorization:`Bearer ${second.session.token}`}})).status).toBe(401);
+  });
+
+  test("publishes only public profile fields to friends", async () => {
+    const alice = await register("privacy-alice@example.com", "Privacy Alice");
+    const bob = await register("privacy-bob@example.com", "Privacy Bob");
+    const {db} = await import("../../../src/infra/database/client");
+    await db.friendship.create({data:{requesterId:alice.user.id,addresseeId:bob.user.id,status:"accepted"}});
+    const bobSocket = await connect(bob.session.token);
+    const updated = nextEvent(bobSocket,"profile_updated");
+    const result = await fetch(`${baseUrl}/profile`, {method:"PATCH",headers:{authorization:`Bearer ${alice.session.token}`,"content-type":"application/json"},body:JSON.stringify({displayName:"Public Alice",audioInputDeviceId:"private-mic"})});
+    expect(result.status).toBe(200);
+    expect(await result.json()).toMatchObject({user:{audioInputDeviceId:"private-mic"}});
+    const publicEvent = await updated;
+    for (const key of ["email","emailVerifiedAt","twoFactorEnabled","countryCode","audioInputDeviceId","audioOutputDeviceId","videoInputDeviceId"]) expect(publicEvent.user).not.toHaveProperty(key);
+    const friends = await fetch(`${baseUrl}/friends`,{headers:{authorization:`Bearer ${bob.session.token}`}});
+    const rows = await friends.json() as {friendships:Array<{user:Record<string,unknown>}>};
+    expect(rows.friendships[0]?.user).not.toHaveProperty("email");
+    expect(rows.friendships[0]?.user).not.toHaveProperty("twoFactorEnabled");
+    bobSocket.close();
+  });
+
   test("reports health and applies CORS only to configured origins", async () => {
     const allowed = await fetch(`${baseUrl}/health`, {
       headers: { origin: "http://localhost:5173" },

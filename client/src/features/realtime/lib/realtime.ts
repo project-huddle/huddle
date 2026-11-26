@@ -1,13 +1,11 @@
-const turnUrl = import.meta.env.VITE_TURN_URL as string | undefined;
-const turnUsername = import.meta.env.VITE_TURN_USERNAME as string | undefined;
-const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL as string | undefined;
+import { api } from "@/lib/api";
 
-export const rtcConfig: RTCConfiguration = {
-	iceServers: [
-		{ urls: "stun:stun.l.google.com:19302" },
-		...(turnUrl ? [{ urls: turnUrl, username: turnUsername, credential: turnCredential }] : []),
-	],
-};
+export async function fetchRTCConfiguration(token: string): Promise<RTCConfiguration> {
+	const response = await api<{ iceServers: RTCIceServer[] }>(
+		"/calls/ice-config", { cache: "no-store" }, token,
+	);
+	return { iceServers: response.iceServers };
+}
 
 export function mediaErrorMessage(cause: unknown, action: "camera" | "microphone" | "screen") {
 	if (!window.isSecureContext || !navigator.mediaDevices) {

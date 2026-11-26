@@ -1,9 +1,10 @@
+import { MediaImage } from "@/components/media-image";
 import { ComposerPicker } from "./composer-picker";
 import { useRef } from "react";
 import type { ClipboardEvent } from "react";
 import { ArrowUp, ImagePlus, Laugh, Reply, X } from "lucide-react";
-import { useRealtime } from "@/hooks/use-realtime";
-import { resolveMediaUrl, type HuddleMember } from "@/lib/api";
+import { useRealtime } from "@/features/realtime";
+import { type HuddleMember } from "@/lib/api";
 import { useChatStore } from "@/stores/chat-store";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -198,8 +199,8 @@ export function ChatComposer({
 				)}
 				{media && (
 					<div className="mb-2 inline-flex items-center gap-3 rounded-2xl border border-(--ink)/10 bg-(--surface) p-2 pr-3">
-						<img
-							src={resolveMediaUrl(media.url)}
+						<MediaImage
+							src={media.url}
 							alt={media.alt}
 							className="size-14 rounded-xl object-cover"
 						/>

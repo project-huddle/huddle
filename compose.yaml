@@ -32,6 +32,8 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-Huddle <no-reply@localhost>}
       MODERATION_EMAIL: ${MODERATION_EMAIL:-}
+      TURN_URL: ${TURN_URL:-}
+      TURN_SHARED_SECRET: ${TURN_SHARED_SECRET:-}
     volumes:
       - huddle-data:/app/data
     depends_on:
@@ -44,9 +46,6 @@ services:
       context: ./client
       args:
         VITE_API_URL: /api
-        VITE_TURN_URL: ${TURN_URL:-}
-        VITE_TURN_USERNAME: ${TURN_USERNAME:-}
-        VITE_TURN_CREDENTIAL: ${TURN_CREDENTIAL:-}
     ports:
       - "${APP_PORT:-8080}:8080"
     depends_on:

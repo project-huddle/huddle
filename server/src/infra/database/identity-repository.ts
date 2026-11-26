@@ -1,3 +1,4 @@
+import { revokeSessionAccess } from "@/app/session-revocation";
 import { Prisma } from "@prisma/client";
 import { db, userSelect, userView, type AuthUser, type User } from "./mappers";
 
@@ -58,4 +59,11 @@ export async function userForSession(tokenHash: string): Promise<User | null> {
 }
 export async function deleteSession(tokenHash: string): Promise<void> {
   await db.session.deleteMany({ where: { tokenHash } });
+  revokeSessionAccess(tokenHash);
+}
+
+export async function sessionForTokenHash(tokenHash: string) {
+  const session = await db.session.findUnique({where: {tokenHash}, select: {expiresAt:true,user:{select:userSelect}}});
+  if (!session || session.expiresAt.getTime() <= Date.now()) return null;
+  return {tokenHash, expiresAt:session.expiresAt.getTime(), user:userView(session.user)};
 }

@@ -1,3 +1,4 @@
+import { publicProfile } from "@/core/identity/public-profile";
 import { Prisma, PrismaClient } from "@prisma/client";
 
 export const db = new PrismaClient();
@@ -22,7 +23,7 @@ export type ChatMessage = {
   deletedAt: string | null;
   replyToId: string | null;
   reactions: Record<string, number>;
-  author: User;
+  author: import("@/core/identity/public-profile").PublicProfile;
   media: MessageMedia | null;
   channelId: string;
 };
@@ -125,7 +126,7 @@ export function messageView(
     deletedAt: message.deletedAt?.toISOString() ?? null,
     replyToId: message.replyToId,
     reactions,
-    author: userView(message.author),
+    author: publicProfile(userView(message.author)),
     media:
       !deleted &&
       message.mediaUrl &&

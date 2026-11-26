@@ -26,11 +26,24 @@ export function deviceLabel(device: MediaDeviceInfo): string {
 }
 
 export async function applyAudioOutput(element: HTMLMediaElement, deviceId: string | null) {
-	if (!deviceId || !("setSinkId" in element)) return false;
+	if (!("setSinkId" in element)) return false;
 	try {
-		await (element as HTMLMediaElement & { setSinkId: (id: string) => Promise<void> }).setSinkId(deviceId);
+		await (element as HTMLMediaElement & { setSinkId: (id: string) => Promise<void> }).setSinkId(deviceId ?? "");
 		return true;
 	} catch {
 		return false;
 	}
+}
+
+export async function validateAudioOutputDevice(deviceId: string | null): Promise<void> {
+	const element = document.createElement("audio");
+	if (!("setSinkId" in element)) {
+		throw new DOMException("Audio output selection is unsupported", "NotSupportedError");
+	}
+	if (deviceId) {
+		const devices = await listMediaDevices();
+		const available = devices.some((device) => device.kind === "audiooutput" && device.deviceId === deviceId);
+		if (!available) throw new DOMException("Audio output is unavailable", "NotFoundError");
+	}
+	await (element as HTMLMediaElement & { setSinkId: (id: string) => Promise<void> }).setSinkId(deviceId ?? "");
 }

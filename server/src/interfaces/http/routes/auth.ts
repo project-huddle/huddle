@@ -1,5 +1,5 @@
 import { Elysia, t } from "elysia";
-import { issueSession, revoke } from "@/interfaces/http/authentication";
+import { issueSession, revoke, bearerToken, hashToken } from "@/interfaces/http/authentication";
 import {
   sendIdentityCode,
   verifyTwoFactorChallenge,
@@ -127,6 +127,8 @@ export const authRoutes = new Elysia({ name: "auth-routes" })
     await revoke(request);
     return new Response(null, { status: 204 });
   })
-  .post("/auth/ws-ticket", ({ currentUser }) =>
-    json({ ticket: issueWebSocketTicket(currentUser), expiresIn: 30 }),
-  );
+  .post("/auth/ws-ticket", ({ currentUser, request }) => {
+    const token = bearerToken(request);
+    if (!token) return error(401, "UNAUTHORIZED", "Sessão inválida.");
+    return json({ticket: issueWebSocketTicket(currentUser, hashToken(token)), expiresIn:30});
+  });

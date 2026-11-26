@@ -6,7 +6,7 @@ import { CallRoom } from "@/components/call-room";
 import { MessageComposer } from "@/components/chat/message-composer";
 import { MessageList } from "@/components/message-list";
 import { ThemeToggle } from "@/components/theme";
-import { useRealtime } from "@/hooks/use-realtime";
+import { useRealtime } from "@/features/realtime";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";

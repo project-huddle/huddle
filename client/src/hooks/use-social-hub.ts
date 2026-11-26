@@ -13,14 +13,22 @@ import {
 } from "@/schemas/social-schema";
 import { useSocialEvents } from "@/hooks/use-social-events";
 import type { DirectMessage, Friendship } from "@/types/social";
+import { mergeDirectMessages } from "@/lib/direct-message-history";
+
+type MessagePage = { messages: DirectMessage[]; nextCursor: string | null };
+
 export function useSocialHub(token: string, open: boolean) {
 	const selectedId = useRef<string | null>(null);
+	const conversationVersion = useRef(0);
+	const earlierRequest = useRef<number | null>(null);
 	const [sending, setSending] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const [friendships, setFriendships] = useState<Friendship[]>([]);
 	const [email, setEmail] = useState("");
 	const [selected, setSelected] = useState<User | null>(null);
 	const [messages, setMessages] = useState<DirectMessage[]>([]);
+	const [nextCursor, setNextCursor] = useState<string | null>(null);
+	const [loadingEarlier, setLoadingEarlier] = useState(false);
 	const [draft, setDraft] = useState("");
 	const [status, setStatus] = useState<string | null>(null);
 	const loadFriends = useCallback(
@@ -31,24 +39,23 @@ export function useSocialHub(token: string, open: boolean) {
 		[token],
 	);
 	const loadMessages = useCallback(
-		(userId: string) =>
-			api<{ messages: DirectMessage[] }>(
+		(
+			userId: string,
+			version = conversationVersion.current,
+			resetCursor = false,
+		) =>
+			api<MessagePage>(
 				`/direct-messages?userId=${userId}`,
 				{},
 				token,
-			).then(({ messages: rows }) => {
-				if (selectedId.current !== userId) return;
-				setMessages((current) => {
-					const combined = new Map(
-						[...rows, ...current].map((message) => [
-							message.id,
-							message,
-						]),
-					);
-					return [...combined.values()].sort((a, b) =>
-						a.createdAt.localeCompare(b.createdAt),
-					);
-				});
+			).then(({ messages: rows, nextCursor: cursor }) => {
+				if (
+					selectedId.current !== userId ||
+					conversationVersion.current !== version
+				)
+					return;
+				setMessages((current) => mergeDirectMessages(rows, current));
+				if (resetCursor) setNextCursor(cursor ?? null);
 			}),
 		[token],
 	);
@@ -115,22 +122,66 @@ export function useSocialHub(token: string, open: boolean) {
 		}
 	};
 	const openConversation = async (friend: User) => {
+		const version = ++conversationVersion.current;
 		selectedId.current = friend.id;
+		earlierRequest.current = null;
 		setSelected(friend);
 		setMessages([]);
+		setNextCursor(null);
+		setLoadingEarlier(false);
+		setSending(false);
 		setDraft("");
 		setStatus(null);
 		setLoading(true);
 		try {
-			await loadMessages(friend.id);
+			await loadMessages(friend.id, version, true);
 		} catch (cause) {
+			if (conversationVersion.current !== version) return;
 			setStatus(
 				cause instanceof Error
 					? cause.message
 					: "Falha ao carregar a conversa.",
 			);
 		} finally {
-			if (selectedId.current === friend.id) setLoading(false);
+			if (conversationVersion.current === version) setLoading(false);
+		}
+	};
+	const loadEarlierMessages = async () => {
+		const userId = selectedId.current;
+		const version = conversationVersion.current;
+		if (
+			!userId ||
+			!nextCursor ||
+			loading ||
+			earlierRequest.current === version
+		)
+			return;
+		earlierRequest.current = version;
+		setLoadingEarlier(true);
+		try {
+			const query = new URLSearchParams({ userId, cursor: nextCursor });
+			const page = await api<MessagePage>(
+				`/direct-messages?${query}`,
+				{},
+				token,
+			);
+			if (conversationVersion.current !== version) return;
+			setMessages((current) =>
+				mergeDirectMessages(page.messages, current),
+			);
+			setNextCursor(page.nextCursor);
+		} catch (cause) {
+			if (conversationVersion.current !== version) return;
+			setStatus(
+				cause instanceof Error
+					? cause.message
+					: "Falha ao carregar mensagens anteriores.",
+			);
+		} finally {
+			if (conversationVersion.current === version) {
+				earlierRequest.current = null;
+				setLoadingEarlier(false);
+			}
 		}
 	};
 	const sendMessage = async (
@@ -139,6 +190,7 @@ export function useSocialHub(token: string, open: boolean) {
 	): Promise<boolean> => {
 		if (!selected || sending || loading) return false;
 		const recipientId = selected.id;
+		const version = conversationVersion.current;
 		setSending(true);
 		try {
 			const { message } = await api<{ message: DirectMessage }>(
@@ -149,16 +201,15 @@ export function useSocialHub(token: string, open: boolean) {
 				},
 				token,
 			);
-			if (selectedId.current === recipientId) {
+			if (conversationVersion.current === version) {
 				setDraft("");
 				setMessages((current) =>
-					current.some(({ id }) => id === message.id)
-						? current
-						: [...current, message],
+					mergeDirectMessages([message], current),
 				);
 			}
 			return true;
 		} catch (cause) {
+			if (conversationVersion.current !== version) return false;
 			setStatus(
 				cause instanceof Error
 					? cause.message
@@ -166,7 +217,7 @@ export function useSocialHub(token: string, open: boolean) {
 			);
 			return false;
 		} finally {
-			setSending(false);
+			if (conversationVersion.current === version) setSending(false);
 		}
 	};
 	const send = async (event: FormEvent) => {
@@ -186,7 +237,9 @@ export function useSocialHub(token: string, open: boolean) {
 				current?.id === user.id ? user : current,
 			);
 			if (user.id === useAuthStore.getState().user?.id)
-				useAuthStore.getState().updateUser(user);
+				useAuthStore
+					.getState()
+					.updateUser({ ...useAuthStore.getState().user, ...user });
 		}
 		if (
 			event.type === "ready" ||
@@ -198,8 +251,11 @@ export function useSocialHub(token: string, open: boolean) {
 				setStatus("Falha ao atualizar amizades."),
 			);
 			if (event.type === "ready" && selectedId.current) {
-				void loadMessages(selectedId.current).catch(() =>
-					setStatus("Falha ao atualizar a conversa."),
+				const version = conversationVersion.current;
+				void loadMessages(selectedId.current).catch(
+					() =>
+						conversationVersion.current === version &&
+						setStatus("Falha ao atualizar a conversa."),
 				);
 			}
 		}
@@ -210,11 +266,7 @@ export function useSocialHub(token: string, open: boolean) {
 				message.recipientId !== selectedId.current
 			)
 				return;
-			setMessages((current) =>
-				current.some(({ id }) => id === message.id)
-					? current
-					: [...current, message],
-			);
+			setMessages((current) => mergeDirectMessages([message], current));
 		}
 	});
 
@@ -241,6 +293,9 @@ export function useSocialHub(token: string, open: boolean) {
 	return {
 		sending,
 		loading,
+		loadingEarlier,
+		hasEarlierMessages: nextCursor !== null,
+		loadEarlierMessages,
 		friendships,
 		email,
 		setEmail,

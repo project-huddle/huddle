@@ -273,6 +273,10 @@ export async function updateServer(actorId: string, serverId: string, input: { n
   const server = await db.server.findFirst({ where: { id: serverId } });
   if (!server || !(await hasServerPermission(actorId, serverId, "server.settings.manage"))) return null;
   if (input.iconUrl !== undefined && input.iconUrl !== null && !/^\/media\/[a-f0-9-]+\.(jpg|png|gif|webp)$/.test(input.iconUrl)) return null;
+  if (input.iconUrl && input.iconUrl !== server.iconUrl) {
+    const upload = await db.uploadedMedia.findUnique({where:{filename:input.iconUrl.slice(7)},select:{ownerId:true}});
+    if (upload?.ownerId !== actorId) return null;
+  }
   const updated = await db.server.update({ where: { id: serverId }, data: input });
   return serverView(updated);
 }

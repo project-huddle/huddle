@@ -1,5 +1,5 @@
 import { useCallback, useRef, type MutableRefObject } from "react";
-import { mediaErrorMessage } from "@/lib/realtime";
+import { mediaErrorMessage } from "@/features/realtime/lib/realtime";
 import type { CallLifecycle } from "@/types/realtime";
 
 type Options = {

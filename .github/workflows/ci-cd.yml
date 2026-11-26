@@ -42,13 +42,48 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Test and type-check server
         working-directory: server
-        run: bun run db:migrate && bun test --coverage && bun run typecheck
+        run: |
+          bun run db:generate
+          bun run db:migrate
+          bun test test/core test/domain test/features
+          bun test test/interfaces
+          bun run typecheck
+      - name: Validate migrations against populated legacy data
+        working-directory: server
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: huddle
+          PGPASSWORD: huddle
+        run: |
+          createdb huddle_migration_upgrade
+          psql --dbname=huddle_migration_upgrade --no-psqlrc --set=ON_ERROR_STOP=1 --file=test/migrations/upgrade.sql
       - name: Install client dependencies
         working-directory: client
         run: bun install --frozen-lockfile
       - name: Lint and build client
         working-directory: client
         run: bun run lint && bun run build
+      - name: Install Chromium
+        working-directory: client
+        run: bunx playwright install --with-deps chromium
+      - name: Validate critical browser flows
+        working-directory: client
+        env:
+          CORS_ORIGINS: http://127.0.0.1:5173
+          AUTH_ATTEMPTS_PER_MINUTE: 1000
+          REQUESTS_PER_MINUTE: 5000
+        run: bun run e2e
+      - name: Retain browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure-evidence
+          path: |
+            client/playwright-report/
+            client/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
 
   containers:
     runs-on: ubuntu-latest

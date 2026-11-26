@@ -22,7 +22,11 @@ const directMessageBody = t.Object({
     ]),
   ),
 });
-const directMessageQuery = t.Object({ userId: resourceId });
+const directMessageQuery = t.Object({
+  userId: resourceId,
+  cursor: t.Optional(t.String({ maxLength: 1024 })),
+  limit: t.Optional(t.Numeric({ minimum: 1, maximum: 100, multipleOf: 1 })),
+});
 const notFriends = () =>
   error(
     403,
@@ -35,9 +39,15 @@ export const directMessageRoutes = new Elysia({ name: "direct-message-routes" })
   .get(
     "/direct-messages",
     async ({ currentUser, query }) => {
-      const messages = await directMessageHistory(currentUser.id, query.userId);
-      if (!messages) return notFriends();
-      return json({ messages });
+      const result = await directMessageHistory(
+        currentUser.id,
+        query.userId,
+        query,
+      );
+      if (result.type === "not-friends") return notFriends();
+      if (result.type === "invalid-cursor")
+        return error(400, "INVALID_CURSOR", "Cursor de mensagens inválido.");
+      return json({ messages: result.messages, nextCursor: result.nextCursor });
     },
     { query: directMessageQuery },
   )

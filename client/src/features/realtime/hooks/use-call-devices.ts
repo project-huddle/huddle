@@ -1,9 +1,12 @@
-import type { MutableRefObject } from "react";
+import { useRef, type MutableRefObject } from "react";
+import { createCallDeviceSwitcher } from "@/features/realtime/lib/call-device-switch";
 import {
 	readMediaDevicePreferences,
+	validateAudioOutputDevice,
 	writeMediaDevicePreferences,
+	type MediaDevicePreferences,
 } from "@/lib/media-devices";
-import { mediaErrorMessage } from "@/lib/realtime";
+import { mediaErrorMessage } from "@/features/realtime/lib/realtime";
 
 type Options = {
 	cameraOff: boolean;
@@ -24,59 +27,39 @@ export function useCallDevices({
 	setCameraOff,
 	setError,
 }: Options) {
+	const latest = useRef({ localStream, connections, setLocalMediaStream });
+	latest.current = { localStream, connections, setLocalMediaStream };
+	const switchDevice = useRef<ReturnType<typeof createCallDeviceSwitcher> | null>(null);
+	if (!switchDevice.current) {
+		switchDevice.current = createCallDeviceSwitcher({
+			getStream: () => latest.current.localStream.current,
+			getConnections: () => latest.current.connections.current.values(),
+			acquire: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
+			validateOutput: validateAudioOutputDevice,
+			commitPreference: (kind, deviceId) => {
+				writeMediaDevicePreferences({ ...readMediaDevicePreferences(), [kind]: deviceId });
+			},
+			publish: (stream) => latest.current.setLocalMediaStream(new MediaStream(stream.getTracks())),
+		});
+	}
 	const changeDevice = async (
-		kind:
-			"audioInputDeviceId" | "videoInputDeviceId" | "audioOutputDeviceId",
+		kind: keyof MediaDevicePreferences,
 		deviceId: string | null,
 	) => {
-		const preferences = {
-			...readMediaDevicePreferences(),
-			[kind]: deviceId,
-		};
-		writeMediaDevicePreferences(preferences);
-		if (kind === "audioOutputDeviceId") return;
 		const stream = localStream.current;
-		if (!stream || (kind === "videoInputDeviceId" && cameraOff)) return;
-		const next = await navigator.mediaDevices.getUserMedia(
-			kind === "audioInputDeviceId"
-				? {
-						audio: {
-							deviceId: deviceId
-								? { exact: deviceId }
-								: undefined,
-						},
-						video: false,
-					}
-				: {
-						audio: false,
-						video: {
-							deviceId: deviceId
-								? { exact: deviceId }
-								: undefined,
-						},
-					},
-		);
-		const nextTrack =
-			kind === "audioInputDeviceId"
-				? next.getAudioTracks()[0]
-				: next.getVideoTracks()[0];
-		if (!nextTrack) return;
-		const oldTracks =
-			kind === "audioInputDeviceId"
-				? stream.getAudioTracks()
-				: stream.getVideoTracks();
-		for (const pc of connections.current.values()) {
-			const sender = pc
-				.getSenders()
-				.find((item) => item.track && oldTracks.includes(item.track));
-			if (sender) await sender.replaceTrack(nextTrack);
+		if (!stream) return;
+		setError(null);
+		try {
+			await switchDevice.current?.(kind, deviceId);
+		} catch (cause) {
+			if (localStream.current !== stream) return;
+			if (kind === "audioOutputDeviceId") {
+				setError("Não foi possível alterar a saída de áudio. Verifique se o dispositivo está disponível e se o navegador permite selecionar a saída.");
+				return;
+			}
+			const action = kind === "audioInputDeviceId" ? "microphone" : "camera";
+			setError(mediaErrorMessage(cause, action));
 		}
-		oldTracks.forEach((track) => {
-			stream.removeTrack(track);
-			track.stop();
-		});
-		stream.addTrack(nextTrack);
-		setLocalMediaStream(new MediaStream(stream.getTracks()));
 	};
 
 	const toggleCamera = async () => {

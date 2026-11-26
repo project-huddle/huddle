@@ -1,5 +1,5 @@
 import { ArrowLeft, MessageCircle } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { ChatComposer } from "@/components/chat/message-composer";
 import { MessageList } from "@/components/message-list";
 import { UserAvatar } from "@/components/user-avatar";
@@ -19,19 +19,81 @@ export function DirectConversation({
 	onBack,
 	callAction,
 }: Props) {
-	const end = useRef<HTMLDivElement>(null);
+	const scroller = useRef<HTMLDivElement>(null);
+	const historyAnchor = useRef<{
+		element: HTMLElement;
+		offset: number;
+	} | null>(null);
+	const pinnedToBottom = useRef(true);
+	const previous = useRef({ peerId: "", lastId: "" });
 	const {
 		selected,
 		messages,
 		sending,
 		loading,
+		loadingEarlier,
+		hasEarlierMessages,
+		loadEarlierMessages,
 		sendMessage,
 		status,
 		setStatus,
 	} = social;
-	useEffect(() => {
-		end.current?.scrollIntoView({ behavior: "smooth" });
-	}, [messages]);
+	const restoreHistoryAnchor = () => {
+		const container = scroller.current;
+		const anchor = historyAnchor.current;
+		if (!container) return;
+		if (!anchor || !anchor.element.isConnected) {
+			if (pinnedToBottom.current)
+				container.scrollTop = container.scrollHeight;
+			return;
+		}
+		const offset =
+			anchor.element.getBoundingClientRect().top -
+			container.getBoundingClientRect().top;
+		container.scrollTop += offset - anchor.offset;
+	};
+	useLayoutEffect(() => {
+		const container = scroller.current;
+		if (!container || !selected) return;
+		const last = messages.at(-1);
+		const changedConversation = previous.current.peerId !== selected.id;
+		if (changedConversation) {
+			historyAnchor.current = null;
+			pinnedToBottom.current = true;
+		}
+		if (historyAnchor.current) {
+			restoreHistoryAnchor();
+		} else if (
+			changedConversation ||
+			!previous.current.lastId ||
+			pinnedToBottom.current ||
+			(last?.id !== previous.current.lastId &&
+				last?.senderId === currentUser.id)
+		) {
+			container.scrollTop = container.scrollHeight;
+		}
+		previous.current = { peerId: selected.id, lastId: last?.id ?? "" };
+	}, [messages, selected, currentUser.id]);
+
+	const loadEarlier = () => {
+		const container = scroller.current;
+		if (!container || loadingEarlier) return;
+		const top = container.getBoundingClientRect().top;
+		const articles = [
+			...container.querySelectorAll<HTMLElement>(
+				"article[id^='message-']",
+			),
+		];
+		const visible = articles.find(
+			(article) => article.getBoundingClientRect().bottom > top,
+		);
+		if (visible)
+			historyAnchor.current = {
+				element: visible,
+				offset: visible.getBoundingClientRect().top - top,
+			};
+		void loadEarlierMessages();
+	};
 
 	if (!selected) {
 		return (
@@ -80,9 +142,46 @@ export function DirectConversation({
 				</div>
 				{callAction}
 			</header>
-			<div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-7">
+			<div
+				ref={scroller}
+				aria-label="Histórico da conversa"
+				className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-7"
+				onScroll={(event) => {
+					const container = event.currentTarget;
+					pinnedToBottom.current =
+						container.scrollHeight -
+							container.scrollTop -
+							container.clientHeight <
+						48;
+				}}
+				onWheel={() => {
+					historyAnchor.current = null;
+				}}
+				onTouchStart={() => {
+					historyAnchor.current = null;
+				}}
+				onPointerDown={() => {
+					historyAnchor.current = null;
+				}}
+				onKeyDown={() => {
+					historyAnchor.current = null;
+				}}
+				onLoadCapture={restoreHistoryAnchor}
+			>
 				<div className="mx-auto max-w-4xl">
 					{loading && <p role="status">Carregando conversa...</p>}
+					{!loading && hasEarlierMessages && (
+						<button
+							type="button"
+							disabled={loadingEarlier}
+							onClick={loadEarlier}
+							className="mx-auto mb-5 block rounded-xl border border-(--line) px-4 py-2 text-sm disabled:opacity-50"
+						>
+							{loadingEarlier
+								? "Carregando mensagens anteriores..."
+								: "Carregar mensagens anteriores"}
+						</button>
+					)}
 					{!loading && messages.length === 0 && (
 						<p className="py-8 text-center text-sm text-(--muted-text)">
 							Este é o início da sua conversa com{" "}
@@ -95,7 +194,6 @@ export function DirectConversation({
 						members={[]}
 						readOnly
 					/>
-					<div ref={end} />
 				</div>
 			</div>
 			<ChatComposer

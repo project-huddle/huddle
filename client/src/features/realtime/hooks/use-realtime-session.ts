@@ -1,6 +1,9 @@
-import { useCallDevices } from "@/hooks/use-call-devices";
-import { useScreenSharing } from "@/hooks/use-screen-sharing";
-import { receivePeerTrack } from "@/lib/peer-media";
+import { useCallDevices } from "@/features/realtime/hooks/use-call-devices";
+import { useScreenSharing } from "@/features/realtime/hooks/use-screen-sharing";
+import { useRealtimeConnection } from "@/features/realtime/hooks/use-realtime-connection";
+import { usePeerConnections } from "@/features/realtime/hooks/use-peer-connections";
+import { mediaErrorMessage } from "@/features/realtime/lib/realtime";
+import { callSessionId, useCallState } from "@/features/realtime/state/call-store";
 import { useCallback, useRef, useState } from "react";
 
 import {
@@ -9,16 +12,13 @@ import {
 	type User,
 	type HuddleChannel,
 } from "@/lib/api";
-import { useCallState } from "@/hooks/use-call-state";
-import type { CallLifecycle, RealtimePeer as Peer } from "@/types/realtime";
-import { useRealtimeConnection } from "@/hooks/use-realtime-connection";
-import { mediaErrorMessage, rtcConfig } from "@/lib/realtime";
+import type { CallLifecycle } from "@/types/realtime";
 import { useAuthStore } from "@/stores/auth-store";
 import {
 	readMediaDevicePreferences,
 	writeMediaDevicePreferences,
 } from "@/lib/media-devices";
-import { unlockCallSounds } from "@/lib/call-sounds";
+import { unlockCallSounds } from "@/features/realtime/lib/call-sounds";
 
 export function useRealtime(
 	token: string,
@@ -26,6 +26,7 @@ export function useRealtime(
 	channelType: HuddleChannel["type"] = "text",
 	scope: "channel" | "direct" = "channel",
 ) {
+	const sessionId = callSessionId(scope, channelType, channelId);
 	const currentUserId = useAuthStore((state) => state.user?.id ?? "");
 	const currentUserDisplayName = useAuthStore(
 		(state) => state.user?.displayName ?? "",
@@ -51,7 +52,8 @@ export function useRealtime(
 		setPeers,
 		serverMuted,
 		setServerMuted,
-	} = useCallState();
+		reset: resetCallState,
+	} = useCallState(sessionId);
 	const [error, setError] = useState<string | null>(null);
 	const socketRef = useRef<WebSocket | null>(null);
 	const connections = useRef(new Map<string, RTCPeerConnection>());
@@ -80,168 +82,23 @@ export function useRealtime(
 		socketRef.current.send(JSON.stringify(event));
 		return true;
 	}, []);
-
-	const updatePeer = useCallback(
-		(userId: string, changes: Partial<Peer>) => {
-			const user = peerUsers.current.get(userId);
-			if (!user) return;
-			setPeers((items) => {
-				const found = items.some((item) => item.user.id === userId);
-				return found
-					? items.map((item) =>
-							item.user.id === userId
-								? { ...item, ...changes }
-								: item,
-						)
-					: [
-							...items,
-							{
-								user,
-								audioStream: null,
-								cameraStream: null,
-								screenStream: null,
-								screenAudioStream: null,
-								sharing: false,
-								muted: false,
-								serverMuted: false,
-								speaking: false,
-								...changes,
-							},
-						];
-			});
-		},
-		[setPeers],
-	);
-
-	const flushCandidates = useCallback(
-		async (userId: string, pc: RTCPeerConnection) => {
-			const candidates = pendingCandidates.current.get(userId) ?? [];
-			pendingCandidates.current.delete(userId);
-			for (const candidate of candidates)
-				await pc.addIceCandidate(candidate);
-		},
-		[],
-	);
-
-	const createPeer = useCallback(
-		(userId: string) => {
-			const previous = connections.current.get(userId);
-			if (previous) {
-				previous.onconnectionstatechange = null;
-				previous.close();
-			}
-			const recoveryTimer = recoveryTimers.current.get(userId);
-			if (recoveryTimer) clearTimeout(recoveryTimer);
-			recoveryTimers.current.delete(userId);
-			recoveryAttempts.current.delete(userId);
-			const pc = new RTCPeerConnection(rtcConfig);
-			connections.current.set(userId, pc);
-			localStream.current
-				?.getAudioTracks()
-				.forEach((track) => pc.addTrack(track, localStream.current!));
-			localStream.current
-				?.getVideoTracks()
-				.forEach((track) => pc.addTrack(track, localStream.current!));
-			const screen = displayStream.current;
-			if (screen) {
-				for (const track of screen.getTracks())
-					pc.addTrack(track, screen);
-			}
-
-			pc.onicecandidate = ({ candidate }) => {
-				if (candidate)
-					send({
-						type: "ice_candidate",
-						targetUserId: userId,
-						candidate: candidate.toJSON(),
-					});
-			};
-			pc.ontrack = (event) =>
-				receivePeerTrack(
-					event,
-					remoteSharing.current.get(userId),
-					(changes) => updatePeer(userId, changes),
-				);
-
-			pc.onconnectionstatechange = () => {
-				if (pc.connectionState === "connected") {
-					const recoveryTimer = recoveryTimers.current.get(userId);
-					if (recoveryTimer) clearTimeout(recoveryTimer);
-					recoveryTimers.current.delete(userId);
-					recoveryAttempts.current.delete(userId);
-					setError(null);
-					return;
-				}
-				if (["failed", "disconnected"].includes(pc.connectionState)) {
-					if (recoveryTimers.current.has(userId)) return;
-					const attempt = recoveryAttempts.current.get(userId) ?? 0;
-					if (attempt >= 3) {
-						setError(
-							"A conexão de mídia falhou. Verifique a rede ou configure um servidor TURN.",
-						);
-						return;
-					}
-					recoveryAttempts.current.set(userId, attempt + 1);
-					const delay = 1_000 * 2 ** attempt;
-					recoveryTimers.current.set(
-						userId,
-						setTimeout(async () => {
-							recoveryTimers.current.delete(userId);
-							if (
-								callLifecycle.current !== "active" ||
-								connections.current.get(userId) !== pc
-							)
-								return;
-							try {
-								pc.restartIce();
-								await pc.setLocalDescription(
-									await pc.createOffer({ iceRestart: true }),
-								);
-								if (
-									callLifecycle.current === "active" &&
-									pc.localDescription
-								)
-									send({
-										type: "webrtc_offer",
-										targetUserId: userId,
-										sdp: pc.localDescription,
-									});
-							} catch (cause) {
-								console.warn(
-									"Unable to restart media connection",
-									cause,
-								);
-							}
-						}, delay),
-					);
-				}
-				if (["failed", "closed"].includes(pc.connectionState)) {
-					updatePeer(userId, {
-						audioStream: null,
-						cameraStream: null,
-						screenStream: null,
-						sharing: false,
-					});
-				}
-			};
-			return pc;
-		},
-		[send, updatePeer],
-	);
-
-	const makeOffer = useCallback(
-		async (userId: string, pc: RTCPeerConnection) => {
-			if (callLifecycle.current !== "active") return;
-			await pc.setLocalDescription(await pc.createOffer());
-			if (callLifecycle.current !== "active") return;
-			send({
-				type: "webrtc_offer",
-				targetUserId: userId,
-				sdp: pc.localDescription,
-			});
-		},
-		[send],
-	);
+	const { createPeer, flushCandidates, makeOffer, removePeer, updatePeer } =
+		usePeerConnections({
+			token,
+			send,
+			callLifecycle,
+			callAttempt,
+			connections,
+			pendingCandidates,
+			peerUsers,
+			localStream,
+			displayStream,
+			remoteSharing,
+			recoveryAttempts,
+			recoveryTimers,
+			setError,
+			setPeers,
+		});
 
 	const closeCall = useCallback(
 		(notifyServer: boolean) => {
@@ -391,6 +248,7 @@ export function useRealtime(
 		channelType,
 		scope,
 		currentUserDisplayName,
+		muted,
 		socketRef,
 		peerUsers,
 		displayStream,
@@ -400,6 +258,7 @@ export function useRealtime(
 		callLifecycle,
 		closeCall,
 		createPeer,
+		removePeer,
 		flushCandidates,
 		makeOffer,
 		send,
@@ -408,12 +267,17 @@ export function useRealtime(
 		setConnected,
 		onChannelSubscribed: channelType === "voice" ? joinCall : undefined,
 		onCallLeft: () => resolvePendingLeave.current?.(),
+		onCallJoined: () => {
+			if (joinTimeout.current) clearTimeout(joinTimeout.current);
+			joinTimeout.current = null;
+		},
 		currentUserId,
 		setError,
 		setPeers,
 		setJoining,
 		setInCall,
 		setServerMuted,
+		onCleanup: resetCallState,
 	});
 
 	const leaveCall = useCallback(() => {

@@ -1,8 +1,17 @@
 import { describe, expect, test } from "bun:test";
-import { DirectCallRegistry, type CallParticipant } from "../../../src/core/direct-calls/direct-call-registry";
+import {
+  DirectCallRegistry,
+  type CallParticipant,
+} from "../../../src/core/direct-calls/direct-call-registry";
 
 function participant(id: string): CallParticipant {
-  return { id, displayName: id, email: `${id}@example.com`, avatarUrl: null, createdAt: "2026-01-01T00:00:00.000Z" };
+  return {
+    id,
+    displayName: id,
+    username: id,
+    avatarUrl: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  };
 }
 
 const alice = participant("alice");
@@ -43,6 +52,8 @@ describe("private call lifecycle", () => {
     calls.invite("active", alice, bob, 32000);
     calls.accept("active", bob.id, 32001);
     expect(calls.expire("active", 100000)).toBeNull();
-    expect(calls.forParticipant("active", alice.id, 100000)?.status).toBe("accepted");
+    expect(calls.forParticipant("active", alice.id, 100000)?.status).toBe(
+      "accepted",
+    );
   });
 });

@@ -32,5 +32,8 @@ export const config = {
   maxJsonBytes: positiveInteger("MAX_JSON_BYTES", 16 * 1024),
   authAttemptsPerMinute: positiveInteger("AUTH_ATTEMPTS_PER_MINUTE", 20),
   requestsPerMinute: positiveInteger("REQUESTS_PER_MINUTE", 300),
+  turnUrl: process.env.TURN_URL?.trim() || null,
+  turnSharedSecret: process.env.TURN_SHARED_SECRET?.trim() || null,
+  turnCredentialLifetimeSeconds: Math.min(3600, positiveInteger("TURN_CREDENTIAL_LIFETIME_SECONDS", 600)),
   giphyApiKey: process.env.GIPHY_API_KEY?.trim() || null,
 };

@@ -1,3 +1,5 @@
+import { mediaRoutes } from "./routes/media";
+import { callIceConfigRoutes } from "./routes/call-ice-config";
 import { Elysia, t } from "elysia";
 import type { JoinServerHandler } from "@/features/servers/join-server/join-server";
 import { joinServerRoute } from "@/features/servers/join-server/join-server.route";
@@ -33,6 +35,8 @@ export function createHttpApplication(dependencies: {
     .use(security())
     .options("/*", () => new Response(null, { status: 204 }))
     .use(publicRoutes)
+    .use(mediaRoutes)
+    .use(callIceConfigRoutes)
     .use(authRoutes)
     .use(accountRoutes)
     .use(accountSecurityRoutes)
