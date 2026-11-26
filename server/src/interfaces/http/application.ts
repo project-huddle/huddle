@@ -1,5 +1,5 @@
-import { mediaRoutes } from "./routes/media";
-import { callIceConfigRoutes } from "./routes/call-ice-config";
+import { mediaRoutes } from "../../features/media/http/media.route";
+import { callIceConfigRoutes } from "../../features/calls/http/call-ice-config.route";
 import { Elysia, t } from "elysia";
 import type { JoinServerHandler } from "@/features/servers/join-server/join-server";
 import { joinServerRoute } from "@/features/servers/join-server/join-server.route";
@@ -7,25 +7,25 @@ import { config } from "@/bootstrap/config";
 import {
   hasValidWebSocketTicket,
   realtimeWebSocket,
-} from "../realtime/realtime-gateway";
+} from "../../features/realtime/adapters/realtime-gateway";
 import { errorHandling } from "./plugins/errors";
 import { security } from "./plugins/security";
-import { accountSecurityRoutes } from "./routes/account-security";
-import { accountRoutes } from "./routes/account";
-import { authRoutes } from "./routes/auth";
-import { channelRoutes } from "./routes/channels";
-import { directCallRoutes } from "./routes/direct-calls";
-import { directMessageRoutes } from "./routes/direct-messages";
-import { friendRoutes } from "./routes/friends";
-import { gifRoutes } from "./routes/gifs";
-import { messageRoutes } from "./routes/messages";
-import { publicRoutes } from "./routes/public";
-import { reportRoutes } from "./routes/reports";
-import { serverInviteRoutes } from "./routes/server-invites";
-import { serverMemberRoutes } from "./routes/server-members";
-import { serverRoutes } from "./routes/servers";
-import { serverRoleRoutes } from "./routes/server-roles";
-import { uploadRoutes } from "./routes/uploads";
+import { accountSecurityRoutes } from "../../features/account/http/account-security.route";
+import { accountRoutes } from "../../features/account/http/account.route";
+import { authRoutes } from "../../features/auth/http/auth.route";
+import { channelRoutes } from "../../features/servers/http/channels.route";
+import { directCallRoutes } from "../../features/calls/http/direct-calls.route";
+import { directMessageRoutes } from "../../features/messages/http/direct-messages.route";
+import { friendRoutes } from "../../features/social/http/friends.route";
+import { gifRoutes } from "../../features/media/http/gifs.route";
+import { messageRoutes } from "../../features/messages/http/messages.route";
+import { publicRoutes } from "./public.route";
+import { reportRoutes } from "../../features/moderation/http/reports.route";
+import { serverInviteRoutes } from "../../features/servers/http/server-invites.route";
+import { serverMemberRoutes } from "../../features/servers/http/server-members.route";
+import { serverRoutes } from "../../features/servers/http/servers.route";
+import { serverRoleRoutes } from "../../features/servers/http/server-roles.route";
+import { uploadRoutes } from "../../features/media/http/uploads.route";
 
 export function createHttpApplication(dependencies: {
   joinServer: JoinServerHandler;

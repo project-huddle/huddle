@@ -31,7 +31,7 @@ beforeAll(async () => {
     throw new Error(
       "DATABASE_URL must point to an isolated PostgreSQL test database",
     );
-  const { db } = await import("../../../src/infra/database/client");
+  const { db } = await import("../../../src/shared/infrastructure/database/client");
   await db.$transaction([
     db.emailToken.deleteMany(),
     db.report.deleteMany(),
@@ -53,7 +53,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   server?.stop(true);
-  const { db } = await import("../../../src/infra/database/client");
+  const { db } = await import("../../../src/shared/infrastructure/database/client");
   await db.$disconnect();
   rmSync(temporaryDirectory, { recursive: true, force: true });
 });
@@ -146,7 +146,7 @@ describe("huddle API", () => {
   test("publishes only public profile fields to friends", async () => {
     const alice = await register("privacy-alice@example.com", "Privacy Alice");
     const bob = await register("privacy-bob@example.com", "Privacy Bob");
-    const {db} = await import("../../../src/infra/database/client");
+    const {db} = await import("../../../src/shared/infrastructure/database/client");
     await db.friendship.create({data:{requesterId:alice.user.id,addresseeId:bob.user.id,status:"accepted"}});
     const bobSocket = await connect(bob.session.token);
     const updated = nextEvent(bobSocket,"profile_updated");
@@ -496,7 +496,7 @@ describe("huddle API", () => {
     const mod = await register("channel-mod@example.com", "Moderator");
     const member = await register("channel-member@example.com", "Member");
     const outsider = await register("channel-outsider@example.com", "Outsider");
-    const { db } = await import("../../../src/infra/database/client");
+    const { db } = await import("../../../src/shared/infrastructure/database/client");
     const community = await db.server.create({
       data: {
         name: "Channel management",
@@ -862,7 +862,7 @@ describe("huddle API", () => {
     });
     const image = { url: "/media/12345678-1234-1234-1234-123456789abc.png", type: "image", alt: "Foto privada" };
     expect((await send(image)).status).toBe(403);
-    const { db } = await import("../../../src/infra/database/client");
+    const { db } = await import("../../../src/shared/infrastructure/database/client");
     await db.friendship.create({ data: { requesterId: alice.user.id, addresseeId: bob.user.id, status: "accepted" } });
     expect((await send(image)).status).toBe(201);
     const gif = { url: "https://media2.giphy.com/media/example/giphy.gif", type: "gif", alt: "GIF privado" };
@@ -882,7 +882,7 @@ describe("huddle API", () => {
       body: JSON.stringify({ recipientId: bob.user.id }),
     });
     expect((await invite()).status).toBe(403);
-    const { db } = await import("../../../src/infra/database/client");
+    const { db } = await import("../../../src/shared/infrastructure/database/client");
     await db.friendship.create({ data: { requesterId: alice.user.id, addresseeId: bob.user.id, status: "accepted" } });
     const aliceSocket = await connect(alice.session.token);
     const bobSocket = await connect(bob.session.token);
@@ -979,7 +979,7 @@ describe("huddle API", () => {
       },
     });
     const stored = await (
-      await import("../../../src/infra/database/client")
+      await import("../../../src/shared/infrastructure/database/client")
     ).db.user.findUniqueOrThrow({ where: { id: alice.user.id } });
     expect(stored.countryCode).toBe("BR");
     expect(stored.audioInputDeviceId).toBe("mic-1");
@@ -1020,7 +1020,7 @@ describe("huddle API", () => {
       ],
     });
 
-    const { db } = await import("../../../src/infra/database/client");
+    const { db } = await import("../../../src/shared/infrastructure/database/client");
     const verificationCode = "123456";
     await db.emailToken.create({
       data: {

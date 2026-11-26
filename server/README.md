@@ -5,13 +5,14 @@ API Bun + TypeScript com PostgreSQL e Prisma.
 ## Estrutura
 
 - `src/domain`: regras puras, aggregates, entidades e value objects;
-- `src/features`: operações da aplicação organizadas por Vertical Slice;
-- `src/app`: casos de uso legados ainda em migração;
-- `src/infra`: Prisma, criptografia e Nodemailer;
-- `src/interfaces`: adaptadores HTTP e tempo real;
+- `src/features`: aplicação, adaptadores HTTP/realtime e repositories agrupados por capacidade;
+- `src/shared/infrastructure`: conexão Prisma e mapeadores usados por várias fatias;
+- `src/interfaces`: composição HTTP compartilhada, autenticação e plugins de transporte;
 - `src/bootstrap`: composition root com dependency injection manual;
 - `src/index.ts`: entrypoint pequeno;
 - `prisma/migrations`: evolução versionada do banco.
+
+As operações Prisma ficam nos repositories em `features/*/infrastructure`. Rotas e serviços de aplicação usam esses módulos; o cliente e os mapeadores Prisma compartilhados ficam em `shared/infrastructure/database`.
 
 ## Executar e validar
 

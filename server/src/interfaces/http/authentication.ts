@@ -1,11 +1,12 @@
 import { createHash, randomBytes } from "node:crypto";
 import { config } from "../../bootstrap/config";
+import { revokeSessionAccess } from "../../features/auth/application/session-revocation";
 import {
   createSession,
   deleteSession,
   userForSession,
-  type User,
-} from "../../infra/database/identity-repository";
+} from "../../features/auth/infrastructure/identity-repository";
+import type { User } from "../../features/auth/types/user";
 
 export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -32,5 +33,8 @@ export async function authenticate(request: Request): Promise<User | null> {
 
 export async function revoke(request: Request): Promise<void> {
   const token = bearerToken(request);
-  if (token) await deleteSession(hashToken(token));
+  if (!token) return;
+  const tokenHash = hashToken(token);
+  await deleteSession(tokenHash);
+  revokeSessionAccess(tokenHash);
 }

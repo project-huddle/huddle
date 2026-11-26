@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { parseMentions as serverMentions } from "../../src/core/mentions";
-import { parseMentions as clientMentions } from "../../../client/src/lib/mentions";
+import { parseMentions as clientMentions } from "../../../client/src/features/messages/lib/mentions";
 
 const members = [
   { id: "ana", displayName: "Ana" },

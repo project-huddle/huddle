@@ -3,7 +3,7 @@ import { error, json } from "@/interfaces/http/responses";
 import { authenticatedRoutes } from "@/interfaces/http/plugins/auth";
 import { joinInviteBody } from "@/interfaces/http/schemas";
 import type { JoinServerHandler } from "./join-server";
-import { notifyServerDataChanged } from "@/interfaces/realtime/realtime-gateway";
+import { notifyServerDataChanged } from "@/features/realtime/adapters/realtime-gateway";
 
 export function joinServerRoute(joinServer: JoinServerHandler) {
   return new Elysia({ name: "join-server-route" })

@@ -1,0 +1,72 @@
+import { Elysia, t } from "elysia";
+import { notifyProfileUpdated } from "@/features/realtime/adapters/realtime-gateway";
+import {
+  getProfile,
+  updateProfile,
+  type UpdateProfileResult,
+} from "@/features/account/application/account-service";
+import { error, json } from "@/interfaces/http/responses";
+import { authenticatedRoutes } from "../../../interfaces/http/plugins/auth";
+
+const profileBody = t.Object({
+  username: t.Optional(t.String({ minLength: 3, maxLength: 41 })),
+  displayName: t.Optional(t.String()),
+  avatarUrl: t.Optional(t.Union([t.String(), t.Null()])),
+  countryCode: t.Optional(t.Union([t.String(), t.Null()])),
+  audioInputDeviceId: t.Optional(t.Union([t.String(), t.Null()])),
+  audioOutputDeviceId: t.Optional(t.Union([t.String(), t.Null()])),
+  videoInputDeviceId: t.Optional(t.Union([t.String(), t.Null()])),
+});
+
+function profileError(
+  result: Exclude<UpdateProfileResult, { type: "success" }>,
+): Response {
+  switch (result.type) {
+    case "invalid-username":
+      return error(
+        400,
+        "INVALID_USERNAME",
+        "Use de 3 a 40 letras, números ou sublinhados no nome de usuário.",
+      );
+    case "invalid-name":
+      return error(
+        400,
+        "INVALID_NAME",
+        "O nome deve ter entre 2 e 32 caracteres.",
+      );
+    case "invalid-avatar":
+      return error(
+        400,
+        "INVALID_AVATAR",
+        "Envie uma imagem válida antes de atualizar o avatar.",
+      );
+    case "invalid-country":
+      return error(
+        400,
+        "INVALID_COUNTRY",
+        "Use um código de país ISO com duas letras.",
+      );
+    case "conflict":
+      return error(
+        409,
+        "PROFILE_CONFLICT",
+        "Este nome de usuário já está em uso.",
+      );
+  }
+}
+
+export const accountRoutes = new Elysia({ name: "account-routes" })
+  .use(authenticatedRoutes("authenticated-account-routes"))
+  .get("/profile", async ({ currentUser }) => {
+    return json({ user: await getProfile(currentUser.id) });
+  })
+  .patch(
+    "/profile",
+    async ({ currentUser, body }) => {
+      const result = await updateProfile(currentUser.id, body);
+      if (result.type !== "success") return profileError(result);
+      await notifyProfileUpdated(result.profile);
+      return json({ user: result.profile });
+    },
+    { body: profileBody },
+  );

@@ -1,0 +1,45 @@
+import type { MessageMedia } from "@/features/messages/types/message";
+
+const maxMessageLength = 2_000;
+
+export function messageContent(
+  value: unknown,
+  allowEmpty = false,
+): string | null {
+  if (typeof value !== "string") return allowEmpty ? "" : null;
+  const content = value.trim();
+  return (allowEmpty || content) && content.length <= maxMessageLength
+    ? content
+    : null;
+}
+
+export function messageMedia(value: unknown): MessageMedia | null {
+  const candidate =
+    value && typeof value === "object"
+      ? (value as Record<string, unknown>)
+      : null;
+  const type =
+    candidate?.type === "image" || candidate?.type === "gif"
+      ? candidate.type
+      : null;
+  const url = typeof candidate?.url === "string" ? candidate.url : "";
+  const local = /^\/media\/[a-f0-9-]+\.(jpg|png|gif|webp)$/.test(url);
+  let gifProvider = false;
+  try {
+    const parsed = new URL(url);
+    const isGiphyHost = /^(?:media\d*|i)\.giphy\.com$/.test(parsed.hostname);
+    gifProvider = parsed.protocol === "https:" && !parsed.username && !parsed.password && !parsed.port &&
+      (parsed.hostname === "media.tenor.com" || isGiphyHost);
+  } catch {
+    // Local media URLs are intentionally relative.
+  }
+  if (!type || (!local && !(type === "gif" && gifProvider))) return null;
+  return {
+    type,
+    url,
+    alt:
+      typeof candidate?.alt === "string"
+        ? candidate.alt.slice(0, 160)
+        : "Imagem enviada",
+  };
+}

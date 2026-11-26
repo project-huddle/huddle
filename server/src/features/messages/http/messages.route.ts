@@ -1,0 +1,45 @@
+import { Elysia, t } from "elysia";
+import { config } from "@/bootstrap/config";
+import { error, json } from "@/interfaces/http/responses";
+import { messageHistory } from "@/features/messages/infrastructure/message-repository";
+import {
+  channelForUser,
+  firstChannelForUser,
+} from "@/features/servers/infrastructure/server-channel-repository";
+import { authenticatedRoutes } from "../../../interfaces/http/plugins/auth";
+
+const messageHistoryQuery = t.Object({
+  channelId: t.Optional(t.String()),
+  limit: t.Optional(t.String()),
+  before: t.Optional(t.String()),
+});
+
+function historyLimit(value?: string): number {
+  const parsed = Number(value ?? 50);
+  if (!Number.isInteger(parsed)) return 50;
+  return Math.min(Math.max(parsed, 1), config.maxHistoryLimit);
+}
+
+export const messageRoutes = new Elysia({ name: "message-routes" })
+  .use(authenticatedRoutes("authenticated-message-routes"))
+  .get(
+    "/messages",
+    async ({ currentUser, query }) => {
+      const fallbackChannel = await firstChannelForUser(currentUser.id);
+      const channelId = query.channelId || fallbackChannel?.id || "";
+      const channel = await channelForUser(currentUser.id, channelId);
+      if (!channel)
+        return error(403, "FORBIDDEN", "Você não possui permissão para acessar este canal.");
+      if (channel.type === "voice")
+        return error(400, "INVALID_CHANNEL", "Voice channels do not contain messages.");
+      if (query.before && Number.isNaN(Date.parse(query.before)))
+        return error(400, "INVALID_CURSOR", "before must be an ISO date.");
+      const messages = await messageHistory(
+        channelId,
+        historyLimit(query.limit),
+        query.before,
+      );
+      return json({ messages });
+    },
+    { query: messageHistoryQuery },
+  );
