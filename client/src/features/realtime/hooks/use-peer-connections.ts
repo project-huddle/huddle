@@ -3,8 +3,8 @@ import type { Dispatch, SetStateAction } from "react";
 
 import { fetchRTCConfiguration } from "@/features/realtime/lib/realtime";
 import { receivePeerTrack } from "@/features/realtime/lib/peer-media";
-import type { User } from "@/lib/api";
-import type { CallLifecycle, RealtimePeer } from "@/types/realtime";
+import type { User } from "@/shared/api/api";
+import type { CallLifecycle, RealtimePeer } from "@/features/realtime/types/realtime";
 
 type Options = {
 	token: string;

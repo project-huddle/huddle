@@ -1,4 +1,4 @@
-import type { MediaDevicePreferences } from "@/lib/media-devices";
+import type { MediaDevicePreferences } from "@/shared/lib/media-devices";
 
 type Options = {
 	getStream: () => MediaStream | null;

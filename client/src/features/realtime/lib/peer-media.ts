@@ -1,4 +1,4 @@
-import type { RealtimePeer } from "@/types/realtime";
+import type { RealtimePeer } from "@/features/realtime/types/realtime";
 
 /** Stream IDs distinguish a shared tab's audio from the microphone during renegotiation. */
 export function receivePeerTrack(

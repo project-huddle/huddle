@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { applyAudioOutput, validateAudioOutputDevice } from "../../src/lib/media-devices";
+import { applyAudioOutput, validateAudioOutputDevice } from "../../src/shared/lib/media-devices";
 
 const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
 const originalDocument = Object.getOwnPropertyDescriptor(globalThis, "document");

@@ -1,0 +1,283 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ArrowRight, Eye, EyeOff, LoaderCircle } from "lucide-react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+
+import { loginSchema, type LoginFormData } from "@/features/auth/schemas/login-schema";
+import { useAuthStore } from "@/features/auth/state/auth-store";
+import { useShallow } from "zustand/react/shallow";
+import { BrandLogo } from "@/shared/ui/brand-logo";
+import { ThemeToggle } from "@/shared/ui/theme";
+import { TwoFactorChallenge } from "@/features/auth/ui/two-factor-challenge";
+import { LoginHero } from "@/features/auth/ui/login-hero";
+
+export default function LoginPage({
+	initialRegistering = false,
+}: {
+	initialRegistering?: boolean;
+}) {
+	const [showPassword, setShowPassword] = useState(false);
+	const [isRegistering, setIsRegistering] = useState(initialRegistering);
+	const [displayName, setDisplayName] = useState("");
+	const [username, setUsername] = useState("");
+	const {
+		login,
+		register: createAccount,
+		verifyTwoFactor,
+		twoFactorChallenge,
+		isLoading,
+		error,
+		clearError,
+	} = useAuthStore(
+		useShallow((state) => ({
+			login: state.login,
+			register: state.register,
+			verifyTwoFactor: state.verifyTwoFactor,
+			twoFactorChallenge: state.twoFactorChallenge,
+			isLoading: state.isLoading,
+			error: state.error,
+			clearError: state.clearError,
+		})),
+	);
+	const {
+		register: registerField,
+		handleSubmit,
+		formState: { errors },
+	} = useForm<LoginFormData>({
+		resolver: zodResolver(loginSchema),
+		defaultValues: { email: "", password: "", remember: true },
+	});
+
+	const onSubmit = async (data: LoginFormData) => {
+		try {
+			if (isRegistering)
+				await createAccount(
+					data.email,
+					displayName,
+					data.password,
+					username,
+				);
+			else await login(data.email, data.password, data.remember);
+		} catch {
+			/* A store exibe o erro. */
+		}
+	};
+
+	const inputClass =
+		"h-12 w-full rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 text-[var(--ink)] outline-none transition placeholder:text-[var(--muted-text)] focus:border-[var(--brand)] focus:ring-4 focus:ring-[var(--brand-soft)]";
+
+	if (twoFactorChallenge) {
+		return (
+			<TwoFactorChallenge
+				error={error}
+				loading={isLoading}
+				onVerify={verifyTwoFactor}
+			/>
+		);
+	}
+
+	return (
+		<main className="login-page min-h-svh bg-(--canvas) p-3 text-(--ink) sm:p-5">
+			<ThemeToggle className="fixed right-5 top-5 z-30" />
+			<div className="mx-auto grid min-h-[calc(100svh-24px)] max-w-6xl overflow-hidden rounded-[32px] border border-(--line) bg-(--surface) shadow-(--shadow-lg) sm:min-h-[calc(100svh-40px)] lg:grid-cols-[1.05fr_.95fr]">
+				<LoginHero />
+
+				<section className="flex items-center justify-center px-5 py-10 sm:px-12">
+					<div className="w-full max-w-sm">
+						<BrandLogo className="mb-10 w-40 lg:hidden" />
+						<p className="text-xs font-bold uppercase tracking-[0.18em] text-(--muted-text)">
+							{isRegistering ? "Primeira visita?" : "Bom te ver"}
+						</p>
+						<h2 className="mt-3 text-4xl font-black tracking-[-0.055em]">
+							{isRegistering ? "Chega mais." : "Entre na sala."}
+						</h2>
+						<p className="mt-2 text-sm text-(--muted-text)">
+							{isRegistering
+								? "Crie sua conta em menos de um minuto."
+								: "Use seus dados para continuar a conversa."}
+						</p>
+
+						<form
+							className="mt-8 space-y-4"
+							onSubmit={handleSubmit(onSubmit)}
+							noValidate
+						>
+							{isRegistering && (
+								<label className="block">
+									<span className="mb-2 block text-xs font-bold">
+										Como vamos te chamar?
+									</span>
+									<input
+										value={displayName}
+										onChange={(event) => {
+											setDisplayName(
+												event.target.value.slice(0, 32),
+											);
+											clearError();
+										}}
+										minLength={2}
+										required
+										placeholder="Seu nome"
+										className={inputClass}
+									/>
+									{displayName.length > 0 &&
+										displayName.trim().length < 2 && (
+											<span className="mt-1 block text-xs text-[#b54e42]">
+												Use pelo menos 2 caracteres
+											</span>
+										)}
+								</label>
+							)}
+							{isRegistering && (
+								<label className="block">
+									<span className="mb-2 block text-xs font-bold">
+										Nome de usuário único
+									</span>
+									<input
+										value={username}
+										onChange={(event) =>
+											setUsername(
+												event.target.value.toLowerCase(),
+											)
+										}
+										required
+										minLength={3}
+										maxLength={40}
+										autoComplete="username"
+										placeholder="seu_nome"
+										className={inputClass}
+									/>
+									<span className="mt-1 block text-xs text-(--muted-text)">
+										De 3 a 40 letras, números ou
+										sublinhados. Seus amigos usarão @
+										{username || "seu_nome"}.
+									</span>
+								</label>
+							)}
+
+							<label className="block">
+								<span className="mb-2 block text-xs font-bold">
+									E-mail
+								</span>
+								<input
+									type="email"
+									autoComplete="email"
+									placeholder="voce@exemplo.com"
+									aria-invalid={Boolean(errors.email)}
+									className={inputClass}
+									{...registerField("email", {
+										onChange: clearError,
+									})}
+								/>
+								{errors.email && (
+									<span className="mt-1 block text-xs text-[#b54e42]">
+										{errors.email.message}
+									</span>
+								)}
+							</label>
+							<label className="block">
+								<span className="mb-2 block text-xs font-bold">
+									Senha
+								</span>
+								<div className="relative">
+									<input
+										type={
+											showPassword ? "text" : "password"
+										}
+										autoComplete={
+											isRegistering
+												? "new-password"
+												: "current-password"
+										}
+										placeholder="mínimo de 8 caracteres"
+										aria-invalid={Boolean(errors.password)}
+										className={`${inputClass} pr-12`}
+										{...registerField("password", {
+											onChange: clearError,
+										})}
+									/>
+									<button
+										type="button"
+										onClick={() =>
+											setShowPassword((value) => !value)
+										}
+										className="absolute right-4 top-1/2 -translate-y-1/2 text-(--muted-text)"
+										aria-label={
+											showPassword
+												? "Ocultar senha"
+												: "Mostrar senha"
+										}
+									>
+										{showPassword ? (
+											<EyeOff className="size-4" />
+										) : (
+											<Eye className="size-4" />
+										)}
+									</button>
+								</div>
+								{errors.password && (
+									<span className="mt-1 block text-xs text-[#b54e42]">
+										{errors.password.message}
+									</span>
+								)}
+							</label>
+							{!isRegistering && (
+								<label className="flex cursor-pointer items-center gap-2.5 text-sm text-(--muted-text)">
+									<input
+										type="checkbox"
+										className="size-4 accent-[#20251f]"
+										{...registerField("remember")}
+									/>
+									Continuar conectado
+								</label>
+							)}
+							{error && (
+								<div
+									role="alert"
+									className="rounded-2xl bg-[#fff0ea] px-4 py-3 text-sm text-[#9c3f33]"
+								>
+									{error}
+								</div>
+							)}
+							<button
+								type="submit"
+								disabled={
+									isLoading ||
+									(isRegistering &&
+										displayName.trim().length < 2)
+								}
+								className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-(--solid) font-bold text-(--on-solid) transition hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50"
+							>
+								{isLoading ? (
+									<LoaderCircle className="size-4 animate-spin" />
+								) : (
+									<>
+										{isRegistering
+											? "criar minha conta"
+											: "entrar"}
+										<ArrowRight className="size-4" />
+									</>
+								)}
+							</button>
+						</form>
+						<p className="mt-7 text-center text-sm text-(--muted-text)">
+							{isRegistering
+								? "Já faz parte?"
+								: "Ainda não entrou?"}{" "}
+							<button
+								type="button"
+								onClick={() => {
+									setIsRegistering((value) => !value);
+									clearError();
+								}}
+								className="font-bold text-(--ink) underline decoration-(--brand) decoration-4 underline-offset-2"
+							>
+								{isRegistering ? "Fazer login" : "Criar conta"}
+							</button>
+						</p>
+					</div>
+				</section>
+			</div>
+		</main>
+	);
+}

@@ -1,4 +1,4 @@
-import { api } from "@/lib/api";
+import { api } from "@/shared/api/api";
 
 export async function fetchRTCConfiguration(token: string): Promise<RTCConfiguration> {
 	const response = await api<{ iceServers: RTCIceServer[] }>(

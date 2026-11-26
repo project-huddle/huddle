@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { mergeDirectMessages } from "../../src/lib/direct-message-history";
-import type { DirectMessage } from "../../src/types/social";
+import { mergeDirectMessages } from "../../src/features/messages/lib/direct-message-history";
+import type { DirectMessage } from "../../src/features/social/types/social";
 
 function message(
 	id: string,

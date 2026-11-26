@@ -5,7 +5,7 @@ import {
 	validateAudioOutputDevice,
 	writeMediaDevicePreferences,
 	type MediaDevicePreferences,
-} from "@/lib/media-devices";
+} from "@/shared/lib/media-devices";
 import { mediaErrorMessage } from "@/features/realtime/lib/realtime";
 
 type Options = {

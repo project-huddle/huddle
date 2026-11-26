@@ -1,0 +1,221 @@
+import { useDirectCalls } from "@/features/realtime/hooks/use-direct-calls";
+import { DirectCallPanel } from "@/features/realtime/ui/direct-call-panel";
+import { useEffect, useRef, useState } from "react";
+import { Mic, MicOff, Phone, PhoneOff, Volume2 } from "lucide-react";
+
+import { useRealtime } from "@/features/realtime/hooks/use-realtime-session";
+import { PrivateWorkspace } from "@/features/social/ui/private-workspace";
+import { ProfileSettings } from "@/features/profile/ui/profile-settings";
+import { ServerSettings } from "@/features/servers/ui/server-settings";
+import { RoomSidebar } from "@/features/servers/ui/room-sidebar";
+import { ServerDialogs } from "@/features/servers/ui/server-dialogs";
+import { ChatConversation } from "@/features/messages/ui/chat-conversation";
+import { useWorkspaceStore } from "@/features/workspace/state/workspace-store";
+import { useAuthStore } from "@/features/auth/state/auth-store";
+import MobileNavigation from "@/features/workspace/ui/mobile-navigation";
+import { ServerRail } from "@/features/servers/ui/server-rail";
+import { ResizableChatPanels } from "@/features/workspace/ui/resizable-chat-panels";
+import { CallAudioSession } from "@/features/realtime/ui/call/call-media";
+
+const CALL_SWITCH_DELAY_MS = 1_000;
+
+export default function ChatPage() {
+	const user = useAuthStore((state) => state.user)!;
+	const token = useAuthStore((state) => state.token)!;
+	const updateUser = useAuthStore((state) => state.updateUser);
+	const logout = useAuthStore((state) => state.logout);
+	const serverId = useWorkspaceStore((state) => state.serverId);
+	const channelId = useWorkspaceStore((state) => state.channelId);
+	const channels = useWorkspaceStore((state) => state.channels);
+	const activeChannel = channels.find(({ id }) => id === channelId);
+	const setChannelId = useWorkspaceStore((state) => state.setChannelId);
+	const socialOpen = useWorkspaceStore((state) => state.socialOpen);
+	const settingsOpen = useWorkspaceStore((state) => state.settingsOpen);
+	const serverSettingsOpen = useWorkspaceStore(
+		(state) => state.serverSettingsOpen,
+	);
+	const setSettingsOpen = useWorkspaceStore((state) => state.setSettingsOpen);
+	const setServerSettingsOpen = useWorkspaceStore(
+		(state) => state.setServerSettingsOpen,
+	);
+	const loadServers = useWorkspaceStore((state) => state.loadServers);
+	const loadChannels = useWorkspaceStore((state) => state.loadChannels);
+	const loadMembers = useWorkspaceStore((state) => state.loadMembers);
+	const loadRoles = useWorkspaceStore((state) => state.loadRoles);
+	const [callChannelId, setCallChannelId] = useState("");
+	const previousChannelId = useRef("");
+	const callSwitchRequest = useRef(0);
+	const messageChannelId = activeChannel?.type === "text" ? channelId : "";
+	const messageRealtime = useRealtime(token, messageChannelId, "text");
+	const callRealtime = useRealtime(token, callChannelId, "voice");
+	const leaveCall = callRealtime.leaveCall;
+	const conversationRealtime =
+		activeChannel?.type === "voice" ? callRealtime : messageRealtime;
+	const leaveActiveCall = () => {
+		void (async () => {
+			await leaveCall();
+			setCallChannelId("");
+			const textChannel = channels.find(
+				(channel) => channel.type === "text",
+			);
+			setChannelId(textChannel?.id ?? "");
+		})();
+	};
+
+	const directCalls = useDirectCalls(token, leaveActiveCall);
+	const hasPrivateCall = directCalls.call?.status === "accepted";
+	const endDirectCall = directCalls.end;
+
+	useEffect(() => {
+		if (previousChannelId.current === channelId) return;
+		previousChannelId.current = channelId;
+		// Text channels are browsable while the active voice call remains connected.
+		// Only changing to another voice channel requires moving the call session.
+		if (activeChannel?.type !== "voice") return;
+		const nextCallChannelId = channelId;
+		if (callChannelId === nextCallChannelId) return;
+		const requestId = ++callSwitchRequest.current;
+		void (async () => {
+			if (hasPrivateCall) await endDirectCall();
+			if (callChannelId) {
+				await leaveCall();
+				await new Promise((resolve) =>
+					setTimeout(resolve, CALL_SWITCH_DELAY_MS),
+				);
+			}
+			if (requestId !== callSwitchRequest.current) return;
+			setCallChannelId(nextCallChannelId);
+		})();
+	}, [
+		activeChannel?.type,
+		callChannelId,
+		channelId,
+		leaveCall,
+		hasPrivateCall,
+		endDirectCall,
+	]);
+
+	useEffect(() => {
+		void loadServers();
+	}, [loadServers]);
+	useEffect(() => {
+		void loadChannels();
+	}, [serverId, loadChannels]);
+	useEffect(() => {
+		void loadMembers();
+	}, [serverId, loadMembers]);
+	useEffect(() => {
+		void loadRoles();
+	}, [serverId, loadRoles]);
+
+	return (
+		<main className="chat-page relative h-svh overflow-hidden bg-(--canvas) text-(--ink)">
+			<div className="grid h-full w-full grid-cols-1 lg:grid-cols-[82px_minmax(0,1fr)_300px]">
+				<ServerRail />
+				{!socialOpen && (
+					<ResizableChatPanels>
+						<ChatConversation
+							realtime={conversationRealtime}
+							onLeaveCall={leaveActiveCall}
+						/>
+					</ResizableChatPanels>
+				)}
+
+				{!socialOpen && <RoomSidebar />}
+				<PrivateWorkspace
+					currentUser={user}
+					token={token}
+					open={socialOpen}
+					callAction={(peer) => (
+						<button
+							type="button"
+							disabled={
+								directCalls.busy || Boolean(directCalls.call)
+							}
+							onClick={() => void directCalls.start(peer)}
+							aria-label={`Ligar para ${peer.displayName}`}
+							className="rounded-xl bg-(--brand) p-3 disabled:opacity-50"
+						>
+							<Phone className="size-5" />
+						</button>
+					)}
+				/>
+			</div>
+			<CallAudioSession
+				peers={callRealtime.peers}
+				enabled={
+					callRealtime.inCall &&
+					(socialOpen || activeChannel?.type !== "voice")
+				}
+			/>
+
+			<MobileNavigation />
+			{callRealtime.inCall &&
+				(socialOpen || activeChannel?.id !== callChannelId) && (
+					<div className="fixed bottom-4 right-4 z-40 flex items-center gap-3 rounded-2xl border border-(--line) bg-(--solid) p-3 text-(--on-solid) shadow-2xl">
+						<button
+							type="button"
+							onClick={() => {
+								useWorkspaceStore.getState().setSocialOpen(false);
+								setChannelId(callChannelId);
+							}}
+							className="flex min-w-0 items-center gap-3 text-left"
+						>
+							<span className="grid size-10 place-items-center rounded-xl bg-(--brand) text-(--ink)">
+								<Volume2 className="size-5" />
+							</span>
+							<span className="min-w-0">
+								<strong className="block text-sm">
+									Chamada ativa
+								</strong>
+								<span className="block text-xs text-(--on-solid)/55">
+									{callRealtime.peers.length + 1} conectados
+								</span>
+							</span>
+						</button>
+						<button
+							type="button"
+							onClick={callRealtime.toggleMute}
+							className={`grid size-9 place-items-center rounded-xl ${callRealtime.muted ? "bg-[#d75a4a]" : "bg-white/10"}`}
+							aria-label={
+								callRealtime.muted
+									? "Ativar microfone"
+									: "Silenciar"
+							}
+						>
+							{callRealtime.muted ? (
+								<MicOff className="size-4" />
+							) : (
+								<Mic className="size-4" />
+							)}
+						</button>
+						<button
+							type="button"
+							onClick={() => {
+								void callRealtime
+									.leaveCall()
+									.then(() => setCallChannelId(""));
+							}}
+							className="grid size-9 place-items-center rounded-xl bg-[#d75a4a]"
+							aria-label="Sair da chamada"
+						>
+							<PhoneOff className="size-4" />
+						</button>
+					</div>
+				)}
+			<DirectCallPanel calls={directCalls} user={user} />
+			<ProfileSettings
+				token={token}
+				open={settingsOpen}
+				onClose={() => setSettingsOpen(false)}
+				onLogout={logout}
+				onUpdated={updateUser}
+			/>
+			<ServerSettings
+				open={serverSettingsOpen}
+				onClose={() => setServerSettingsOpen(false)}
+			/>
+			<ServerDialogs />
+		</main>
+	);
+}

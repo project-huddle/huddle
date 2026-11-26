@@ -1,0 +1,170 @@
+import { Headset, Menu, MessageCircle } from "lucide-react";
+import { useEffect, useRef } from "react";
+
+import { BrandMark } from "@/shared/ui/brand-logo";
+import { CallRoom } from "@/features/realtime/ui/call-room";
+import { MessageComposer } from "@/features/messages/ui/message-composer";
+import { MessageList } from "@/features/messages/ui/message-list";
+import { ThemeToggle } from "@/shared/ui/theme";
+import { useRealtime } from "@/features/realtime/hooks/use-realtime-session";
+import { api } from "@/shared/api/api";
+import { cn } from "@/shared/lib/utils";
+import { useAuthStore } from "@/features/auth/state/auth-store";
+import { useWorkspaceStore } from "@/features/workspace/state/workspace-store";
+import { useShallow } from "zustand/react/shallow";
+
+type ChatConversationProps = {
+	onLeaveCall: () => void;
+	realtime: ReturnType<typeof useRealtime>;
+};
+
+export function ChatConversation({ onLeaveCall, realtime }: ChatConversationProps) {
+	const user = useAuthStore((state) => state.user);
+	const token = useAuthStore((state) => state.token);
+	const { servers, channels, members, roles, serverId, channelId, setReplyTo: onReply, openDialog: openTextDialog, setMobileNavOpen, setSocialOpen } = useWorkspaceStore(useShallow((state) => ({ servers: state.servers, channels: state.channels, members: state.members, roles: state.roles, serverId: state.serverId, channelId: state.channelId, setReplyTo: state.setReplyTo, openDialog: state.openDialog, setMobileNavOpen: state.setMobileNavOpen, setSocialOpen: state.setSocialOpen })));
+	const activeServer = servers.find(({ id }) => id === serverId);
+	const activeChannel = channels.find(({ id }) => id === channelId);
+	const isVoiceChannel = activeChannel?.type === "voice";
+	const currentMember = members.find(({ id }) => id === user?.id);
+	const canMuteParticipants = Boolean(
+		activeServer?.ownerId === user?.id ||
+		currentMember?.roles?.some((memberRole) =>
+			roles.find((role) => role.id === memberRole.id)?.permissions.includes("voice.moderate_mute"),
+		),
+	);
+	const endRef = useRef<HTMLDivElement>(null);
+	const onOpenNavigation = () => setMobileNavOpen(true);
+	const onOpenSocial = () => setSocialOpen(true);
+	useEffect(() => {
+		endRef.current?.scrollIntoView({ behavior: "smooth" });
+	}, [realtime.messages]);
+	if (!user || !token) return null;
+	return (
+		<section className="flex min-h-0 min-w-0 flex-col border-(--ink)/10 lg:border-r">
+			<header className="flex h-19 shrink-0 items-center gap-3 border-b border-(--ink)/10 px-4 sm:px-7">
+				<button
+					onClick={() => onOpenNavigation()}
+					className="grid size-10 shrink-0 place-items-center rounded-xl border border-(--ink)/10 bg-(--surface) lg:hidden"
+					aria-label="Abrir navegação"
+				>
+					<Menu className="size-5" />
+				</button>
+				<div>
+					<p className="text-xl text font-bold font-mono capitalize tracking-wider">
+						<span className="flex gap-2 items-center">
+							{activeChannel?.type == "voice" ? <Headset className="size-4 text-muted-foreground" /> : <MessageCircle className="size-4 text-muted-foreground" />}
+							{activeChannel?.name ?? "..."}
+						</span>
+					</p>
+				</div>
+				<div className="ml-auto flex items-center gap-2">
+					<span
+						className={cn(
+							"hidden rounded-full px-3 py-1.5 text-xs font-semibold sm:inline",
+							realtime.connected
+								? "bg-(--brand)"
+								: "bg-(--panel)",
+						)}
+					>
+						{realtime.connected ? "ao vivo" : "conectando"}
+					</span>
+					<ThemeToggle />
+					<button
+						onClick={() => onOpenSocial()}
+						className="grid size-9 place-items-center rounded-full border border-(--line)"
+						aria-label="Amigos e mensagens"
+					>
+						<MessageCircle className="size-4" />
+					</button>
+				</div>
+			</header>
+
+			<div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-7">
+				<div className={isVoiceChannel ? "h-full w-full" : "mx-auto max-w-4xl"}>
+					{!activeServer ? (
+						<div className="grid min-h-[60svh] place-items-center text-center">
+							<div className="max-w-md">
+								<BrandMark className="mx-auto size-16" />
+								<h1 className="mt-6 text-3xl font-black">
+									Comece do seu jeito
+								</h1>
+								<p className="mt-2 text-(--muted-text)">
+									Crie um servidor para sua
+									comunidade, entre usando um convite
+									ou converse com amigos em privado.
+								</p>
+								<div className="mt-6 flex flex-wrap justify-center gap-3">
+									<button
+										onClick={() =>
+											openTextDialog(
+												"create-server",
+											)
+										}
+										className="rounded-xl bg-(--brand) px-5 py-3 font-bold"
+									>
+										Criar servidor
+									</button>
+									<button
+										onClick={() =>
+											onOpenSocial()
+										}
+										className="rounded-xl border border-(--line) px-5 py-3 font-bold"
+									>
+										Encontrar amigos
+									</button>
+								</div>
+							</div>
+						</div>
+					) : isVoiceChannel ? (
+							<CallRoom
+								connected={realtime.connected}
+								inCall={realtime.inCall}
+								error={realtime.error}
+								joining={realtime.joining}
+								canMuteParticipants={canMuteParticipants}
+							user={user}
+							peers={realtime.peers}
+							muted={realtime.muted}
+							serverMuted={realtime.serverMuted}
+							cameraOff={realtime.cameraOff}
+							sharing={realtime.sharing}
+							localMediaStream={realtime.localMediaStream}
+							localDisplayStream={realtime.localDisplayStream}
+							onToggleMute={realtime.toggleMute}
+							onToggleCamera={realtime.toggleCamera}
+							onToggleShare={realtime.toggleShare}
+							onMuteParticipant={realtime.muteParticipant}
+							onChangeDevice={realtime.changeDevice}
+							onLeave={onLeaveCall}
+						/>
+					) : (
+						<MessageList
+							currentUserId={user.id}
+							members={members}
+							messages={realtime.messages}
+							onReply={onReply}
+							onEdit={realtime.editMessage}
+							onDelete={(messageId) => {
+								if (
+									window.confirm(
+										"Apagar esta mensagem?",
+									)
+								)
+									realtime.deleteMessage(messageId);
+							}}
+							onReact={realtime.reactMessage}
+							onReport={(messageId, targetUserId, reason) => {
+								void api("/reports", { method: "POST", body: JSON.stringify({ serverId, messageId, targetUserId, reason }) }, token)
+									.then(() => realtime.setError("Denúncia enviada para a moderação."))
+									.catch((cause) => realtime.setError(cause instanceof Error ? cause.message : "Não foi possível enviar a denúncia."));
+							}}
+						/>
+					)}
+					<div ref={endRef} />
+				</div>
+			</div>
+
+			{!isVoiceChannel && <MessageComposer realtime={realtime} />}
+		</section>
+	);
+}

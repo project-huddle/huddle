@@ -3,7 +3,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useCallback, useMemo } from "react";
 import type { SetStateAction } from "react";
 
-import type { RealtimePeer } from "@/types/realtime";
+import type { RealtimePeer } from "@/features/realtime/types/realtime";
 
 export type CallState = {
 	joining: boolean;

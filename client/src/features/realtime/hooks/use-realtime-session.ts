@@ -11,13 +11,13 @@ import {
 	type MessageMedia,
 	type User,
 	type HuddleChannel,
-} from "@/lib/api";
-import type { CallLifecycle } from "@/types/realtime";
-import { useAuthStore } from "@/stores/auth-store";
+} from "@/shared/api/api";
+import type { CallLifecycle } from "@/features/realtime/types/realtime";
+import { useAuthStore } from "@/features/auth/state/auth-store";
 import {
 	readMediaDevicePreferences,
 	writeMediaDevicePreferences,
-} from "@/lib/media-devices";
+} from "@/shared/lib/media-devices";
 import { unlockCallSounds } from "@/features/realtime/lib/call-sounds";
 
 export function useRealtime(

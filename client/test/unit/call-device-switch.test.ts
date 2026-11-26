@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createCallDeviceSwitcher } from "../../src/features/realtime/lib/call-device-switch";
-import { defaultMediaDevicePreferences } from "../../src/lib/media-devices";
+import { defaultMediaDevicePreferences } from "../../src/shared/lib/media-devices";
 
 class Track {
 	enabled = true;

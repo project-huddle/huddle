@@ -1,4 +1,4 @@
-import { useChatStore } from "@/stores/chat-store";
+import { useWorkspaceStore } from "@/features/workspace/state/workspace-store";
 import {
 	useEffect,
 	useRef,
@@ -12,12 +12,12 @@ import {
 	type ChatMessage,
 	type HuddleChannel,
 	type User,
-} from "@/lib/api";
+} from "@/shared/api/api";
 import type {
 	CallLifecycle,
 	RealtimePeer,
 	SocketEvent,
-} from "@/types/realtime";
+} from "@/features/realtime/types/realtime";
 import { playCallSound } from "@/features/realtime/lib/call-sounds";
 
 type Options = {
@@ -229,7 +229,7 @@ export function useRealtimeConnection(options: Options) {
 										.includes(
 											`@${displayNameRef.current.toLocaleLowerCase()}`,
 										));
-							useChatStore
+							useWorkspaceStore
 								.getState()
 								.markChannelUnread(
 									message.id,
@@ -246,7 +246,7 @@ export function useRealtimeConnection(options: Options) {
 						const resources = Array.isArray(event.resources)
 							? event.resources
 							: [];
-						const store = useChatStore.getState();
+						const store = useWorkspaceStore.getState();
 						void (resources.includes("servers")
 							? store.loadServers()
 							: Promise.resolve());
@@ -274,7 +274,7 @@ export function useRealtimeConnection(options: Options) {
 						event.type === "voice_presence" &&
 						typeof event.channelId === "string"
 					)
-						useChatStore
+						useWorkspaceStore
 							.getState()
 							.setVoiceUsers(
 								event.channelId,
@@ -287,7 +287,7 @@ export function useRealtimeConnection(options: Options) {
 						event.type === "presence" &&
 						typeof event.userId === "string"
 					)
-						useChatStore
+						useWorkspaceStore
 							.getState()
 							.setPresence(
 								event.userId,
@@ -297,7 +297,7 @@ export function useRealtimeConnection(options: Options) {
 						event.type === "presence_snapshot" &&
 						Array.isArray(event.userIds)
 					)
-						useChatStore
+						useWorkspaceStore
 							.getState()
 							.setPresenceSnapshot(
 								event.userIds.filter(
@@ -509,14 +509,14 @@ export function useRealtimeConnection(options: Options) {
 						setError("Você entrou em outra chamada.");
 					}
 					if (event.type === "access_revoked") {
-						useChatStore.setState((state) => {
+						useWorkspaceStore.setState((state) => {
 							if (state.channelId !== event.channelId)
 								return state;
 							return { channelId: "", replyTo: null };
 						});
 						setMessages([]);
 						closeCall(false);
-						void useChatStore.getState().loadChannels();
+						void useWorkspaceStore.getState().loadChannels();
 						setError(
 							"Seu acesso a este canal foi removido. Atualize ou selecione outro servidor.",
 						);

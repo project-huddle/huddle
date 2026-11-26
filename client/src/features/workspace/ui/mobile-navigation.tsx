@@ -1,0 +1,293 @@
+import { AccountControls } from "@/features/profile/ui/account-controls";
+import { useWorkspaceStore } from "@/features/workspace/state/workspace-store";
+import { useAuthStore } from "@/features/auth/state/auth-store";
+import { useShallow } from "zustand/react/shallow";
+import { BrandMark } from "@/shared/ui/brand-logo";
+import { Plus, Settings, UserPlus, X } from "lucide-react";
+import ServerButton from "@/features/servers/ui/server-button";
+import NavButton from "./nav-button";
+import ChannelButton from "@/features/servers/ui/channel-button";
+import { UserAvatar } from "@/shared/ui/user-avatar";
+
+function getMemberRoleLabel(role: string) {
+	switch (role) {
+		case "owner":
+			return "proprietário";
+
+		case "moderator":
+			return "moderador";
+
+		default:
+			return "membro";
+	}
+}
+
+export default function MobileNavigation() {
+	const user = useAuthStore((state) => state.user);
+	const {
+		mobileNavOpen,
+		setMobileNavOpen,
+		servers,
+		channels,
+		members,
+		serverId,
+		channelId,
+		selectServer,
+		selectChannel,
+		openDialog,
+		createInvite,
+		unreadByServer,
+		unreadByChannel,
+		mentionedChannels,
+	} = useWorkspaceStore(
+		useShallow((state) => ({
+			mobileNavOpen: state.mobileNavOpen,
+			setMobileNavOpen: state.setMobileNavOpen,
+			servers: state.servers,
+			channels: state.channels,
+			members: state.members,
+			serverId: state.serverId,
+			channelId: state.channelId,
+			selectServer: state.setServerId,
+			selectChannel: state.setChannelId,
+			openDialog: state.openDialog,
+			createInvite: state.createInvite,
+			unreadByServer: state.unreadByServer,
+			unreadByChannel: state.unreadByChannel,
+			mentionedChannels: state.mentionedChannels,
+		})),
+	);
+
+	const activeServer = servers.find((server) => server.id === serverId);
+	const createInviteAction = () => {
+		if (activeServer?.ownerId === user?.id) openDialog("create-invite");
+		else void createInvite();
+	};
+	const textChannels = channels.filter((channel) => channel.type === "text");
+	const voiceChannels = channels.filter(
+		(channel) => channel.type === "voice",
+	);
+
+	const handleClose = () => {
+		setMobileNavOpen(false);
+	};
+
+	const handleSelectServer = (id: string) => {
+		selectServer(id);
+		handleClose();
+	};
+
+	const handleSelectChannel = (id: string) => {
+		useWorkspaceStore.getState().setSocialOpen(false);
+		selectChannel(id);
+		handleClose();
+	};
+
+	const handleAddServer = () => {
+		openDialog("add-server");
+		handleClose();
+	};
+
+	const handleCreateChannel = () => {
+		openDialog("create-channel");
+	};
+
+	if (!mobileNavOpen) {
+		return null;
+	}
+
+	return (
+		<div
+			className="fixed inset-0 z-50 lg:hidden"
+			role="dialog"
+			aria-modal="true"
+			aria-label="Navegação do servidor"
+		>
+			<button
+				type="button"
+				className="absolute inset-0 bg-(--solid)/45 backdrop-blur-sm"
+				onClick={handleClose}
+				aria-label="Fechar navegação"
+			/>
+
+			<aside className="relative flex h-full w-[min(88vw,360px)] flex-col bg-(--panel) shadow-2xl">
+				<header className="flex h-19 shrink-0 items-center gap-3 border-b border-(--ink)/10 px-4">
+					<button
+						type="button"
+						aria-label="Amigos e mensagens privadas"
+						onClick={() => {
+							useWorkspaceStore.getState().setSocialOpen(true);
+							handleClose();
+						}}
+					>
+						<BrandMark className="size-10" />
+					</button>
+
+					<div className="min-w-0 flex-1">
+						<p className="truncate font-black">
+							{activeServer?.name ?? "huddle"}
+						</p>
+
+						<p className="text-xs text-(--muted-text)">navegação</p>
+					</div>
+
+					<button
+						type="button"
+						onClick={handleClose}
+						className="grid size-9 place-items-center rounded-xl bg-(--surface)"
+						aria-label="Fechar"
+					>
+						<X className="size-4" />
+					</button>
+				</header>
+
+				<div className="flex min-h-0 flex-1">
+					<div className="flex w-18 shrink-0 flex-col items-center gap-3 bg-(--solid) py-4">
+						<button
+							type="button"
+							aria-label="Amigos e mensagens privadas"
+							onClick={() => {
+								useWorkspaceStore.getState().setSocialOpen(true);
+								handleClose();
+							}}
+						>
+							<BrandMark className="size-10" />
+						</button>
+
+						{servers.map((server) => (
+							<ServerButton
+								key={server.id}
+								id={server.id}
+								name={server.name}
+								iconUrl={server.iconUrl}
+								active={server.id === serverId}
+								onSelect={handleSelectServer}
+								size="small"
+								unread={unreadByServer[server.id]}
+							/>
+						))}
+
+						<button
+							type="button"
+							onClick={handleAddServer}
+							className="grid size-10 place-items-center rounded-[13px] bg-(--surface)/10 text-(--brand)"
+							aria-label="Adicionar servidor"
+						>
+							<Plus className="size-5" />
+						</button>
+					</div>
+
+					<div className="min-w-0 flex-1 overflow-y-auto p-4">
+						<div className="mb-5 flex items-center gap-2">
+							<strong className="min-w-0 flex-1 truncate">
+								{activeServer?.name ?? "Servidor"}
+							</strong>
+
+							{activeServer?.ownerId === user?.id && (
+								<NavButton
+									label="Configurações do servidor"
+									onClick={() => {
+										useWorkspaceStore
+											.getState()
+											.setServerSettingsOpen(true);
+										handleClose();
+									}}
+								>
+									<Settings />
+								</NavButton>
+							)}
+
+							<NavButton
+								label="Criar convite"
+								onClick={createInviteAction}
+							>
+								<UserPlus />
+							</NavButton>
+						</div>
+
+						<section className="mb-6">
+							<div className="mb-2 flex items-center justify-between">
+								<p className="text-[10px] font-black uppercase tracking-[0.16em] text-(--muted-text)">
+									Canais de texto
+								</p>
+
+								<button
+									type="button"
+									onClick={handleCreateChannel}
+									aria-label="Criar canal"
+									title="Criar canal"
+								>
+									<Plus className="size-4" />
+								</button>
+							</div>
+
+							{textChannels.map((channel) => (
+								<ChannelButton
+									key={channel.id}
+									id={channel.id}
+									name={channel.name}
+									active={channel.id === channelId}
+									type={channel.type}
+									onSelect={handleSelectChannel}
+									variant="mobile"
+									unread={unreadByChannel[channel.id]}
+									mentioned={mentionedChannels[channel.id]}
+								/>
+							))}
+
+							<div className="mb-2 mt-5 flex items-center justify-between">
+								<p className="text-[10px] font-black uppercase tracking-[0.16em] text-(--muted-text)">
+									Canais de voz
+								</p>
+							</div>
+
+							{voiceChannels.map((channel) => (
+								<ChannelButton
+									key={channel.id}
+									id={channel.id}
+									name={channel.name}
+									active={channel.id === channelId}
+									type={channel.type}
+									onSelect={handleSelectChannel}
+									variant="mobile"
+									unread={unreadByChannel[channel.id]}
+									mentioned={mentionedChannels[channel.id]}
+								/>
+							))}
+						</section>
+
+						<section>
+							<p className="mb-3 text-[10px] font-black uppercase tracking-[0.16em] text-(--muted-text)">
+								Membros · {members?.length ?? 0}
+							</p>
+
+							{members?.map((member) => (
+								<div
+									key={member.id}
+									className="mb-3 flex items-center gap-2"
+								>
+									<UserAvatar
+										user={member}
+										className="size-8 rounded-[10px]"
+									/>
+
+									<div className="min-w-0">
+										<p className="truncate text-sm font-semibold">
+											{member.displayName}
+										</p>
+
+										<p className="text-[10px] text-(--muted-text)">
+											{getMemberRoleLabel(member.role)}
+										</p>
+									</div>
+								</div>
+							))}
+						</section>
+					</div>
+				</div>
+
+				<AccountControls onSettingsOpened={handleClose} />
+			</aside>
+		</div>
+	);
+}

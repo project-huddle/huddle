@@ -4,7 +4,7 @@
 
 **Goal:** Organize realtime code into a cohesive frontend feature slice and use server-fetched ICE credentials for all peer creation and ICE restarts.
 
-**Architecture:** Keep existing `@/hooks/use-realtime` as a compatibility facade over `client/src/features/realtime`. Use a session-keyed Zustand store for observable call state, while hooks/services own socket, peer connections, timers, media streams, and lifecycle refs. Fetch ICE configuration asynchronously before peer construction and before ICE restart offers.
+**Architecture:** Organize client code into feature slices under `client/src/features/` and shared primitives under `client/src/shared/`. Use a session-keyed Zustand store for observable call state, while hooks/services own socket, peer connections, timers, media streams, and lifecycle refs. Fetch ICE configuration asynchronously before peer construction and before ICE restart offers.
 
 **Tech Stack:** React 19, TypeScript, Zustand 5, WebRTC, existing Bun unit tests.
 
@@ -33,7 +33,7 @@
 **Files:**
 - Create: `client/src/features/realtime/state/call-store.ts`
 - Move: `client/src/hooks/use-call-state.ts` responsibilities into the feature store
-- Modify: `client/src/hooks/use-realtime.ts`
+- Modify: `client/src/features/realtime/hooks/use-realtime-session.ts`
 - Test: `client/test/unit/realtime-config.test.ts` only if its source import moves
 
 **Interfaces:**
@@ -56,16 +56,15 @@
 - Move: `client/src/hooks/use-screen-sharing.ts`
 - Create: `client/src/features/realtime/hooks/use-peer-connections.ts`
 - Move: `client/src/hooks/use-call-state.ts` or remove after Task 1
-- Modify: `client/src/hooks/use-realtime.ts` compatibility facade
-- Modify: existing consumers only if a public export is required
+- Modify: every current `useRealtime` consumer to import the session hook directly
 
 **Interfaces:**
-- Existing consumers continue importing `useRealtime` from `@/hooks/use-realtime`.
+- All consumers import `useRealtime` from `@/features/realtime/hooks/use-realtime-session`.
 - Feature-internal modules import each other through `@/features/realtime/...`.
 - Feature session hook retains the existing `useRealtime` arguments and return contract.
 
 - [ ] Move each responsibility with its dependencies and update relative imports.
-- [ ] Keep the public hook file to a named re-export and avoid duplicate implementations.
+- [ ] Remove all generic-layer hook/store/schema/type/view directories after relocating their modules.
 - [ ] Group peer/media utilities under the same feature only when they are realtime-specific.
 - [ ] Search all old paths and confirm no stale internal imports remain.
 
@@ -92,10 +91,11 @@
 ### Task 4: Finalize the feature boundary and inspect behavior-preserving changes
 
 **Files:**
-- Modify: any affected realtime feature modules and compatibility exports
-- Review: `client/src/features/realtime/**`, `client/src/hooks/use-realtime.ts`, and all changed imports
+- Modify: affected feature modules and feature entrypoints
+- Review: all `client/src/features/**`, `client/src/shared/**`, and updated imports
 
-- [ ] Confirm the previous hook return shape and all caller paths are preserved.
+- [ ] Confirm all `useRealtime` call sites import the session hook directly.
+- [ ] Confirm the add-server dialog exposes create and join actions and accepts invite codes/links.
 - [ ] Confirm state is isolated by session key and cleanup does not reset other sessions.
 - [ ] Confirm every peer creation/restart uses fetched server configuration and there is no local fallback.
 - [ ] Review the final diff for unrelated edits and report verification status accurately.

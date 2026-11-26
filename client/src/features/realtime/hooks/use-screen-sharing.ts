@@ -1,6 +1,6 @@
 import { useCallback, useRef, type MutableRefObject } from "react";
 import { mediaErrorMessage } from "@/features/realtime/lib/realtime";
-import type { CallLifecycle } from "@/types/realtime";
+import type { CallLifecycle } from "@/features/realtime/types/realtime";
 
 type Options = {
 	sharing: boolean;

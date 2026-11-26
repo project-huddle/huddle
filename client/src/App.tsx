@@ -1,8 +1,8 @@
 import { useEffect } from "react";
-import { useAuthStore } from "@/stores/auth-store";
-import ChatPage from "@/views/chat-page";
-import LoginPage from "@/views/login-page";
-import InvitePage from "@/views/invite-page";
+import { useAuthStore } from "@/features/auth/state/auth-store";
+import ChatPage from "@/features/workspace/pages/chat-page";
+import LoginPage from "@/features/auth/pages/login-page";
+import InvitePage from "@/features/servers/pages/invite-page";
 
 export default function App() {
 	const user = useAuthStore((state) => state.user);
